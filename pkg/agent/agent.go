@@ -106,6 +106,10 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
+	if err := a.StartServer(ctx); err != nil {
+		return fmt.Errorf("failed to start server: %v", err)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
