@@ -15,6 +15,8 @@ type SetupManager struct {
 	protonPassword   string
 	twitterAppKey    string
 	twitterAppSecret string
+	ethRpcUrl        string
+	openAiKey        string
 	loginServerUrl   string
 }
 
@@ -27,6 +29,8 @@ type SetupOutput struct {
 	TwitterAccessToken       string
 	TwitterAccessTokenSecret string
 	EthPrivateKey            *ecdsa.PrivateKey
+	EthRpcUrl                string
+	OpenAIKey                string
 }
 
 func getEnv(key string) string {
@@ -45,6 +49,8 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		protonPassword:   getEnv("PROTONMAIL_PASSWORD"),
 		twitterAppKey:    getEnv("X_CONSUMER_KEY"),
 		twitterAppSecret: getEnv("X_CONSUMER_SECRET"),
+		ethRpcUrl:        getEnv("ETH_RPC_URL"),
+		openAiKey:        getEnv("OPENAI_API_KEY"),
 		loginServerUrl:   "http://127.0.0.1:3000",
 	}
 
@@ -98,5 +104,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		TwitterPassword:          twitterPassword,
 		ProtonPassword:           protonPassword,
 		EthPrivateKey:            ethPrivateKey,
+		EthRpcUrl:                m.ethRpcUrl,
+		OpenAIKey:                m.openAiKey,
 	}, nil
 }
