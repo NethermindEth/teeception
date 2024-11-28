@@ -18,13 +18,13 @@ type SetupManager struct {
 }
 
 type SetupOutput struct {
-	TwitterPassword       string
-	ProtonPassword        string
-	TwitterConsumerKey    string
-	TwitterConsumerSecret string
-	TwitterAuthTokens     string
-	TwitterAccessToken    string
-	TwitterTokenSecret    string
+	TwitterPassword          string
+	ProtonPassword           string
+	TwitterConsumerKey       string
+	TwitterConsumerSecret    string
+	TwitterAuthTokens        string
+	TwitterAccessToken       string
+	TwitterAccessTokenSecret string
 }
 
 func getEnv(key string) string {
@@ -86,12 +86,12 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 	}
 
 	return &SetupOutput{
-		TwitterAuthTokens:     twitterAuthTokens,
-		TwitterAccessToken:    twitterTokenPair.Token,
-		TwitterTokenSecret:    twitterTokenPair.Secret,
-		TwitterConsumerKey:    m.twitterAppKey,
-		TwitterConsumerSecret: m.twitterAppSecret,
-		TwitterPassword:       twitterPassword,
-		ProtonPassword:        protonPassword,
+		TwitterAuthTokens:        twitterAuthTokens,
+		TwitterAccessToken:       twitterTokenPair.Token,
+		TwitterAccessTokenSecret: twitterTokenPair.Secret,
+		TwitterConsumerKey:       m.twitterAppKey,
+		TwitterConsumerSecret:    m.twitterAppSecret,
+		TwitterPassword:          twitterPassword,
+		ProtonPassword:           protonPassword,
 	}, nil
 }
