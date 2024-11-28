@@ -11,7 +11,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	setupManager, err := setup.NewSetupManager()
+	setupManager, err := setup.NewSetupManagerFromEnv()
 	if err != nil {
 		slog.Error("failed to create setup manager", "error", err)
 		os.Exit(1)
