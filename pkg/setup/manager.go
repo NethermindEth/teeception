@@ -2,6 +2,7 @@ package setup
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"log/slog"
 	"os"
@@ -25,6 +26,7 @@ type SetupOutput struct {
 	TwitterAuthTokens        string
 	TwitterAccessToken       string
 	TwitterAccessTokenSecret string
+	EthPrivateKey            *ecdsa.PrivateKey
 }
 
 func getEnv(key string) string {
@@ -85,6 +87,8 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		return nil, fmt.Errorf("failed to get twitter tokens: %v", err)
 	}
 
+	ethPrivateKey := GeneratePrivateKey()
+
 	return &SetupOutput{
 		TwitterAuthTokens:        twitterAuthTokens,
 		TwitterAccessToken:       twitterTokenPair.Token,
@@ -93,5 +97,6 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		TwitterConsumerSecret:    m.twitterAppSecret,
 		TwitterPassword:          twitterPassword,
 		ProtonPassword:           protonPassword,
+		EthPrivateKey:            ethPrivateKey,
 	}, nil
 }
