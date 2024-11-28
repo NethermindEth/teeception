@@ -166,8 +166,8 @@ type RequestTokenResponse struct {
 type AccessTokenResponse struct {
 	OAuthToken       string `json:"oauth_token"`
 	OAuthTokenSecret string `json:"oauth_token_secret"`
-	UserID           uint64 `json:"user_id,string"`
-	ScreenName       string `json:"screen_name"`
+	// UserID           uint64 `json:"user_id,string"`
+	// ScreenName       string `json:"screen_name"`
 }
 
 func (s *TwitterLoginServer) requestOAuthToken(appKey, appSecret string) (*OAuthTokenPair, error) {
@@ -264,7 +264,6 @@ func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier str
 	response := &AccessTokenResponse{
 		OAuthToken:       values.Get("oauth_token"),
 		OAuthTokenSecret: values.Get("oauth_token_secret"),
-		ScreenName:       values.Get("screen_name"),
 	}
 
 	return &OAuthTokenPair{
