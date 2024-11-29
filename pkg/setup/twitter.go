@@ -92,7 +92,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	time.Sleep(twitterInputDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		currentPwdField, err := wd.FindElement(selenium.ByName, twitterCurrentPasswordSelector)
+		currentPwdField, err := wd.FindElement(selenium.ByCSSSelector, twitterCurrentPasswordSelector)
 		if err != nil {
 			return false, nil
 		}
@@ -107,7 +107,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	slog.Info("current password entered")
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		newPwdField, err := wd.FindElement(selenium.ByName, twitterNewPasswordSelector)
+		newPwdField, err := wd.FindElement(selenium.ByCSSSelector, twitterNewPasswordSelector)
 		if err != nil {
 			return false, nil
 		}
@@ -122,7 +122,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	slog.Info("new password entered")
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		confirmPwdField, err := wd.FindElement(selenium.ByName, twitterConfirmPasswordSelector)
+		confirmPwdField, err := wd.FindElement(selenium.ByCSSSelector, twitterConfirmPasswordSelector)
 		if err != nil {
 			return false, nil
 		}
