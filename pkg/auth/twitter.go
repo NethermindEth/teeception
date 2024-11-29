@@ -47,11 +47,11 @@ func NewTwitterLoginServer(url string, twitterAppKey, twitterAppSecret string) *
 }
 
 func (s *TwitterLoginServer) GetLoginRoute() string {
-	return s.url + "/login"
+	return "http://" + s.url + "/login"
 }
 
 func (s *TwitterLoginServer) GetCallbackRoute() string {
-	return s.url + "/callback"
+	return "http://" + s.url + "/callback"
 }
 
 func (s *TwitterLoginServer) WaitForTokenPair(ctx context.Context) (*OAuthTokenPair, error) {
