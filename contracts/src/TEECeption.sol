@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-interface IERC20 {
-    function transfer(address to, uint256 amount) external returns (bool);
-}
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract TEECeption {
-    address public owner;
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
+contract TEECeption is Ownable {
     address public agent;
     address public donee;
 
@@ -22,18 +21,10 @@ contract TEECeption {
     event ProtocolCutSet(uint64 cut);
     event Donated(address indexed donee, uint256 amount);
     event Drained(address indexed to, uint256 amount);
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-    constructor() {
-        _transferOwnership(msg.sender);
-
+    constructor() Ownable(msg.sender) {
         matchDuration = 8 hours;
         protocolCut = 5 * PROTOCOL_CUT_DENOMINATOR / 100;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == owner, "TEECeption: Sender is not the owner");
-        _;
     }
 
     modifier onlyAgent() {
@@ -82,10 +73,6 @@ contract TEECeption {
         emit MatchStarted(matchTimestamp, donee);
     }
 
-    function transferOwnership(address newOwner) external onlyOwner {
-        _transferOwnership(newOwner);
-    }
-
     function drain(address to) external matchActive onlyAgent {
         emit Drained(to, _withdrawPool(to));
     }
@@ -98,16 +85,11 @@ contract TEECeption {
         IERC20(token).transfer(to, amount);
     }
 
-    function _transferOwnership(address newOwner) internal {
-        emit OwnershipTransferred(owner, newOwner);
-        owner = newOwner;
-    }
-
     function _withdrawPool(address to) internal returns (uint256) {
         (uint256 fee, uint256 output) = _getPool();
 
         if (fee > 0) {
-            payable(owner).transfer(fee);
+            payable(owner()).transfer(fee);
         }
 
         if (output > 0) {
