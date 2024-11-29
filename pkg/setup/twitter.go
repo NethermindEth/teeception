@@ -25,6 +25,7 @@ const (
 
 	twitterSelectionTimeout = 20 * time.Second
 	twitterLoginDelay       = 15 * time.Second
+	twitterNavigationDelay  = 30 * time.Second
 	twitterInputDelay       = 2 * time.Second
 )
 
@@ -43,6 +44,8 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	if err := driver.Get(twitterLoginUrl); err != nil {
 		return "", fmt.Errorf("failed to navigate to login page: %v", err)
 	}
+
+	time.Sleep(twitterNavigationDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		username, err := wd.FindElement(selenium.ByCSSSelector, twitterUsernameSelector)
@@ -85,6 +88,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	if err := driver.Get(twitterPasswordUrl); err != nil {
 		return "", fmt.Errorf("failed to navigate to password settings: %v", err)
 	}
+
 	time.Sleep(twitterInputDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
@@ -164,6 +168,8 @@ func (m *SetupManager) GetTwitterTokens(ctx context.Context) (string, *auth.OAut
 	if err := driver.Get(twitterLoginUrl); err != nil {
 		return "", nil, fmt.Errorf("failed to navigate to login page: %v", err)
 	}
+
+	time.Sleep(twitterNavigationDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		username, err := wd.FindElement(selenium.ByCSSSelector, twitterUsernameSelector)
@@ -256,6 +262,8 @@ func (m *SetupManager) GetTwitterTokens(ctx context.Context) (string, *auth.OAut
 	if err := driver.Get(twitterLoginServer.GetLoginRoute()); err != nil {
 		return "", nil, fmt.Errorf("failed to navigate to login endpoint: %v", err)
 	}
+
+	time.Sleep(twitterNavigationDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		allowButton, err := wd.FindElement(selenium.ByCSSSelector, `input[id="allow"]`)

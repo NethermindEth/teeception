@@ -20,9 +20,11 @@ const (
 
 	protonChangeButtonXpath = "//button[contains(text(), 'Change password')]"
 
-	protonWaitTimeout  = 30 * time.Second
-	protonSleepDelay   = 5 * time.Second
-	protonLoginDelay   = 15 * time.Second
+	protonWaitTimeout     = 30 * time.Second
+	protonSleepDelay      = 5 * time.Second
+	protonLoginDelay      = 15 * time.Second
+	protonNavigationDelay = 30 * time.Second
+
 	seleniumInputDelay = 2 * time.Second
 )
 
@@ -36,6 +38,8 @@ func (m *SetupManager) ChangeProtonPassword() (string, error) {
 	if err := driver.Get(protonLoginUrl); err != nil {
 		return "", fmt.Errorf("failed to navigate to login page: %v", err)
 	}
+
+	time.Sleep(protonNavigationDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		username, err := wd.FindElement(selenium.ByID, protonUsernameElementId)
@@ -77,7 +81,8 @@ func (m *SetupManager) ChangeProtonPassword() (string, error) {
 	if err := driver.Get(protonPasswordUrl); err != nil {
 		return "", fmt.Errorf("failed to navigate to password settings: %v", err)
 	}
-	time.Sleep(protonSleepDelay)
+
+	time.Sleep(protonNavigationDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		button, err := wd.FindElement(selenium.ByXPATH, protonChangeButtonXpath)
