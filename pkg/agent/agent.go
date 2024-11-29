@@ -1,16 +1,22 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alitto/pond/v2"
+	"github.com/defiweb/go-eth/abi"
 	"github.com/defiweb/go-eth/rpc"
 	"github.com/defiweb/go-eth/rpc/transport"
 	"github.com/defiweb/go-eth/txmodifier"
@@ -27,7 +33,26 @@ const (
 	minDepositStr   = "50000000000000000" // 0.05 ETH
 )
 
+type ReportData struct {
+	Address         types.Address `abi:"addr"`
+	TwitterUsername string        `abi:"twitterUsername"`
+	Nonce           *big.Int      `abi:"nonce"`
+}
+
+func (r *ReportData) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"address":         r.Address.String(),
+		"twitterUsername": r.TwitterUsername,
+		"nonce":           r.Nonce.String(),
+	})
+}
+
+var (
+	reportDataABI = abi.MustParseStruct(`struct ReportData { address addr; string twitterUsername; uint256 nonce; }`)
+)
+
 type AgentConfig struct {
+	TwitterUsername          string
 	TwitterConsumerKey       string
 	TwitterConsumerSecret    string
 	TwitterAccessToken       string
@@ -51,6 +76,9 @@ type Agent struct {
 
 	accountAddress  types.Address
 	lastBlockNumber *big.Int
+
+	quoteNonce      *big.Int
+	quoteNonceMutex sync.Mutex
 
 	pool pond.Pool
 }
@@ -313,4 +341,80 @@ func (a *Agent) getTweetText(tweetID int64) (string, error) {
 	}
 
 	return data.Data.Text, nil
+}
+
+type QuoteResponse struct {
+	Quote      string     `json:"quote"`
+	ReportData ReportData `json:"report_data"`
+}
+
+func (a *Agent) quote(ctx context.Context) (*QuoteResponse, error) {
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", "/var/run/tappd.sock")
+			},
+		},
+	}
+
+	var nonce *big.Int
+
+	a.quoteNonceMutex.Lock()
+	nonce = a.quoteNonce
+	a.quoteNonce = nonce.Add(nonce, big.NewInt(1))
+	a.quoteNonceMutex.Unlock()
+
+	reportData := ReportData{
+		Address:         a.accountAddress,
+		TwitterUsername: a.config.TwitterUsername,
+		Nonce:           nonce,
+	}
+
+	reportDataBytes, err := abi.EncodeValue(reportDataABI, reportData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode report data: %v", err)
+	}
+
+	payload := struct {
+		ReportData string `json:"report_data"`
+	}{
+		ReportData: hex.EncodeToString(reportDataBytes),
+	}
+
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload: %v", err)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		"http://localhost/prpc/Tappd.TdxQuote?json",
+		bytes.NewReader(jsonPayload),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	quoteResp := &QuoteResponse{
+		Quote:      string(body),
+		ReportData: reportData,
+	}
+
+	return quoteResp, nil
 }

@@ -25,6 +25,7 @@ func main() {
 	}
 
 	agent, err := agent.NewAgent(&agent.AgentConfig{
+		TwitterUsername:          output.TwitterUsername,
 		TwitterConsumerKey:       output.TwitterConsumerKey,
 		TwitterConsumerSecret:    output.TwitterConsumerSecret,
 		TwitterAccessToken:       output.TwitterAccessToken,

@@ -21,6 +21,7 @@ type SetupManager struct {
 }
 
 type SetupOutput struct {
+	TwitterUsername          string
 	TwitterPassword          string
 	ProtonPassword           string
 	TwitterConsumerKey       string
@@ -101,6 +102,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		TwitterAccessTokenSecret: twitterTokenPair.Secret,
 		TwitterConsumerKey:       m.twitterAppKey,
 		TwitterConsumerSecret:    m.twitterAppSecret,
+		TwitterUsername:          m.twitterAccount,
 		TwitterPassword:          twitterPassword,
 		ProtonPassword:           protonPassword,
 		EthPrivateKey:            ethPrivateKey,

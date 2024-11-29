@@ -15,6 +15,16 @@ func (a *Agent) StartServer(ctx context.Context) error {
 		c.String(http.StatusOK, a.accountAddress.String())
 	})
 
+	router.GET("/quote", func(c *gin.Context) {
+		quote, err := a.quote(c.Request.Context())
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.JSON(http.StatusOK, quote)
+	})
+
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: router,
