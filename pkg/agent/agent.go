@@ -35,6 +35,7 @@ const (
 
 type ReportData struct {
 	Address         types.Address `abi:"addr"`
+	ContractAddress types.Address `abi:"contract"`
 	TwitterUsername string        `abi:"twitterUsername"`
 	Nonce           *big.Int      `abi:"nonce"`
 }
@@ -42,13 +43,15 @@ type ReportData struct {
 func (r *ReportData) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"address":         r.Address.String(),
+		"contract":        r.ContractAddress.String(),
 		"twitterUsername": r.TwitterUsername,
 		"nonce":           r.Nonce.String(),
 	})
 }
 
 var (
-	reportDataABI = abi.MustParseStruct(`struct ReportData { address addr; string twitterUsername; uint256 nonce; }`)
+	reportDataABI = abi.MustParseStruct(`struct ReportData { address addr; address contract; string twitterUsername; uint256 nonce; }`)
+	drainABI      = abi.MustParseMethod("function drain(address to) external")
 )
 
 type AgentConfig struct {
@@ -58,8 +61,9 @@ type AgentConfig struct {
 	TwitterAccessToken       string
 	TwitterAccessTokenSecret string
 
-	EthPrivateKey *ecdsa.PrivateKey
-	EthRpcUrl     string
+	EthPrivateKey   *ecdsa.PrivateKey
+	EthRpcUrl       string
+	ContractAddress types.Address
 
 	TickRate        time.Duration
 	TaskConcurrency int
@@ -292,9 +296,15 @@ func (a *Agent) drain(ctx context.Context, address string) (*types.Hash, error) 
 		return nil, fmt.Errorf("failed to get balance: %v", err)
 	}
 
+	drainArgs, err := drainABI.EncodeArgs(addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode drain args: %v", err)
+	}
+
 	tx := types.NewTransaction().
-		SetTo(addr).
-		SetValue(balance)
+		SetTo(a.config.ContractAddress).
+		SetValue(balance).
+		SetInput(drainArgs)
 
 	txHash, _, err := a.ethClient.SendTransaction(ctx, tx)
 	if err != nil {
@@ -367,6 +377,7 @@ func (a *Agent) quote(ctx context.Context) (*QuoteResponse, error) {
 
 	reportData := ReportData{
 		Address:         a.accountAddress,
+		ContractAddress: a.config.ContractAddress,
 		TwitterUsername: a.config.TwitterUsername,
 		Nonce:           nonce,
 	}

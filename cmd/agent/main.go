@@ -31,8 +31,9 @@ func main() {
 		TwitterAccessToken:       output.TwitterAccessToken,
 		TwitterAccessTokenSecret: output.TwitterAccessTokenSecret,
 
-		EthPrivateKey: output.EthPrivateKey,
-		EthRpcUrl:     output.EthRpcUrl,
+		EthPrivateKey:   output.EthPrivateKey,
+		EthRpcUrl:       output.EthRpcUrl,
+		ContractAddress: output.ContractAddress,
 
 		TickRate:        60 * time.Second,
 		TaskConcurrency: 10,

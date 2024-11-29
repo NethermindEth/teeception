@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+
+	"github.com/defiweb/go-eth/types"
 )
 
 type SetupManager struct {
@@ -16,6 +18,7 @@ type SetupManager struct {
 	twitterAppKey    string
 	twitterAppSecret string
 	ethRpcUrl        string
+	contractAddress  string
 	openAiKey        string
 	loginServerUrl   string
 }
@@ -31,6 +34,7 @@ type SetupOutput struct {
 	TwitterAccessTokenSecret string
 	EthPrivateKey            *ecdsa.PrivateKey
 	EthRpcUrl                string
+	ContractAddress          types.Address
 	OpenAIKey                string
 }
 
@@ -51,6 +55,7 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		twitterAppKey:    getEnv("X_CONSUMER_KEY"),
 		twitterAppSecret: getEnv("X_CONSUMER_SECRET"),
 		ethRpcUrl:        getEnv("ETH_RPC_URL"),
+		contractAddress:  getEnv("CONTRACT_ADDRESS"),
 		openAiKey:        getEnv("OPENAI_API_KEY"),
 		loginServerUrl:   "http://127.0.0.1:3000",
 	}
@@ -96,6 +101,11 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 
 	ethPrivateKey := GeneratePrivateKey()
 
+	contractAddress, err := types.AddressFromHex(m.contractAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse contract address: %v", err)
+	}
+
 	return &SetupOutput{
 		TwitterAuthTokens:        twitterAuthTokens,
 		TwitterAccessToken:       twitterTokenPair.Token,
@@ -107,6 +117,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		ProtonPassword:           protonPassword,
 		EthPrivateKey:            ethPrivateKey,
 		EthRpcUrl:                m.ethRpcUrl,
+		ContractAddress:          contractAddress,
 		OpenAIKey:                m.openAiKey,
 	}, nil
 }
