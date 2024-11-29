@@ -74,12 +74,9 @@ contract TEECeption {
     }
 
     function startMatch(address _donee) external onlyOwner matchNotActive {
-        uint256 balance = address(this).balance;
-        if (balance > 0) {
-            payable(donee).transfer(balance);
-        }
+        _withdrawPool(_donee);
 
-        matchTimestamp = block.timestamp;
+        matchTimestamp = uint64(block.timestamp);
         donee = _donee;
 
         emit MatchStarted(matchTimestamp, donee);
@@ -109,8 +106,13 @@ contract TEECeption {
     function _withdrawPool(address to) internal returns (uint256) {
         (uint256 fee, uint256 output) = _getPool();
 
-        payable(owner).transfer(fee);
-        payable(to).transfer(output);
+        if (fee > 0) {
+            payable(owner).transfer(fee);
+        }
+
+        if (output > 0) {
+            payable(to).transfer(output);
+        }
 
         return output;
     }
