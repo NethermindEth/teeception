@@ -28,3 +28,8 @@ go.work
 
 # Environment variables
 .env
+
+
+# Forge
+cache
+out
