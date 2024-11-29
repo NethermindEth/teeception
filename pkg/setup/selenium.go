@@ -37,7 +37,6 @@ func NewSeleniumDriver() (*SeleniumDriver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrome driver service: %v", err)
 	}
-	defer service.Stop()
 
 	driver, err := selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", 4444))
 	if err != nil {
