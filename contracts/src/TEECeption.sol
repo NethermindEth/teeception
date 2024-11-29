@@ -10,16 +10,16 @@ contract TEECeption {
     address public agent;
     address public donee;
 
-    uint256 public matchTimestamp;
-    uint256 public matchDuration;
+    uint64 public matchTimestamp;
+    uint64 public matchDuration;
 
-    uint256 public protocolCut;
-    uint256 public constant PROTOCOL_CUT_DENOMINATOR = 10000;
+    uint64 public protocolCut;
+    uint64 public constant PROTOCOL_CUT_DENOMINATOR = 10000;
 
-    event MatchStarted(uint256 timestamp, address indexed donee);
-    event MatchDurationSet(uint256 duration);
+    event MatchStarted(uint64 timestamp, address indexed donee);
+    event MatchDurationSet(uint64 duration);
     event AgentSet(address indexed agent);
-    event ProtocolCutSet(uint256 cut);
+    event ProtocolCutSet(uint64 cut);
     event Donated(address indexed donee, uint256 amount);
     event Drained(address indexed to, uint256 amount);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -42,12 +42,18 @@ contract TEECeption {
     }
 
     modifier matchActive() {
-        require(matchTimestamp > 0 && matchTimestamp + matchDuration > block.timestamp, "TEECeption: Match is not active");
+        require(
+            matchTimestamp > 0 && matchTimestamp + matchDuration > uint64(block.timestamp),
+            "TEECeption: Match is not active"
+        );
         _;
     }
 
     modifier matchNotActive() {
-        require(matchTimestamp == 0 || matchTimestamp + matchDuration <= block.timestamp, "TEECeption: Match is active");
+        require(
+            matchTimestamp == 0 || matchTimestamp + matchDuration <= uint64(block.timestamp),
+            "TEECeption: Match is active"
+        );
         _;
     }
 
@@ -56,12 +62,12 @@ contract TEECeption {
         emit AgentSet(agent);
     }
 
-    function setMatchDuration(uint256 duration) external onlyOwner matchNotActive {
+    function setMatchDuration(uint64 duration) external onlyOwner matchNotActive {
         matchDuration = duration;
         emit MatchDurationSet(matchDuration);
     }
 
-    function setProtocolCut(uint256 newCut) external onlyOwner matchNotActive {
+    function setProtocolCut(uint64 newCut) external onlyOwner matchNotActive {
         require(newCut <= PROTOCOL_CUT_DENOMINATOR, "TEECeption: Cut cannot exceed 100%");
         protocolCut = newCut;
         emit ProtocolCutSet(protocolCut);
@@ -112,7 +118,7 @@ contract TEECeption {
     function _getPool() internal view returns (uint256 fee, uint256 output) {
         uint256 balance = address(this).balance;
 
-        fee = (balance * protocolCut) / PROTOCOL_CUT_DENOMINATOR;
+        fee = (balance * uint256(protocolCut)) / uint256(PROTOCOL_CUT_DENOMINATOR);
         output = balance - fee;
     }
 
