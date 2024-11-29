@@ -16,12 +16,12 @@ const (
 	twitterLoginUrl    = "https://twitter.com/i/flow/login"
 	twitterPasswordUrl = "https://x.com/settings/password"
 
-	twitterSubmitButtonXpath       = `/html/body/div[1]/div/div/div[2]/main/div/div/div/section[2]/div[2]/div[3]/button`
-	twitterUsernameSelector        = `input[autocomplete="username"]`
-	twitterPasswordSelector        = `input[name="password"]`
-	twitterCurrentPasswordSelector = `input[name="current_password"]`
-	twitterNewPasswordSelector     = `input[name="new_password"]`
-	twitterConfirmPasswordSelector = `input[name="password_confirmation"]`
+	twitterSubmitButtonXpath   = `/html/body/div[1]/div/div/div[2]/main/div/div/div/section[2]/div[2]/div[3]/button`
+	twitterUsernameSelector    = `input[autocomplete="username"]`
+	twitterPasswordSelector    = `input[name="password"]`
+	twitterCurrentPasswordName = "current_password"
+	twitterNewPasswordName     = "new_password"
+	twitterConfirmPasswordName = "password_confirmation"
 
 	twitterSelectionTimeout = 20 * time.Second
 	twitterLoginDelay       = 15 * time.Second
@@ -92,7 +92,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	time.Sleep(twitterInputDelay)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		currentPwdField, err := wd.FindElement(selenium.ByCSSSelector, twitterCurrentPasswordSelector)
+		currentPwdField, err := wd.FindElement(selenium.ByName, twitterCurrentPasswordName)
 		if err != nil {
 			return false, nil
 		}
@@ -107,7 +107,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	slog.Info("current password entered")
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		newPwdField, err := wd.FindElement(selenium.ByCSSSelector, twitterNewPasswordSelector)
+		newPwdField, err := wd.FindElement(selenium.ByName, twitterNewPasswordName)
 		if err != nil {
 			return false, nil
 		}
@@ -122,7 +122,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	slog.Info("new password entered")
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		confirmPwdField, err := wd.FindElement(selenium.ByCSSSelector, twitterConfirmPasswordSelector)
+		confirmPwdField, err := wd.FindElement(selenium.ByName, twitterConfirmPasswordName)
 		if err != nil {
 			return false, nil
 		}
