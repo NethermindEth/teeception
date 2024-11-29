@@ -57,7 +57,7 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		ethRpcUrl:        getEnv("ETH_RPC_URL"),
 		contractAddress:  getEnv("CONTRACT_ADDRESS"),
 		openAiKey:        getEnv("OPENAI_API_KEY"),
-		loginServerUrl:   "http://127.0.0.1:3000",
+		loginServerUrl:   getEnv("X_LOGIN_SERVER_URL"),
 	}
 
 	if err := setupManager.Validate(); err != nil {
