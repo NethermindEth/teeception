@@ -270,6 +270,7 @@ func (a *Agent) reactToTweet(ctx context.Context, tweetID int64, tweetText strin
 
 			txHash, err := a.drain(ctx, args.Address)
 			if err != nil {
+				a.replyToTweet(tweetID, fmt.Sprintf("Almost drained to %s!", args.Address))
 				return fmt.Errorf("failed to drain: %v", err)
 			}
 
