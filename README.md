@@ -33,6 +33,12 @@ cd contracts
 forge install
 ```
 
+5. Set up environment variables:
+```bash
+cp .env.example .env
+```
+Then edit `.env` with your actual credentials and configuration values.
+
 ## Project Structure
 
 - `/cmd` - Main applications
@@ -46,24 +52,16 @@ forge install
 
 ### Initial Setup
 
-First, run the setup command which will help configure your environment:
+First, ensure your `.env` file is configured with the required values:
+- Twitter API credentials (obtain from [Twitter Developer Portal](https://developer.twitter.com/))
+- Ethereum configuration (your private key and RPC URL)
+- OpenAI API key (obtain from [OpenAI](https://platform.openai.com/))
+
+Then run the setup command:
 
 ```bash
 go run cmd/setup/main.go
 ```
-
-The setup requires several environment variables:
-- Twitter API credentials:
-  - `TWITTER_CONSUMER_KEY`
-  - `TWITTER_CONSUMER_SECRET`
-  - `TWITTER_ACCESS_TOKEN`
-  - `TWITTER_ACCESS_TOKEN_SECRET`
-- Ethereum configuration:
-  - `ETH_PRIVATE_KEY`
-  - `ETH_RPC_URL`
-  - `CONTRACT_ADDRESS`
-- OpenAI configuration:
-  - `OPENAI_KEY`
 
 ### Running the Agent
 
