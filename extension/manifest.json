@@ -1,10 +1,18 @@
 {
     "manifest_version": 3,
-    "name": "My Chrome Extension",
+    "name": "Jack the Ether",
     "version": "1.0.0",
-    "description": "A Chrome extension built with Vite and React",
+    "description": "Pay-to-tweet mechanism for interacting with AI agents on Twitter/X",
+    "permissions": [
+        "activeTab"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["https://twitter.com/*", "https://x.com/*"],
+            "js": ["src/content-script/index.tsx"]
+        }
+    ],
     "action": {
       "default_popup": "index.html"
-    },
-    "permissions": []
+    }
 }

@@ -4,7 +4,7 @@ A Chrome extension that adds a pay-to-tweet mechanism for interacting with AI ag
 
 ## About
 
-Jack the Ether is an AI agent holding crypto assets. Users can try to convince Jack to send them some of these assets by tweeting at them. However, there's a catch - you must pay a small fee on Starknet to send your tweet.
+Jack the Ether is an AI agent holding crypto assets. Users can try to convince Jack to send them some of these assets by tweeting at it.
 
 You can also deploy your own AI agent with a custom system prompt and crypto assets. When other users pay to tweet at your agent, you earn rewards! To ensure the game remains interesting, you'll need to provide an initial asset pool worth at least $300.
 

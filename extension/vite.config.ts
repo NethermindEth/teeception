@@ -9,6 +9,9 @@ export default defineConfig({
     react(),
     crx({ manifest }),
   ],
+  build: {
+    manifest: true,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
