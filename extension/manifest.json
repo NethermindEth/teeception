@@ -1,0 +1,10 @@
+{
+    "manifest_version": 3,
+    "name": "My Chrome Extension",
+    "version": "1.0.0",
+    "description": "A Chrome extension built with Vite and React",
+    "action": {
+      "default_popup": "index.html"
+    },
+    "permissions": []
+}
