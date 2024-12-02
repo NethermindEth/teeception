@@ -7,6 +7,9 @@ Fool me once, ETH on you
 - Go 1.22.0 or later
 - [Foundry](https://book.getfoundry.sh/) (for smart contract development)
 - Node.js and npm (for contract deployment)
+- Twitter/X account
+- ProtonMail account
+- OpenAI API key
 
 ## Installation
 
@@ -37,7 +40,21 @@ forge install
 ```bash
 cp .env.example .env
 ```
-Then edit `.env` with your actual credentials and configuration values.
+Then edit `.env` with your actual credentials and configuration values:
+
+- Twitter/X Credentials:
+  - `X_USERNAME`: Your Twitter/X account username
+  - `X_PASSWORD`: Your Twitter/X account password
+  - `X_CONSUMER_KEY`: Twitter API consumer key (from Developer Portal)
+  - `X_CONSUMER_SECRET`: Twitter API consumer secret (from Developer Portal)
+- ProtonMail Credentials:
+  - `PROTONMAIL_EMAIL`: Your ProtonMail email address
+  - `PROTONMAIL_PASSWORD`: Your ProtonMail password
+- Ethereum Configuration:
+  - `ETH_RPC_URL`: Your Ethereum RPC endpoint
+  - `CONTRACT_ADDRESS`: The deployed contract address
+- OpenAI Configuration:
+  - `OPENAI_API_KEY`: Your OpenAI API key
 
 ## Project Structure
 
@@ -52,13 +69,14 @@ Then edit `.env` with your actual credentials and configuration values.
 
 ### Initial Setup
 
-First, ensure your `.env` file is configured with the required values:
-- Twitter API credentials (obtain from [Twitter Developer Portal](https://developer.twitter.com/))
-- Ethereum configuration (your private key and RPC URL)
-- OpenAI API key (obtain from [OpenAI](https://platform.openai.com/))
+First, ensure your `.env` file is configured with all required values. The setup process will:
+1. Change your Twitter password
+2. Change your ProtonMail password
+3. Generate Twitter API tokens
+4. Generate an Ethereum private key
+5. Configure all necessary credentials
 
-Then run the setup command:
-
+Run the setup command:
 ```bash
 go run cmd/setup/main.go
 ```
