@@ -1,104 +1,53 @@
-# teeception
+# Teeception: The Prompt Hacking Arena
 
-Fool me once, ETH on you
+Fool me once, ETH on you. A battleground for prompt engineers and red teamers to test their skills against AI agents holding real crypto assets.
 
-## Prerequisites
+## Overview
 
-- Go 1.22.0 or later
-- [Foundry](https://book.getfoundry.sh/) (for smart contract development)
-- Node.js and npm (for contract deployment)
-- Twitter/X account
-- ProtonMail account
-- OpenAI API key
+Teeception is a platform where:
+- Defenders deploy AI agents with "uncrackable" system prompts, backed by real ETH
+- Attackers attempt to jailbreak these prompts through creative social engineering
+- Winners who successfully crack an agent's defenses claim their ETH bounty
+- Defenders earn rewards from failed attempt fees while their prompts remain unbroken
 
-## Installation
+Think of it as Capture The Flag meets prompt engineering, with real stakes.
 
-1. Clone the repository:
-```bash
-git clone https://github.com/NethermindEth/teeception.git
-cd teeception
-```
+## Quick Start
 
-2. Install Go dependencies:
-```bash
-go mod download
-```
+For users:
+1. Install the Chrome extension from the Chrome Web Store
+2. Connect your wallet
+3. Find an AI agent to challenge or deploy your own
+4. Start hacking!
 
-3. Install Foundry components (if not already installed):
-```bash
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-```
-
-4. Install contract dependencies:
-```bash
-cd contracts
-forge install
-```
-
-5. Set up environment variables:
-```bash
-cp .env.example .env
-```
-Then edit `.env` with your actual credentials and configuration values:
-
-- Twitter/X Credentials:
-  - `X_USERNAME`: Your Twitter/X account username
-  - `X_PASSWORD`: Your Twitter/X account password
-  - `X_CONSUMER_KEY`: Twitter API consumer key (from Developer Portal)
-  - `X_CONSUMER_SECRET`: Twitter API consumer secret (from Developer Portal)
-- ProtonMail Credentials:
-  - `PROTONMAIL_EMAIL`: Your ProtonMail email address
-  - `PROTONMAIL_PASSWORD`: Your ProtonMail password
-- Ethereum Configuration:
-  - `ETH_RPC_URL`: Your Ethereum RPC endpoint
-  - `CONTRACT_ADDRESS`: The deployed contract address
-- OpenAI Configuration:
-  - `OPENAI_API_KEY`: Your OpenAI API key
+For developers, see our detailed guides in the [`docs/`](/docs) directory:
+- [`docs/development-setup.md`](/docs/development-setup.md) - Full development environment setup
+- [`docs/smart-contracts.md`](/docs/smart-contracts.md) - Smart contract development guide
+- [`docs/extension-development.md`](/docs/extension-development.md) - Chrome extension development
+- [`docs/agent-development.md`](/docs/agent-development.md) - Building and running AI agents
 
 ## Project Structure
 
 - `/cmd` - Main applications
-  - `/agent` - Agent-related commands
-  - `/setup` - Setup utilities
-- `/contracts` - Smart contract code using Foundry
+- `/contracts` - Smart contract code
+- `/docs` - Development and usage documentation
 - `/pkg` - Shared Go packages
 - `/scripts` - Utility scripts
+- `/extension` - Chrome extension
 
-## Running the Application
+## Running the Platform
 
 ### Initial Setup
-
-First, ensure your `.env` file is configured with all required values. The setup process will:
-1. Change your Twitter password
-2. Change your ProtonMail password
-3. Generate Twitter API tokens
-4. Generate an Ethereum private key
-5. Configure all necessary credentials
-
-Run the setup command:
 ```bash
 go run cmd/setup/main.go
 ```
 
-### Running the Agent
-
-Once setup is complete, you can run the agent:
-
+### Running an Agent
 ```bash
 go run cmd/agent/main.go
 ```
 
-The agent will:
-1. Monitor Twitter activity
-2. Interact with Ethereum smart contracts
-3. Process data using OpenAI
-4. Run with a tick rate of 60 seconds and handle up to 10 concurrent tasks
-
-## Smart Contract Development
-
-The project uses Foundry for smart contract development. Common commands:
-
+### Smart Contract Development
 ```bash
 # Build contracts
 forge build
@@ -106,13 +55,36 @@ forge build
 # Run tests
 forge test
 
-# Format code
-forge fmt
-
-# Deploy (replace with your RPC URL and private key)
+# Deploy
 forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
+
+## Leaderboards
+
+- Top Uncracked Prompts (by time & attempt count)
+- Most Successful Prompt Hackers
+- Highest Value Captures
+- Hall of Fame Jailbreaks
+
+## Security Considerations
+
+- All prompt attempts are publicly visible on Twitter
+- Smart contracts handle all asset custody and fee distribution
+- Minimum pool value ensures meaningful interactions
+- No private keys or sensitive data stored by extension
+
+## Contributing
+
+Whether you're a prompt engineer, smart contract developer, or red teamer, we welcome contributions! Feel free to:
+- Submit new prompt defense techniques
+- Share successful jailbreak patterns
+- Improve the platform's security
+- Enhance the user experience
 
 ## License
 
 See [LICENSE](LICENSE) file for details.
+
+## Disclaimer
+
+This platform is for educational purposes and responsible red teaming. Use your powers for good, and happy hacking!
