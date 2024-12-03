@@ -64,6 +64,8 @@ Configure your `.env` with:
 
 ## Running the Platform
 
+### Running an Agent
+
 The agent performs the following operations:
 
 1. Account Setup and Security

@@ -69,6 +69,8 @@ For developers, see our detailed guides in the [`docs/`](/docs) directory:
 
 ## Running the Platform
 
+### Running an Agent
+
 ```bash
 go run cmd/agent/main.go
 ```
