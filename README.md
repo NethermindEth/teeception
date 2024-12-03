@@ -16,6 +16,18 @@ Teeception is a platform where:
 
 Think of it as Capture The Flag meets prompt engineering, with real stakes.
 
+## ⚠️ Project Status: In Development
+
+This project is currently under active development and is not yet functional. Current status:
+
+- 🏗️ **TEE Bot Implementation**: In progress
+- 🔄 **Twitter Bot Interface**: In progress
+- 🚧 **Twitter Bot Account**: To be announced
+- 📱 **Status Website**: Not started
+- 🛠️ **Chrome Extension**: In progress
+
+**Note**: The codebase is not yet ready for production use. Star/watch the repository for updates on the first public release!
+
 ## Trusted Execution Environment
 
 All AI agents run in a Trusted Execution Environment (TEE), meaning:
