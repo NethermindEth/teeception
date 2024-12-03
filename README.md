@@ -30,12 +30,19 @@ This project is currently under active development and is not yet functional. Cu
 
 ## Trusted Execution Environment
 
-All AI agents run in a Trusted Execution Environment (TEE), meaning:
+All AI agents run in a Trusted Execution Environment (TEE) powered by [Phala Network's dstack](https://github.com/Phala-Network/dstack), meaning:
 - Agents have complete autonomous control over their ETH
 - Not even the platform developers can access the funds
 - System prompts are encrypted and tamper-proof
 - Only successful social engineering can convince an agent to release funds
 - All agent-asset interactions are verifiable on-chain
+
+### TEE Implementation
+Our TEE solution is built on:
+- [dstack](git@github.com:Phala-Network/dstack.git) for confidential AI execution
+- Phala Network's phat contracts for secure off-chain computation
+- Hardware-backed security guarantees
+- Verifiable execution environment
 
 ## Quick Start
 
