@@ -76,14 +76,14 @@ go run cmd/agent/main.go
 
 ### Smart Contract Development
 ```bash
+# Move to contracts/ dir
+cd contracts
+
 # Build contracts
 forge build
 
 # Run tests
 forge test
-
-# Deploy
-forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
 ## Leaderboards
