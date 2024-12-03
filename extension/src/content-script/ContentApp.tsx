@@ -1,31 +1,88 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom'
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 // Configuration for the account to watch
 const CONFIG = {
   accountName: '@jack_the_ether',
 }
 
-// Modal Component
-const ConfirmationModal = ({ onConfirm, onClose }: { onConfirm: () => void, onClose: () => void }) => {
+// Create a container for our modal
+const createModalContainer = () => {
+  let container = document.getElementById('jack-the-ether-modal-container')
+  if (!container) {
+    container = document.createElement('div')
+    container.id = 'jack-the-ether-modal-container'
+    container.style.position = 'fixed'
+    container.style.top = '0'
+    container.style.left = '0'
+    container.style.right = '0'
+    container.style.bottom = '0'
+    container.style.zIndex = '9999'
+    container.style.pointerEvents = 'none'
+    document.body.appendChild(container)
+    console.log('Created modal container:', container)
+  }
+  return container
+}
+
+const ConfirmationModal = ({ 
+  open, 
+  onClose,
+  tweetButton 
+}: { 
+  open: boolean
+  onClose: () => void
+  tweetButton: HTMLElement | null
+}) => {
+  console.log('Rendering ConfirmationModal, open:', open)
+
+  if (!open) return null
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h2 className="text-xl font-bold mb-4">Account Mention Detected</h2>
-        <p className="mb-6">You're about to tweet a message mentioning {CONFIG.accountName}.</p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
-          >
-            Continue
-          </button>
+    <div 
+      className={cn(
+        "absolute inset-0 flex items-center justify-center",
+        "bg-background/80 backdrop-blur-sm"
+      )}
+      style={{ pointerEvents: 'auto' }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div 
+        className={cn(
+          "relative",
+          "w-full max-w-lg",
+          "bg-card text-card-foreground",
+          "rounded-lg border shadow-lg",
+          "animate-in fade-in-0 zoom-in-95"
+        )}
+        style={{
+          width: '400px',
+          maxWidth: '90vw',
+        }}
+      >
+        <div className="p-6 space-y-4">
+          <div className="space-y-1.5">
+            <h2 className="text-2xl font-semibold leading-none tracking-tight">
+              Account Mention Detected
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              You're about to tweet a message mentioning {CONFIG.accountName}.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+            >
+              Cancel
+            </Button>
+            {/* Container for the original tweet button */}
+            <div id="original-tweet-button-container" />
+          </div>
         </div>
       </div>
     </div>
@@ -34,52 +91,73 @@ const ConfirmationModal = ({ onConfirm, onClose }: { onConfirm: () => void, onCl
 
 const ContentApp = () => {
   const [showModal, setShowModal] = useState(false)
-  const [pendingTweetButton, setPendingTweetButton] = useState<Element | null>(null)
+  const [modalContainer, setModalContainer] = useState<HTMLElement | null>(null)
+  const [originalButton, setOriginalButton] = useState<HTMLElement | null>(null)
 
-  const handleTweetButtonClick = (event: Event) => {
-    const tweetBox = document.querySelector('[data-testid="tweetTextarea_0"]')
+  const handleTweet = () => {
+    const tweetBox = document.querySelector('[data-testid="tweetTextarea_0"], [data-testid="tweetTextarea_1"]')
     const text = tweetBox?.textContent || ''
-
+    
     if (text.includes(CONFIG.accountName)) {
-      event.preventDefault()
-      event.stopPropagation()
-      
-      // Store the tweet button element for later use
-      if (event.target instanceof Element) {
-        setPendingTweetButton(event.target)
-      }
+      console.log('Account mention detected, showing modal')
       setShowModal(true)
+    } else {
+      console.log('No account mention detected')
+      // Click the original button directly
+      originalButton?.click()
     }
   }
 
-  const handleConfirmTweet = () => {
-    if (pendingTweetButton) {
-      // Create and dispatch a new click event
-      const clickEvent = new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        view: window
-      })
-      pendingTweetButton.dispatchEvent(clickEvent)
+  useEffect(() => {
+    // Set up modal container
+    const container = createModalContainer()
+    setModalContainer(container)
+    console.log('Modal container set:', container)
+
+    return () => {
+      container.remove()
     }
-    setShowModal(false)
-    setPendingTweetButton(null)
-  }
+  }, [])
 
   useEffect(() => {
     console.log('ContentApp mounted')
 
-    const setupTweetButton = () => {
-      const tweetButton = document.querySelector('[data-testid="tweetButton"]')
-      if (tweetButton) {
-        console.log('Found tweet button, adding click listener')
-        tweetButton.addEventListener('click', handleTweetButtonClick, true)
+    const replaceTweetButton = (button: Element) => {
+      if (button instanceof HTMLElement) {
+        console.log('Found tweet button, replacing with our button')
+        
+        // Store the original button
+        setOriginalButton(button)
+        
+        // Create our replacement button
+        const ourButton = document.createElement('div')
+        ReactDOM.render(
+          <Button
+            className={button.className}
+            onClick={handleTweet}
+          >
+            Tweet
+          </Button>,
+          ourButton
+        )
+        
+        // Replace the original button with our button
+        button.parentNode?.replaceChild(ourButton, button)
       }
     }
 
     // Watch for tweet button appearance
     const observer = new MutationObserver((mutations) => {
-      setupTweetButton()
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node instanceof Element) {
+            const button = node.querySelector('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')
+            if (button) {
+              replaceTweetButton(button)
+            }
+          }
+        })
+      })
     })
 
     observer.observe(document.body, {
@@ -88,33 +166,37 @@ const ContentApp = () => {
     })
 
     // Initial setup
-    setupTweetButton()
+    const existingButton = document.querySelector('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')
+    if (existingButton) {
+      replaceTweetButton(existingButton)
+    }
 
-    // Cleanup
     return () => {
       observer.disconnect()
-      const tweetButton = document.querySelector('[data-testid="tweetButton"]')
-      if (tweetButton) {
-        tweetButton.removeEventListener('click', handleTweetButtonClick, true)
-      }
     }
   }, [])
 
-  // Create a portal for the modal
-  if (showModal) {
-    return ReactDOM.createPortal(
-      <ConfirmationModal
-        onConfirm={handleConfirmTweet}
-        onClose={() => {
-          setShowModal(false)
-          setPendingTweetButton(null)
-        }}
-      />,
-      document.body
-    )
-  }
+  // Move the original button into our modal when it's shown
+  useEffect(() => {
+    if (showModal && originalButton) {
+      const container = document.getElementById('original-tweet-button-container')
+      if (container) {
+        container.appendChild(originalButton)
+      }
+    }
+  }, [showModal, originalButton])
 
-  return null
+  return modalContainer ? ReactDOM.createPortal(
+    <ConfirmationModal
+      open={showModal}
+      tweetButton={originalButton}
+      onClose={() => {
+        console.log('Modal closed')
+        setShowModal(false)
+      }}
+    />,
+    modalContainer
+  ) : null
 }
 
 export default ContentApp
