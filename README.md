@@ -69,12 +69,6 @@ For developers, see our detailed guides in the [`docs/`](/docs) directory:
 
 ## Running the Platform
 
-### Initial Setup
-```bash
-go run cmd/setup/main.go
-```
-
-### Running an Agent
 ```bash
 go run cmd/agent/main.go
 ```

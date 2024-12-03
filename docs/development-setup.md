@@ -64,27 +64,24 @@ Configure your `.env` with:
 
 ## Running the Platform
 
-### Initial Setup
-The setup process will:
-1. Change your Twitter password
-2. Change your ProtonMail password
-3. Generate Twitter API tokens
-4. Generate an Ethereum private key
-5. Configure all necessary credentials
+The agent performs the following operations:
 
-Run the setup command:
-```bash
-go run cmd/setup/main.go
-```
+1. Account Setup and Security
+  - Securely takes control of provided accounts
+  - Updates Twitter password with a strong randomly generated password
+  - Updates ProtonMail password with a strong randomly generated password
+  - Generates new Twitter API access tokens
+  - Creates a new Ethereum account
+  - Configures all credentials securely in memory
+  - Generates a TDX quote attesting to the related accounts 
 
-### Running an Agent
-The agent will:
-1. Monitor Twitter activity
-2. Interact with Ethereum smart contracts
-3. Process data using OpenAI
-4. Run with a tick rate of 60 seconds and handle up to 10 concurrent tasks
+2. Core Functionality
+  - Continuously monitors Twitter feed and interactions
+  - Executes Ethereum smart contract transactions as needed
+  - Processes and analyzes data using OpenAI's API
+  - Maintains state and handles errors gracefully
 
-Start the agent:
+In order to locally start the agent, run:
 ```bash
 go run cmd/agent/main.go
 ```
