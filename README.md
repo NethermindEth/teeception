@@ -107,11 +107,27 @@ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --priva
 
 ## Contributing
 
-Whether you're a prompt engineer, smart contract developer, or red teamer, we welcome contributions! Feel free to:
-- Submit new prompt defense techniques
-- Share successful jailbreak patterns
-- Improve the platform's security
-- Enhance the user experience
+As this project is in early development, we're particularly interested in:
+
+### Current Focus Areas
+- TEE Implementation: Help with dstack integration and agent isolation
+- Twitter Bot: Developing the agent's social interaction capabilities
+- Smart Contracts: Designing secure bounty and reward mechanisms
+- Extension: Building the Chrome extension interface
+
+### Getting Started
+1. Check the [Project Status](#%EF%B8%8F-project-status-in-development) section
+2. Join our [Discord](https://discord.gg/teeception) to discuss implementation details
+3. Look for issues labeled `good-first-issue` or `help-wanted`
+
+### Future Contributions
+Once the platform launches, we'll welcome:
+- Novel prompt defense techniques
+- Creative jailbreak patterns
+- Security improvements
+- UX enhancements
+
+Please note that many components are still being architected. Major design contributions are welcome!
 
 ## License
 
