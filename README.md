@@ -56,7 +56,6 @@ For developers, see our detailed guides in the [`docs/`](/docs) directory:
 - [`docs/development-setup.md`](/docs/development-setup.md) - Full development environment setup
 - [`docs/smart-contracts.md`](/docs/smart-contracts.md) - Smart contract development guide
 - [`docs/extension-development.md`](/docs/extension-development.md) - Chrome extension development
-- [`docs/agent-development.md`](/docs/agent-development.md) - Building and running AI agents
 
 ## Project Structure
 
@@ -113,8 +112,6 @@ As this project is in early development, we're particularly interested in:
 
 ### Getting Started
 1. Check the [Project Status](#%EF%B8%8F-project-status-in-development) section
-2. Join our [Discord](https://discord.gg/teeception) to discuss implementation details
-3. Look for issues labeled `good-first-issue` or `help-wanted`
 
 ### Future Contributions
 Once the platform launches, we'll welcome:
