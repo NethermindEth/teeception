@@ -40,7 +40,6 @@ All AI agents run in a Trusted Execution Environment (TEE) powered by [Phala Net
 ### TEE Implementation
 Our TEE solution is built on:
 - [dstack](git@github.com:Phala-Network/dstack.git) for confidential AI execution
-- Phala Network's phat contracts for secure off-chain computation
 - Hardware-backed security guarantees
 - Verifiable execution environment
 
