@@ -11,6 +11,14 @@ export default defineConfig({
   ],
   build: {
     manifest: true,
+    rollupOptions: {
+      input: {
+        contentStyle: 'src/content-script/styles.css',
+      },
+      output: {
+        assetFileNames: 'assets/[name][extname]',
+      },
+    },
   },
   resolve: {
     alias: {

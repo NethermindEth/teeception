@@ -1,199 +1,186 @@
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom'
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { ConfirmationModal } from './components/ConfirmationModal'
+import { CONFIG } from './config'
+import { getTweetText } from './utils/dom'
 
-// Configuration for the account to watch
-const CONFIG = {
-  accountName: '@jack_the_ether',
-}
+const TWEET_BUTTON_SELECTOR = '[data-testid="tweetButton"], [data-testid="tweetButtonInline"]'
 
-// Create a container for our modal
-const createModalContainer = () => {
-  let container = document.getElementById('jack-the-ether-modal-container')
-  if (!container) {
-    container = document.createElement('div')
-    container.id = 'jack-the-ether-modal-container'
-    container.style.position = 'fixed'
-    container.style.top = '0'
-    container.style.left = '0'
-    container.style.right = '0'
-    container.style.bottom = '0'
-    container.style.zIndex = '9999'
-    container.style.pointerEvents = 'none'
-    document.body.appendChild(container)
-    console.log('Created modal container:', container)
+const debug = {
+  log: (component: string, action: string, data?: any) => {
+    console.log(`[JackTheEther][${component}] ${action}`, data || '')
+  },
+  error: (component: string, action: string, error: any) => {
+    console.error(`[JackTheEther][${component}] ${action} failed:`, error)
   }
-  return container
 }
 
-const ConfirmationModal = ({ 
-  open, 
-  onClose,
-  tweetButton 
-}: { 
-  open: boolean
-  onClose: () => void
-  tweetButton: HTMLElement | null
-}) => {
-  console.log('Rendering ConfirmationModal, open:', open)
+const createOverlayButton = (originalButton: HTMLElement) => {
+  const rect = originalButton.getBoundingClientRect()
+  const overlay = document.createElement('div')
+  overlay.id = 'jack-the-ether-button-overlay'
+  overlay.style.position = 'fixed'
+  overlay.style.top = `${rect.top}px`
+  overlay.style.left = `${rect.left}px`
+  overlay.style.width = `${rect.width}px`
+  overlay.style.height = `${rect.height}px`
+  overlay.style.zIndex = '99999'
+  overlay.style.cursor = 'pointer'
+  overlay.style.backgroundColor = 'transparent'
+  overlay.style.pointerEvents = 'auto'
+  return overlay
+}
 
-  if (!open) return null
-
-  return (
-    <div 
-      className={cn(
-        "absolute inset-0 flex items-center justify-center",
-        "bg-background/80 backdrop-blur-sm"
-      )}
-      style={{ pointerEvents: 'auto' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div 
-        className={cn(
-          "relative",
-          "w-full max-w-lg",
-          "bg-card text-card-foreground",
-          "rounded-lg border shadow-lg",
-          "animate-in fade-in-0 zoom-in-95"
-        )}
-        style={{
-          width: '400px',
-          maxWidth: '90vw',
-        }}
-      >
-        <div className="p-6 space-y-4">
-          <div className="space-y-1.5">
-            <h2 className="text-2xl font-semibold leading-none tracking-tight">
-              Account Mention Detected
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              You're about to tweet a message mentioning {CONFIG.accountName}.
-            </p>
-          </div>
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            {/* Container for the original tweet button */}
-            <div id="original-tweet-button-container" />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+const createModalContainer = () => {
+  const container = document.createElement('div')
+  container.id = 'jack-the-ether-modal-container'
+  container.style.position = 'fixed'
+  container.style.top = '0'
+  container.style.left = '0'
+  container.style.right = '0'
+  container.style.bottom = '0'
+  container.style.zIndex = '9999'
+  document.body.appendChild(container)
+  return container
 }
 
 const ContentApp = () => {
   const [showModal, setShowModal] = useState(false)
   const [modalContainer, setModalContainer] = useState<HTMLElement | null>(null)
   const [originalButton, setOriginalButton] = useState<HTMLElement | null>(null)
+  const [overlayButton, setOverlayButton] = useState<HTMLElement | null>(null)
 
-  const handleTweet = () => {
-    const tweetBox = document.querySelector('[data-testid="tweetTextarea_0"], [data-testid="tweetTextarea_1"]')
-    const text = tweetBox?.textContent || ''
-    
-    if (text.includes(CONFIG.accountName)) {
-      console.log('Account mention detected, showing modal')
-      setShowModal(true)
-    } else {
-      console.log('No account mention detected')
-      // Click the original button directly
-      originalButton?.click()
-    }
-  }
-
+  // Create/remove modal container when modal visibility changes
   useEffect(() => {
-    // Set up modal container
-    const container = createModalContainer()
-    setModalContainer(container)
-    console.log('Modal container set:', container)
-
-    return () => {
-      container.remove()
+    if (showModal) {
+      const container = createModalContainer()
+      setModalContainer(container)
+      return () => {
+        container.remove()
+        setModalContainer(null)
+      }
     }
-  }, [])
+  }, [showModal])
 
+  // Watch for tweet buttons and create overlays
   useEffect(() => {
-    console.log('ContentApp mounted')
+    let currentOverlay: HTMLElement | null = null
+    let currentResizeObserver: ResizeObserver | null = null
+    let isUpdating = false
+    let updatePositionFn: ((time: number) => void) | null = null
+    let lastUpdateTime = 0
 
-    const replaceTweetButton = (button: Element) => {
-      if (button instanceof HTMLElement) {
-        console.log('Found tweet button, replacing with our button')
+    const updateOverlays = () => {
+      const now = Date.now()
+      if (now - lastUpdateTime < 100 || isUpdating) return
+      lastUpdateTime = now
+      isUpdating = true
+      
+      try {
+        if (currentOverlay) {
+          currentOverlay.remove()
+          currentResizeObserver?.disconnect()
+        }
         
-        // Store the original button
-        setOriginalButton(button)
-        
-        // Create our replacement button
-        const ourButton = document.createElement('div')
-        ReactDOM.render(
-          <Button
-            className={button.className}
-            onClick={handleTweet}
-          >
-            Tweet
-          </Button>,
-          ourButton
-        )
-        
-        // Replace the original button with our button
-        button.parentNode?.replaceChild(ourButton, button)
+        const tweetButtons = Array.from(document.querySelectorAll(TWEET_BUTTON_SELECTOR))
+        const tweetButton = tweetButtons
+          .filter(b => {
+            const rect = b.getBoundingClientRect()
+            return rect.width > 0 && rect.height > 0
+          })
+          .pop() as HTMLElement | undefined
+
+        if (tweetButton) {
+          const overlay = createOverlayButton(tweetButton)
+          
+          updatePositionFn = (time: number) => {
+            const newRect = tweetButton.getBoundingClientRect()
+            if (newRect.width > 0 && newRect.height > 0) {
+              overlay.style.top = `${newRect.top}px`
+              overlay.style.left = `${newRect.left}px`
+              overlay.style.width = `${newRect.width}px`
+              overlay.style.height = `${newRect.height}px`
+              overlay.style.display = 'block'
+            } else {
+              overlay.style.display = 'none'
+            }
+          }
+
+          let resizeTimeout: number | null = null
+          const tweetBox = document.querySelector('[data-testid="tweetTextarea_0"], [data-testid="tweetTextarea_1"]')
+            ?.closest('div[role="textbox"]')
+          
+          if (tweetBox) {
+            currentResizeObserver = new ResizeObserver(() => {
+              if (resizeTimeout) window.cancelAnimationFrame(resizeTimeout)
+              if (updatePositionFn) resizeTimeout = window.requestAnimationFrame(updatePositionFn)
+            })
+            currentResizeObserver.observe(tweetBox)
+          }
+
+          const handleScroll = () => {
+            if (updatePositionFn) window.requestAnimationFrame(updatePositionFn)
+          }
+
+          window.addEventListener('scroll', handleScroll, { passive: true })
+          window.addEventListener('resize', handleScroll, { passive: true })
+
+          document.body.appendChild(overlay)
+          currentOverlay = overlay
+
+          overlay.onclick = (event) => {
+            event.preventDefault()
+            event.stopPropagation()
+
+            const text = getTweetText()
+            if (text && text.includes(CONFIG.accountName)) {
+              setShowModal(true)
+            } else {
+              tweetButton.click()
+            }
+          }
+
+          setOverlayButton(overlay)
+          setOriginalButton(tweetButton)
+        }
+      } finally {
+        isUpdating = false
       }
     }
 
-    // Watch for tweet button appearance
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach(mutation => {
-        mutation.addedNodes.forEach(node => {
-          if (node instanceof Element) {
-            const button = node.querySelector('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')
-            if (button) {
-              replaceTweetButton(button)
-            }
-          }
-        })
-      })
+    setTimeout(updateOverlays, 500)
+
+    let mutationTimeout: NodeJS.Timeout | null = null
+    const observer = new MutationObserver(() => {
+      if (mutationTimeout) clearTimeout(mutationTimeout)
+      mutationTimeout = setTimeout(updateOverlays, 100)
     })
 
     observer.observe(document.body, {
       childList: true,
-      subtree: true
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class']
     })
-
-    // Initial setup
-    const existingButton = document.querySelector('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')
-    if (existingButton) {
-      replaceTweetButton(existingButton)
-    }
 
     return () => {
       observer.disconnect()
+      currentResizeObserver?.disconnect()
+      currentOverlay?.remove()
+      if (mutationTimeout) clearTimeout(mutationTimeout)
     }
   }, [])
 
-  // Move the original button into our modal when it's shown
-  useEffect(() => {
-    if (showModal && originalButton) {
-      const container = document.getElementById('original-tweet-button-container')
-      if (container) {
-        container.appendChild(originalButton)
-      }
-    }
-  }, [showModal, originalButton])
+  const handleConfirm = () => {
+    setShowModal(false)
+    if (originalButton) originalButton.click()
+  }
 
-  return modalContainer ? ReactDOM.createPortal(
+  return modalContainer && showModal ? ReactDOM.createPortal(
     <ConfirmationModal
-      open={showModal}
-      tweetButton={originalButton}
-      onClose={() => {
-        console.log('Modal closed')
-        setShowModal(false)
-      }}
+      open={true}
+      onConfirm={handleConfirm}
+      onCancel={() => setShowModal(false)}
     />,
     modalContainer
   ) : null
