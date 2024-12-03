@@ -1,11 +1,18 @@
+import { SELECTORS } from '../constants/selectors'
+import { debug } from './debug'
+
 declare global {
   interface Window {
-    __INITIAL_STATE__: any;
+    __INITIAL_STATE__: any
   }
 }
 
+/**
+ * Finds React internal props on a DOM element
+ * @param element - The DOM element to search
+ * @returns The React props object or null if not found
+ */
 const findReactProps = (element: Element): any => {
-  // Try different known React internal property patterns
   const reactInternalKeys = [
     '__reactFiber$',
     '__reactInternalInstance$',
@@ -17,7 +24,7 @@ const findReactProps = (element: Element): any => {
   for (const prefix of reactInternalKeys) {
     const key = Object.keys(element).find(key => key.startsWith(prefix))
     if (key) {
-      console.log('Found React key:', key)
+      debug.log('Twitter', 'Found React key', { key })
       return (element as any)[key]
     }
   }
@@ -28,21 +35,23 @@ const findReactProps = (element: Element): any => {
   )
   
   if (anyReactKey) {
-    console.log('Found potential React key:', anyReactKey)
+    debug.log('Twitter', 'Found potential React key', { key: anyReactKey })
     return (element as any)[anyReactKey]
   }
 
-  // Log all keys for debugging
-  console.log('All element keys:', Object.keys(element))
-  
+  debug.log('Twitter', 'Available element keys', { keys: Object.keys(element) })
   return null
 }
 
+/**
+ * Recursively searches for the tweet handler function on an element and its parents
+ * @param element - The DOM element to search
+ * @returns The tweet handler function or null if not found
+ */
 const findTweetHandler = (element: Element): Function | null => {
   try {
-    // Try to find props directly on the element
     const props = findReactProps(element)
-    console.log('Found props:', props)
+    debug.log('Twitter', 'Found props', { props })
 
     if (props) {
       // Check different possible locations of the click handler
@@ -50,8 +59,7 @@ const findTweetHandler = (element: Element): Function | null => {
       if (props.children?.props?.onClick) return props.children.props.onClick
       if (props.memoizedProps?.onClick) return props.memoizedProps.onClick
       
-      // If we found props but no handler, log the structure
-      console.log('Props structure:', JSON.stringify(props, null, 2))
+      debug.log('Twitter', 'Props structure', { props })
     }
 
     // Try parent elements if we can't find it here
@@ -60,7 +68,7 @@ const findTweetHandler = (element: Element): Function | null => {
       return findTweetHandler(parent)
     }
   } catch (error) {
-    console.error('Error finding tweet handler:', error)
+    debug.error('Twitter', 'Error finding tweet handler', error)
   }
   return null
 }
@@ -73,15 +81,18 @@ interface TweetPayload {
   }
 }
 
+/**
+ * Sends a tweet by simulating a click on the tweet button
+ * @param text - The text content of the tweet
+ * @returns Promise that resolves to true if the tweet was sent successfully
+ */
 export const sendTweet = async (text: string): Promise<boolean> => {
   try {
     // Try to find both types of tweet buttons
-    const tweetButton = document.querySelector('[data-testid="tweetButton"]') as HTMLElement
+    const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
     const inlineTweetButton = document.querySelector('[data-testid="tweetButtonInline"]') as HTMLElement
     
-    console.log('Found buttons:', { 
-      tweetButton, 
-      inlineTweetButton,
+    debug.log('Twitter', 'Found tweet buttons', { 
       tweetButtonExists: !!tweetButton,
       inlineButtonExists: !!inlineTweetButton,
       tweetButtonClasses: tweetButton?.className,
@@ -90,17 +101,19 @@ export const sendTweet = async (text: string): Promise<boolean> => {
 
     // Create a promise that resolves when the tweet is sent
     const tweetSentPromise = new Promise<boolean>((resolve) => {
-      console.log('Setting up tweet success observer')
+      debug.log('Twitter', 'Setting up tweet success observer')
+      
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
           if (mutation.target instanceof Element) {
-            console.log('Mutation detected:', {
+            debug.log('Twitter', 'Mutation detected', {
               target: mutation.target,
               textContent: mutation.target.textContent,
               type: mutation.type
             })
+            
             if (mutation.target.textContent?.includes('Your Tweet was sent')) {
-              console.log('Tweet success detected')
+              debug.log('Twitter', 'Tweet success detected')
               observer.disconnect()
               resolve(true)
               return
@@ -109,15 +122,16 @@ export const sendTweet = async (text: string): Promise<boolean> => {
         }
       })
       
-      console.log('Starting mutation observer')
+      debug.log('Twitter', 'Starting mutation observer')
       observer.observe(document.body, {
         childList: true,
         subtree: true,
         characterData: true
       })
 
+      // Set a timeout to prevent hanging
       setTimeout(() => {
-        console.log('Tweet timeout reached')
+        debug.log('Twitter', 'Tweet timeout reached')
         observer.disconnect()
         resolve(false)
       }, 5000)
@@ -126,26 +140,25 @@ export const sendTweet = async (text: string): Promise<boolean> => {
     // Click the appropriate button
     const buttonToClick = inlineTweetButton || tweetButton
     if (!buttonToClick) {
-      console.error('No tweet buttons found')
+      debug.error('Twitter', 'No tweet buttons found', null)
       return false
     }
 
-    console.log('Clicking button:', {
-      button: buttonToClick,
+    debug.log('Twitter', 'Clicking button', {
       className: buttonToClick.className,
       textContent: buttonToClick.textContent,
       dataset: buttonToClick.dataset
     })
 
     buttonToClick.click()
-    console.log('Button clicked, waiting for result')
+    debug.log('Twitter', 'Button clicked, waiting for result')
 
     const success = await tweetSentPromise
-    console.log('Tweet operation completed:', { success })
+    debug.log('Twitter', 'Tweet operation completed', { success })
     return success
 
   } catch (error) {
-    console.error('Error sending tweet:', error)
+    debug.error('Twitter', 'Error sending tweet', error)
     return false
   }
 } 

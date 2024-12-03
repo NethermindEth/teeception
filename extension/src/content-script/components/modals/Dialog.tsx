@@ -1,12 +1,24 @@
 import React, { useEffect } from 'react'
 import { cn } from "@/lib/utils"
+import { debug } from '../../utils/debug'
 
 interface DialogProps {
+  /** Whether the dialog is open */
   open: boolean
+  /** Callback when the dialog should close */
   onClose: () => void
+  /** Dialog content */
   children: React.ReactNode
 }
 
+/**
+ * A modal dialog component that displays content in a centered overlay
+ * Features:
+ * - Backdrop blur effect
+ * - Click outside to close
+ * - Smooth animations
+ * - Event isolation from parent elements
+ */
 export const Dialog = ({ open, onClose, children }: DialogProps) => {
   if (!open) return null
 
@@ -15,8 +27,10 @@ export const Dialog = ({ open, onClose, children }: DialogProps) => {
     const container = document.getElementById('jack-the-ether-modal-container')
     if (container) {
       container.style.pointerEvents = 'auto'
+      debug.log('Dialog', 'Enabled pointer events')
       return () => {
         container.style.pointerEvents = 'none'
+        debug.log('Dialog', 'Disabled pointer events')
       }
     }
   }, [])
@@ -25,6 +39,7 @@ export const Dialog = ({ open, onClose, children }: DialogProps) => {
     if (e.target === e.currentTarget) {
       e.preventDefault()
       e.stopPropagation()
+      debug.log('Dialog', 'Backdrop clicked')
       onClose()
     }
   }

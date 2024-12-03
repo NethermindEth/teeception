@@ -1,15 +1,10 @@
 import React from 'react'
 import { Button } from "@/components/ui/button"
 import { Dialog } from './Dialog'
-import { CONFIG } from '../config'
+import { CONFIG } from '../../config'
 import { cn } from "@/lib/utils"
 import { AlertTriangle } from "lucide-react"
-
-const debug = {
-  log: (action: string, data?: any) => {
-    console.log(`[JackTheEther][ConfirmationModal] ${action}`, data || '')
-  }
-}
+import { debug } from '../../utils/debug'
 
 interface ConfirmationModalProps {
   open: boolean
@@ -17,8 +12,11 @@ interface ConfirmationModalProps {
   onCancel: () => void
 }
 
+/**
+ * Modal component that shows a confirmation dialog when a user mentions a specific account in their tweet
+ */
 export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationModalProps) => {
-  debug.log('Rendering', { open })
+  debug.log('ConfirmationModal', 'Rendering', { open })
 
   return (
     <Dialog open={open} onClose={onCancel}>
@@ -53,7 +51,7 @@ export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationMod
           <Button
             variant="outline"
             onClick={() => {
-              debug.log('Cancel button clicked')
+              debug.log('ConfirmationModal', 'Cancel button clicked')
               onCancel()
             }}
           >
@@ -62,7 +60,7 @@ export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationMod
           <Button
             variant="default"
             onClick={() => {
-              debug.log('Confirm button clicked')
+              debug.log('ConfirmationModal', 'Confirm button clicked')
               onConfirm()
             }}
           >

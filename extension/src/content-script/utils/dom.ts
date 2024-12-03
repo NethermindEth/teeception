@@ -1,6 +1,16 @@
+import { SELECTORS } from '../constants/selectors'
+import { debug } from './debug'
+
+/**
+ * Creates or retrieves the modal container element
+ * This container is used to render modals outside the normal DOM hierarchy
+ * @returns The modal container element
+ */
 export const createModalContainer = () => {
   let container = document.getElementById('jack-the-ether-modal-container')
+  
   if (!container) {
+    debug.log('DOM', 'Creating new modal container')
     container = document.createElement('div')
     container.id = 'jack-the-ether-modal-container'
     container.style.position = 'fixed'
@@ -12,10 +22,22 @@ export const createModalContainer = () => {
     container.style.pointerEvents = 'none'
     document.body.appendChild(container)
   }
+  
   return container
 }
 
-export const getTweetText = () => {
-  const tweetBox = document.querySelector('[data-testid="tweetTextarea_0"], [data-testid="tweetTextarea_1"]')
-  return tweetBox?.textContent || ''
+/**
+ * Gets the current text content of the tweet textarea
+ * @returns The tweet text content or an empty string if not found
+ */
+export const getTweetText = (): string => {
+  try {
+    const tweetBox = document.querySelector(SELECTORS.TWEET_TEXTAREA)
+    const text = tweetBox?.textContent || ''
+    debug.log('DOM', 'Retrieved tweet text', { text })
+    return text
+  } catch (error) {
+    debug.error('DOM', 'Failed to get tweet text', error)
+    return ''
+  }
 } 
