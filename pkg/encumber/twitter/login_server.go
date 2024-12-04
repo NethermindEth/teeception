@@ -3,13 +3,12 @@ package twitter
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"github.com/dghubble/oauth1"
+	twauth "github.com/dghubble/oauth1/twitter"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,7 +31,8 @@ type CallbackQuery struct {
 type TwitterLoginServer struct {
 	server *http.Server
 
-	url string
+	ip   string
+	port string
 
 	twitterAppKey    string
 	twitterAppSecret string
@@ -43,9 +43,10 @@ type TwitterLoginServer struct {
 	tokenPair      *OAuthTokenPair
 }
 
-func NewTwitterLoginServer(url string, twitterAppKey, twitterAppSecret string) *TwitterLoginServer {
+func NewTwitterLoginServer(ip, port string, twitterAppKey, twitterAppSecret string) *TwitterLoginServer {
 	return &TwitterLoginServer{
-		url:              url,
+		ip:               ip,
+		port:             port,
 		shutdownCh:       make(chan struct{}),
 		twitterAppKey:    twitterAppKey,
 		twitterAppSecret: twitterAppSecret,
@@ -53,11 +54,11 @@ func NewTwitterLoginServer(url string, twitterAppKey, twitterAppSecret string) *
 }
 
 func (s *TwitterLoginServer) GetLoginRoute() string {
-	return "http://" + s.url + loginRoute
+	return "http://" + s.ip + ":" + s.port + loginRoute
 }
 
 func (s *TwitterLoginServer) GetCallbackRoute() string {
-	return "http://" + s.url + callbackRoute
+	return "http://" + s.ip + ":" + s.port + callbackRoute
 }
 
 func (s *TwitterLoginServer) WaitForTokenPair(ctx context.Context) (*OAuthTokenPair, error) {
@@ -81,7 +82,7 @@ func (s *TwitterLoginServer) Start() {
 	router.GET(callbackRoute, s.handleCallback)
 
 	s.server = &http.Server{
-		Addr:    s.url,
+		Addr:    "0.0.0.0:" + s.port,
 		Handler: router,
 	}
 
@@ -107,6 +108,7 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 
 	tokenPair, err := s.requestOAuthToken(s.twitterAppKey, s.twitterAppSecret)
 	if err != nil {
+		slog.Error("failed to request OAuth token", "error", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to request OAuth token: %v", err))
 		return
 	}
@@ -115,9 +117,22 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 	s.tokenPair = tokenPair
 	s.tokenPairMutex.Unlock()
 
-	authURL := fmt.Sprintf("https://api.twitter.com/oauth/authenticate?oauth_token=%s", s.tokenPair.Token)
-	slog.Info("redirecting to Twitter", "url", authURL)
-	c.Redirect(http.StatusTemporaryRedirect, authURL)
+	config := oauth1.Config{
+		ConsumerKey:    s.twitterAppKey,
+		ConsumerSecret: s.twitterAppSecret,
+		CallbackURL:    s.GetCallbackRoute(),
+		Endpoint:       twauth.AuthorizeEndpoint,
+	}
+
+	authorizationURL, err := config.AuthorizationURL(tokenPair.Token)
+	if err != nil {
+		slog.Error("failed to get authorization URL", "error", err)
+		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to get authorization URL: %v", err))
+		return
+	}
+
+	slog.Info("redirecting to Twitter", "url", authorizationURL.String())
+	c.Redirect(http.StatusTemporaryRedirect, authorizationURL.String())
 }
 
 func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
@@ -150,6 +165,7 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 
 	tokenPair, err := s.authorizeToken(s.twitterAppKey, s.twitterAppSecret, query.OAuthVerifier)
 	if err != nil {
+		slog.Error("failed to authorize token", "error", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to authorize token: %v", err))
 		return
 	}
@@ -164,9 +180,8 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 }
 
 type RequestTokenResponse struct {
-	OAuthToken             string `json:"oauth_token"`
-	OAuthTokenSecret       string `json:"oauth_token_secret"`
-	OAuthCallbackConfirmed bool   `json:"oauth_callback_confirmed"`
+	OAuthToken       string `json:"oauth_token"`
+	OAuthTokenSecret string `json:"oauth_token_secret"`
 }
 
 type AccessTokenResponse struct {
@@ -177,48 +192,22 @@ type AccessTokenResponse struct {
 }
 
 func (s *TwitterLoginServer) requestOAuthToken(appKey, appSecret string) (*OAuthTokenPair, error) {
-	config := oauth1.NewConfig(appKey, appSecret)
-
-	client := config.Client(oauth1.NoContext, nil)
-
-	params := url.Values{}
-	params.Set("oauth_callback", s.GetCallbackRoute())
-
-	req, err := http.NewRequest("POST", "https://api.twitter.com/oauth/request_token", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
-	}
-	req.URL.RawQuery = params.Encode()
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+	config := oauth1.Config{
+		ConsumerKey:    appKey,
+		ConsumerSecret: appSecret,
+		CallbackURL:    s.GetCallbackRoute(),
+		Endpoint:       twauth.AuthorizeEndpoint,
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	requestToken, requestSecret, err := config.RequestToken()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
-	}
-
-	values, err := url.ParseQuery(string(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v", err)
+		slog.Error("failed to get request token", "error", err)
+		return nil, err
 	}
 
 	response := &RequestTokenResponse{
-		OAuthToken:             values.Get("oauth_token"),
-		OAuthTokenSecret:       values.Get("oauth_token_secret"),
-		OAuthCallbackConfirmed: values.Get("oauth_callback_confirmed") == "true",
-	}
-
-	if !response.OAuthCallbackConfirmed {
-		return nil, fmt.Errorf("oauth callback not confirmed")
+		OAuthToken:       requestToken,
+		OAuthTokenSecret: requestSecret,
 	}
 
 	return &OAuthTokenPair{
@@ -232,44 +221,22 @@ func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier str
 	tokenPair := s.tokenPair
 	s.tokenPairMutex.Unlock()
 
-	config := oauth1.NewConfig(appKey, appSecret)
-	token := oauth1.NewToken(tokenPair.Token, tokenPair.Secret)
-
-	client := config.Client(oauth1.NoContext, token)
-
-	params := url.Values{}
-	params.Set("oauth_verifier", oauthVerifier)
-
-	req, err := http.NewRequest("POST", "https://api.twitter.com/oauth/access_token", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
-	}
-	req.URL.RawQuery = params.Encode()
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+	config := oauth1.Config{
+		ConsumerKey:    appKey,
+		ConsumerSecret: appSecret,
+		CallbackURL:    s.GetCallbackRoute(),
+		Endpoint:       twauth.AuthorizeEndpoint,
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	accessToken, accessSecret, err := config.AccessToken(tokenPair.Token, tokenPair.Secret, oauthVerifier)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
-	}
-
-	values, err := url.ParseQuery(string(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v", err)
+		slog.Error("failed to get access token", "error", err)
+		return nil, err
 	}
 
 	response := &AccessTokenResponse{
-		OAuthToken:       values.Get("oauth_token"),
-		OAuthTokenSecret: values.Get("oauth_token_secret"),
+		OAuthToken:       accessToken,
+		OAuthTokenSecret: accessSecret,
 	}
 
 	return &OAuthTokenPair{
@@ -284,11 +251,13 @@ func (s *TwitterLoginServer) validateAccessToken(tokenPair *OAuthTokenPair) erro
 
 	resp, err := client.Get("https://api.twitter.com/2/users/me?user.fields=profile_image_url,most_recent_tweet_id")
 	if err != nil {
+		slog.Error("failed to send request", "error", err)
 		return fmt.Errorf("failed to send request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		slog.Error("request failed", "status", resp.StatusCode)
 		return fmt.Errorf("request failed with status %d", resp.StatusCode)
 	}
 

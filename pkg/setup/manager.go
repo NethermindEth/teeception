@@ -22,7 +22,8 @@ type SetupManager struct {
 	ethRpcUrl        string
 	contractAddress  string
 	openAiKey        string
-	loginServerUrl   string
+	loginServerIp    string
+	loginServerPort  string
 }
 
 type SetupOutput struct {
@@ -59,7 +60,8 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		ethRpcUrl:        getEnv("ETH_RPC_URL"),
 		contractAddress:  getEnv("CONTRACT_ADDRESS"),
 		openAiKey:        getEnv("OPENAI_API_KEY"),
-		loginServerUrl:   getEnv("X_LOGIN_SERVER_URL"),
+		loginServerIp:    getEnv("X_LOGIN_SERVER_IP"),
+		loginServerPort:  getEnv("X_LOGIN_SERVER_PORT"),
 	}
 
 	if err := setupManager.Validate(); err != nil {
@@ -97,7 +99,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		TwitterEmail:     m.protonEmail,
 		TwitterAppKey:    m.twitterAppKey,
 		TwitterAppSecret: m.twitterAppSecret,
-	}, m.loginServerUrl, func(ctx context.Context) (string, error) {
+	}, m.loginServerIp, m.loginServerPort, func(ctx context.Context) (string, error) {
 		return protonEncumberer.GetTwitterVerificationCode(ctx)
 	})
 

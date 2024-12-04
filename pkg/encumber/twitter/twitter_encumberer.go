@@ -38,7 +38,8 @@ const (
 
 type TwitterEncumberer struct {
 	credentials         TwitterEncumbererCredentials
-	loginServerUrl      string
+	loginServerIp       string
+	loginServerPort     string
 	getVerificationCode func(ctx context.Context) (string, error)
 }
 
@@ -61,10 +62,11 @@ type TwitterEncumbererCredentials struct {
 	TwitterAppSecret string
 }
 
-func NewTwitterEncumberer(credentials TwitterEncumbererCredentials, loginServerUrl string, getVerificationCode func(ctx context.Context) (string, error)) *TwitterEncumberer {
+func NewTwitterEncumberer(credentials TwitterEncumbererCredentials, loginServerIp, loginServerPort string, getVerificationCode func(ctx context.Context) (string, error)) *TwitterEncumberer {
 	return &TwitterEncumberer{
 		credentials:         credentials,
-		loginServerUrl:      loginServerUrl,
+		loginServerIp:       loginServerIp,
+		loginServerPort:     loginServerPort,
 		getVerificationCode: getVerificationCode,
 	}
 }
@@ -291,8 +293,8 @@ func (t *TwitterEncumberer) GetCookies(ctx context.Context, driver *selenium_uti
 }
 
 func (t *TwitterEncumberer) GetAccessKeys(ctx context.Context, driver *selenium_utils.SeleniumDriver) (*OAuthTokenPair, error) {
-	slog.Info("starting twitter login server", "url", t.loginServerUrl)
-	twitterLoginServer := NewTwitterLoginServer(t.loginServerUrl, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret)
+	slog.Info("starting twitter login server", "ip", t.loginServerIp, "port", t.loginServerPort)
+	twitterLoginServer := NewTwitterLoginServer(t.loginServerIp, t.loginServerPort, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret)
 	twitterLoginServer.Start()
 
 	slog.Info("navigating to login", "url", twitterLoginServer.GetLoginRoute())
