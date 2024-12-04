@@ -94,6 +94,8 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 	}
 	slog.Info("username entered", "username", t.credentials.TwitterUsername)
 
+	time.Sleep(twitterInputDelay)
+
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		password, err := wd.FindElement(selenium.ByCSSSelector, twitterPasswordSelector)
 		if err != nil {
@@ -107,7 +109,7 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 	if err != nil {
 		return fmt.Errorf("failed to find or interact with password field: %v", err)
 	}
-	slog.Info("password entered")
+	slog.Info("password entered", "password", t.credentials.TwitterPassword)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		email, err := wd.FindElement(selenium.ByCSSSelector, twitterEmailSelector)
