@@ -18,11 +18,6 @@ const (
 	callbackRoute = "/callback"
 )
 
-type OAuthTokenPair struct {
-	Token  string
-	Secret string
-}
-
 type CallbackQuery struct {
 	OAuthToken    string `form:"oauth_token"`
 	OAuthVerifier string `form:"oauth_verifier"`
@@ -40,7 +35,7 @@ type TwitterLoginServer struct {
 	shutdownCh chan struct{}
 
 	tokenPairMutex sync.Mutex
-	tokenPair      *OAuthTokenPair
+	tokenPair      *oauth1.Token
 
 	debug bool
 }
@@ -64,7 +59,7 @@ func (s *TwitterLoginServer) GetCallbackRoute() string {
 	return "http://" + s.ip + ":" + s.port + callbackRoute
 }
 
-func (s *TwitterLoginServer) WaitForTokenPair(ctx context.Context) (*OAuthTokenPair, error) {
+func (s *TwitterLoginServer) WaitForTokenPair(ctx context.Context) (*oauth1.Token, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -117,7 +112,7 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 	}
 
 	if s.debug {
-		slog.Info("requested OAuth token", "token", tokenPair.Token, "secret", tokenPair.Secret)
+		slog.Info("requested OAuth token", "token", tokenPair.Token, "secret", tokenPair.TokenSecret)
 	}
 
 	s.tokenPairMutex.Lock()
@@ -182,7 +177,7 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 	}
 
 	if s.debug {
-		slog.Info("authorized token", "token", tokenPair.Token, "secret", tokenPair.Secret)
+		slog.Info("authorized token", "token", tokenPair.Token, "secret", tokenPair.TokenSecret)
 	}
 
 	s.validateAccessToken(tokenPair)
@@ -194,19 +189,7 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 	c.String(http.StatusOK, "Successfully logged in")
 }
 
-type RequestTokenResponse struct {
-	OAuthToken       string `json:"oauth_token"`
-	OAuthTokenSecret string `json:"oauth_token_secret"`
-}
-
-type AccessTokenResponse struct {
-	OAuthToken       string `json:"oauth_token"`
-	OAuthTokenSecret string `json:"oauth_token_secret"`
-	// UserID           uint64 `json:"user_id,string"`
-	// ScreenName       string `json:"screen_name"`
-}
-
-func (s *TwitterLoginServer) requestOAuthToken(appKey, appSecret string) (*OAuthTokenPair, error) {
+func (s *TwitterLoginServer) requestOAuthToken(appKey, appSecret string) (*oauth1.Token, error) {
 	config := oauth1.Config{
 		ConsumerKey:    appKey,
 		ConsumerSecret: appSecret,
@@ -220,18 +203,10 @@ func (s *TwitterLoginServer) requestOAuthToken(appKey, appSecret string) (*OAuth
 		return nil, err
 	}
 
-	response := &RequestTokenResponse{
-		OAuthToken:       requestToken,
-		OAuthTokenSecret: requestSecret,
-	}
-
-	return &OAuthTokenPair{
-		Token:  response.OAuthToken,
-		Secret: response.OAuthTokenSecret,
-	}, nil
+	return oauth1.NewToken(requestToken, requestSecret), nil
 }
 
-func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier string) (*OAuthTokenPair, error) {
+func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier string) (*oauth1.Token, error) {
 	s.tokenPairMutex.Lock()
 	tokenPair := s.tokenPair
 	s.tokenPairMutex.Unlock()
@@ -243,7 +218,7 @@ func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier str
 		Endpoint:       twauth.AuthorizeEndpoint,
 	}
 
-	accessToken, accessSecret, err := config.AccessToken(tokenPair.Token, tokenPair.Secret, oauthVerifier)
+	accessToken, accessSecret, err := config.AccessToken(tokenPair.Token, tokenPair.TokenSecret, oauthVerifier)
 	if err != nil {
 		slog.Error("failed to get access token", "error", err)
 		return nil, err
@@ -253,20 +228,12 @@ func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier str
 		slog.Info("got access token", "token", accessToken, "secret", accessSecret)
 	}
 
-	response := &AccessTokenResponse{
-		OAuthToken:       accessToken,
-		OAuthTokenSecret: accessSecret,
-	}
-
-	return &OAuthTokenPair{
-		Token:  response.OAuthToken,
-		Secret: response.OAuthTokenSecret,
-	}, nil
+	return oauth1.NewToken(accessToken, accessSecret), nil
 }
 
-func (s *TwitterLoginServer) validateAccessToken(tokenPair *OAuthTokenPair) error {
+func (s *TwitterLoginServer) validateAccessToken(token *oauth1.Token) error {
 	client := oauth1.NewConfig(s.twitterAppKey, s.twitterAppSecret).
-		Client(oauth1.NoContext, oauth1.NewToken(tokenPair.Token, tokenPair.Secret))
+		Client(oauth1.NoContext, token)
 
 	resp, err := client.Get("https://api.twitter.com/2/users/me?user.fields=profile_image_url,most_recent_tweet_id")
 	if err != nil {

@@ -123,7 +123,7 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 	output := &SetupOutput{
 		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
 		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
-		TwitterAccessTokenSecret: twitterEncumbererOutput.OAuthTokenPair.Secret,
+		TwitterAccessTokenSecret: twitterEncumbererOutput.OAuthTokenPair.TokenSecret,
 		TwitterConsumerKey:       m.twitterAppKey,
 		TwitterConsumerSecret:    m.twitterAppSecret,
 		TwitterUsername:          m.twitterAccount,
