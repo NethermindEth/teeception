@@ -17,7 +17,7 @@ type SeleniumDriver struct {
 	service *selenium.Service
 }
 
-func NewSeleniumDriver() (*SeleniumDriver, error) {
+func NewSeleniumDriver(port int) (*SeleniumDriver, error) {
 	opts := []selenium.ServiceOption{}
 	caps := selenium.Capabilities{
 		"browserName": "chrome",
@@ -33,12 +33,12 @@ func NewSeleniumDriver() (*SeleniumDriver, error) {
 	}
 	caps.AddChrome(chromeCaps)
 
-	service, err := selenium.NewChromeDriverService(chromeDriverPath, 4444, opts...)
+	service, err := selenium.NewChromeDriverService(chromeDriverPath, port, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrome driver service: %v", err)
 	}
 
-	driver, err := selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", 4444))
+	driver, err := selenium.NewRemote(caps, fmt.Sprintf("http://localhost:%d/wd/hub", port))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create selenium driver: %v", err)
 	}

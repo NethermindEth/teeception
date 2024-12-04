@@ -3,6 +3,7 @@ package setup
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/sethvargo/go-password/password"
@@ -11,6 +12,7 @@ import (
 
 const (
 	protonLoginUrl    = "https://account.proton.me/"
+	protonMailUrl     = "https://mail.proton.me/u/0/inbox"
 	protonPasswordUrl = "https://account.proton.me/u/0/mail/account-password"
 
 	protonUsernameElementId = "username"
@@ -18,7 +20,8 @@ const (
 	protonNewPwdElementId   = "newPassword"
 	protonConfirmElementId  = "confirmPassword"
 
-	protonChangeButtonXpath = "//button[contains(text(), 'Change password')]"
+	protonChangeButtonXpath     = "//button[contains(text(), 'Change password')]"
+	protonVerificationCodeXpath = "//span[contains(text(), 'Your X confirmation')]"
 
 	protonWaitTimeout     = 30 * time.Second
 	protonSleepDelay      = 5 * time.Second
@@ -29,7 +32,7 @@ const (
 )
 
 func (m *SetupManager) ChangeProtonPassword() (string, error) {
-	driver, err := NewSeleniumDriver()
+	driver, err := NewSeleniumDriver(4445)
 	if err != nil {
 		return "", fmt.Errorf("failed to create selenium driver: %v", err)
 	}
@@ -158,4 +161,89 @@ func (m *SetupManager) ChangeProtonPassword() (string, error) {
 	time.Sleep(protonLoginDelay)
 
 	return newPasswordStr, nil
+}
+
+func (m *SetupManager) GetTwitterVerificationCode(port int) (string, error) {
+	slog.Info("getting twitter verification code")
+
+	driver, err := NewSeleniumDriver(port)
+	if err != nil {
+		return "", fmt.Errorf("failed to create selenium driver: %v", err)
+	}
+	defer driver.Close()
+
+	if err := driver.Get(protonLoginUrl); err != nil {
+		return "", fmt.Errorf("failed to navigate to login page: %v", err)
+	}
+
+	time.Sleep(protonNavigationDelay)
+
+	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+		username, err := wd.FindElement(selenium.ByID, protonUsernameElementId)
+		if err != nil {
+			return false, nil
+		}
+		time.Sleep(seleniumInputDelay)
+		if err := username.SendKeys(m.protonEmail); err != nil {
+			return false, err
+		}
+		return true, nil
+	}, protonWaitTimeout)
+	if err != nil {
+		return "", fmt.Errorf("failed to find or interact with username field: %v", err)
+	}
+	slog.Info("username entered")
+
+	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+		password, err := wd.FindElement(selenium.ByID, protonPasswordElementId)
+		if err != nil {
+			return false, nil
+		}
+		time.Sleep(seleniumInputDelay)
+		if err := password.SendKeys(m.protonPassword); err != nil {
+			return false, err
+		}
+		if err := password.Submit(); err != nil {
+			return false, err
+		}
+		return true, nil
+	}, protonWaitTimeout)
+	if err != nil {
+		return "", fmt.Errorf("failed to find or interact with password field: %v", err)
+	}
+	slog.Info("password entered")
+
+	time.Sleep(protonNavigationDelay)
+
+	if err := driver.Get(protonMailUrl); err != nil {
+		return "", fmt.Errorf("failed to navigate to inbox: %v", err)
+	}
+
+	time.Sleep(protonNavigationDelay)
+
+	var verificationCode string
+
+	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+		verificationCodeSpan, err := wd.FindElement(selenium.ByXPATH, protonVerificationCodeXpath)
+		if err != nil {
+			return false, nil
+		}
+		verificationCodeSpanText, err := verificationCodeSpan.Text()
+		if err != nil {
+			return false, err
+		}
+		verificationCodeSpanTextParts := strings.Split(verificationCodeSpanText, " ")
+
+		verificationCode = verificationCodeSpanTextParts[len(verificationCodeSpanTextParts)-1]
+
+		return true, nil
+	}, protonWaitTimeout)
+	if err != nil {
+		fmt.Println(driver.PageSource())
+		return "", fmt.Errorf("failed to find verification code: %v", err)
+	}
+
+	slog.Info("verification code found", "code", verificationCode)
+
+	return verificationCode, nil
 }

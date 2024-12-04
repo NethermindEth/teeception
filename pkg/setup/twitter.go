@@ -13,15 +13,17 @@ import (
 )
 
 const (
-	twitterLoginUrl    = "https://twitter.com/i/flow/login"
+	twitterLoginUrl    = "https://x.com/i/flow/login"
 	twitterPasswordUrl = "https://x.com/settings/password"
 
-	twitterSubmitButtonXpath   = `/html/body/div[1]/div/div/div[2]/main/div/div/div/section[2]/div[2]/div[3]/button`
-	twitterUsernameSelector    = `input[autocomplete="username"]`
-	twitterPasswordSelector    = `input[name="password"]`
-	twitterCurrentPasswordName = "current_password"
-	twitterNewPasswordName     = "new_password"
-	twitterConfirmPasswordName = "password_confirmation"
+	twitterSubmitButtonXpath        = `/html/body/div[1]/div/div/div[2]/main/div/div/div/section[2]/div[2]/div[3]/button`
+	twitterUsernameSelector         = `input[autocomplete="username"]`
+	twitterEmailSelector            = `input[autocomplete="email"]`
+	twitterPasswordSelector         = `input[name="password"]`
+	twitterVerificationCodeSelector = `input[name="verification_code"]`
+	twitterCurrentPasswordName      = "current_password"
+	twitterNewPasswordName          = "new_password"
+	twitterConfirmPasswordName      = "password_confirmation"
 
 	twitterSelectionTimeout = 20 * time.Second
 	twitterLoginDelay       = 15 * time.Second
@@ -35,7 +37,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 		return "", fmt.Errorf("X_PASSWORD not found in environment")
 	}
 
-	driver, err := NewSeleniumDriver()
+	driver, err := NewSeleniumDriver(4444)
 	if err != nil {
 		return "", fmt.Errorf("failed to create selenium driver: %v", err)
 	}
@@ -77,6 +79,53 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 	}
 	slog.Info("password entered")
 
+	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+		email, err := wd.FindElement(selenium.ByCSSSelector, twitterEmailSelector)
+		if err != nil {
+			return false, nil
+		}
+		if err := email.SendKeys(m.protonEmail + selenium.EnterKey); err != nil {
+			return false, err
+		}
+		return true, nil
+	}, twitterSelectionTimeout)
+	if err != nil {
+		// This is not a critical error, so we just log it and continue
+		slog.Warn("failed to find possible email field", "error", err)
+	}
+
+	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+		_, err := wd.FindElement(selenium.ByXPATH, `//span[text()='Confirmation code']`)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	}, twitterSelectionTimeout)
+	if err != nil {
+		slog.Warn("failed to find possible verification code flow", "error", err)
+	} else {
+		slog.Info("found possible verification code flow")
+
+		verificationCode, err := m.GetTwitterVerificationCode(4445)
+		if err != nil {
+			slog.Warn("failed to find verification code", "error", err)
+		}
+
+		err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+			verificationCodeField, err := wd.FindElement(selenium.ByCSSSelector, `input[name="text"]`)
+			if err != nil {
+				return false, nil
+			}
+			if err := verificationCodeField.SendKeys(verificationCode + selenium.EnterKey); err != nil {
+				return false, err
+			}
+			return true, nil
+		}, twitterSelectionTimeout)
+		if err != nil {
+			return "", fmt.Errorf("failed to find or interact with verification code field: %v", err)
+		}
+	}
+
 	time.Sleep(twitterLoginDelay)
 
 	newPasswordStr, err := password.Generate(16, 4, 4, false, false)
@@ -102,6 +151,7 @@ func (m *SetupManager) ChangeTwitterPassword() (string, error) {
 		return true, nil
 	}, twitterSelectionTimeout)
 	if err != nil {
+		fmt.Println(driver.PageSource())
 		return "", fmt.Errorf("failed to find or interact with current password field: %v", err)
 	}
 	slog.Info("current password entered")
@@ -159,7 +209,7 @@ type TwitterAuthTokens struct {
 }
 
 func (m *SetupManager) GetTwitterTokens(ctx context.Context) (string, *auth.OAuthTokenPair, error) {
-	driver, err := NewSeleniumDriver()
+	driver, err := NewSeleniumDriver(4444)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create selenium driver: %v", err)
 	}
