@@ -326,7 +326,21 @@ func (t *TwitterEncumberer) Encumber(ctx context.Context) (*TwitterEncumbererOut
 	}
 	slog.Info("successfully changed twitter password")
 
+	cookies, err := t.GetCookies(ctx, driver)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cookies: %v", err)
+	}
+	slog.Info("successfully retrieved twitter authentication cookies")
+
+	accessKeys, err := t.GetAccessKeys(ctx, driver)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get access keys: %v", err)
+	}
+	slog.Info("successfully retrieved twitter access keys")
+
 	return &TwitterEncumbererOutput{
-		NewPassword: newPassword,
+		NewPassword:    newPassword,
+		AuthTokens:     cookies,
+		OAuthTokenPair: accessKeys,
 	}, nil
 }
