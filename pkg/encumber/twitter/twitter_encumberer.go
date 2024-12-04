@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/NethermindEth/teeception/pkg/auth"
@@ -160,6 +161,15 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 
 	slog.Info("waiting for login to complete", "delay", twitterLoginDelay)
 	time.Sleep(twitterLoginDelay)
+
+	url, err := driver.CurrentURL()
+	if err != nil {
+		return fmt.Errorf("failed to get current URL: %v", err)
+	}
+	if strings.HasPrefix(url, twitterLoginUrl) {
+		slog.Error("URL indicates login did not complete", "url", url)
+		return fmt.Errorf("unsuccessful login")
+	}
 
 	return nil
 }
