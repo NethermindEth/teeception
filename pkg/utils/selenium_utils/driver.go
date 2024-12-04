@@ -1,7 +1,8 @@
-package setup
+package selenium_utils
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
@@ -52,4 +53,23 @@ func NewSeleniumDriver(port int) (*SeleniumDriver, error) {
 func (s *SeleniumDriver) Close() {
 	s.service.Stop()
 	s.WebDriver.Quit()
+}
+
+func (s *SeleniumDriver) Debug() error {
+	url, err := s.CurrentURL()
+	if err != nil {
+		return fmt.Errorf("failed to get current url: %v", err)
+	}
+
+	source, err := s.PageSource()
+	if err != nil {
+		return fmt.Errorf("failed to get page source: %v", err)
+	}
+
+	slog.Info("=== debugging selenium driver ===")
+	slog.Info("reading current source", "url", url)
+	slog.Info(source)
+	slog.Info("=================================")
+
+	return nil
 }

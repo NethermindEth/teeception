@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/NethermindEth/teeception/pkg/encumber/proton"
+	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
 	"github.com/defiweb/go-eth/types"
 )
 
@@ -84,19 +86,29 @@ func (m *SetupManager) Validate() error {
 }
 
 func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
-	twitterPassword, err := m.ChangeTwitterPassword()
+	protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{
+		ProtonUsername: m.protonEmail,
+		ProtonPassword: m.protonPassword,
+	})
+
+	twitterEncumberer := twitter.NewTwitterEncumberer(twitter.TwitterEncumbererCredentials{
+		TwitterUsername:  m.twitterAccount,
+		TwitterPassword:  m.twitterPassword,
+		TwitterEmail:     m.protonEmail,
+		TwitterAppKey:    m.twitterAppKey,
+		TwitterAppSecret: m.twitterAppSecret,
+	}, m.loginServerUrl, func(ctx context.Context) (string, error) {
+		return protonEncumberer.GetTwitterVerificationCode(ctx)
+	})
+
+	twitterEncumbererOutput, err := twitterEncumberer.Encumber(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to change twitter password: %v", err)
+		return nil, fmt.Errorf("failed to encumber twitter: %v", err)
 	}
 
-	protonPassword, err := m.ChangeProtonPassword()
+	protonEncumbererOutput, err := protonEncumberer.Encumber(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to change proton password: %v", err)
-	}
-
-	twitterAuthTokens, twitterTokenPair, err := m.GetTwitterTokens(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get twitter tokens: %v", err)
+		return nil, fmt.Errorf("failed to encumber proton: %v", err)
 	}
 
 	ethPrivateKey := GeneratePrivateKey()
@@ -107,14 +119,14 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 	}
 
 	return &SetupOutput{
-		TwitterAuthTokens:        twitterAuthTokens,
-		TwitterAccessToken:       twitterTokenPair.Token,
-		TwitterAccessTokenSecret: twitterTokenPair.Secret,
+		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
+		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
+		TwitterAccessTokenSecret: twitterEncumbererOutput.OAuthTokenPair.Secret,
 		TwitterConsumerKey:       m.twitterAppKey,
 		TwitterConsumerSecret:    m.twitterAppSecret,
 		TwitterUsername:          m.twitterAccount,
-		TwitterPassword:          twitterPassword,
-		ProtonPassword:           protonPassword,
+		TwitterPassword:          twitterEncumbererOutput.NewPassword,
+		ProtonPassword:           protonEncumbererOutput.NewPassword,
 		EthPrivateKey:            ethPrivateKey,
 		EthRpcUrl:                m.ethRpcUrl,
 		ContractAddress:          contractAddress,
