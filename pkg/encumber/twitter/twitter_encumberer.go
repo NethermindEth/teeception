@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/teeception/pkg/auth"
 	"github.com/NethermindEth/teeception/pkg/utils/password"
 	"github.com/NethermindEth/teeception/pkg/utils/selenium_utils"
 	"github.com/tebeka/selenium"
@@ -46,7 +45,7 @@ type TwitterEncumberer struct {
 type TwitterEncumbererOutput struct {
 	NewPassword    string
 	AuthTokens     string
-	OAuthTokenPair *auth.OAuthTokenPair
+	OAuthTokenPair *OAuthTokenPair
 }
 
 type TwitterAuthTokens struct {
@@ -291,9 +290,9 @@ func (t *TwitterEncumberer) GetCookies(ctx context.Context, driver *selenium_uti
 	return string(authTokens), nil
 }
 
-func (t *TwitterEncumberer) GetAccessKeys(ctx context.Context, driver *selenium_utils.SeleniumDriver) (*auth.OAuthTokenPair, error) {
+func (t *TwitterEncumberer) GetAccessKeys(ctx context.Context, driver *selenium_utils.SeleniumDriver) (*OAuthTokenPair, error) {
 	slog.Info("starting twitter login server", "url", t.loginServerUrl)
-	twitterLoginServer := auth.NewTwitterLoginServer(t.loginServerUrl, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret)
+	twitterLoginServer := NewTwitterLoginServer(t.loginServerUrl, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret)
 	twitterLoginServer.Start()
 
 	slog.Info("navigating to login", "url", twitterLoginServer.GetLoginRoute())
