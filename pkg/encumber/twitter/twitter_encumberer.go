@@ -194,7 +194,6 @@ func (t *TwitterEncumberer) SetNewPassword(ctx context.Context, driver *selenium
 		return true, nil
 	}, twitterSelectionTimeout)
 	if err != nil {
-		fmt.Println(driver.PageSource())
 		return fmt.Errorf("failed to find or interact with current password field: %v", err)
 	}
 	slog.Info("current password entered")
