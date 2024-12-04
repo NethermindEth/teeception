@@ -36,6 +36,7 @@ const (
 )
 
 type ProtonEncumberer struct {
+	debug       bool
 	credentials ProtonEncumbererCredentials
 }
 
@@ -48,8 +49,8 @@ type ProtonEncumbererOutput struct {
 	NewPassword string
 }
 
-func NewProtonEncumberer(credentials ProtonEncumbererCredentials) *ProtonEncumberer {
-	return &ProtonEncumberer{credentials: credentials}
+func NewProtonEncumberer(credentials ProtonEncumbererCredentials, debug bool) *ProtonEncumberer {
+	return &ProtonEncumberer{credentials: credentials, debug: debug}
 }
 
 func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.SeleniumDriver) error {
@@ -204,7 +205,9 @@ func (p *ProtonEncumberer) Encumber(ctx context.Context) (*ProtonEncumbererOutpu
 		return nil, fmt.Errorf("failed to generate new password: %v", err)
 	}
 
-	slog.Info("generated new proton password", "password", newPassword)
+	if p.debug {
+		slog.Info("generated new proton password", "password", newPassword)
+	}
 
 	if err := p.SetNewPassword(ctx, driver, newPassword); err != nil {
 		driver.Debug()

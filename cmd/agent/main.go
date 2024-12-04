@@ -18,7 +18,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	output, err := setupManager.Setup(ctx)
+	output, err := setupManager.Setup(ctx, true)
 	if err != nil {
 		slog.Error("failed to setup", "error", err)
 		os.Exit(1)

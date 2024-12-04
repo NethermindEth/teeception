@@ -87,11 +87,11 @@ func (m *SetupManager) Validate() error {
 	return nil
 }
 
-func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
+func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, error) {
 	protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{
 		ProtonUsername: m.protonEmail,
 		ProtonPassword: m.protonPassword,
-	})
+	}, debug)
 
 	twitterEncumberer := twitter.NewTwitterEncumberer(twitter.TwitterEncumbererCredentials{
 		TwitterUsername:  m.twitterAccount,
@@ -101,7 +101,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		TwitterAppSecret: m.twitterAppSecret,
 	}, m.loginServerIp, m.loginServerPort, func(ctx context.Context) (string, error) {
 		return protonEncumberer.GetTwitterVerificationCode(ctx)
-	})
+	}, debug)
 
 	twitterEncumbererOutput, err := twitterEncumberer.Encumber(ctx)
 	if err != nil {
@@ -120,7 +120,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		return nil, fmt.Errorf("failed to parse contract address: %v", err)
 	}
 
-	return &SetupOutput{
+	output := &SetupOutput{
 		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
 		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
 		TwitterAccessTokenSecret: twitterEncumbererOutput.OAuthTokenPair.Secret,
@@ -133,5 +133,11 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		EthRpcUrl:                m.ethRpcUrl,
 		ContractAddress:          contractAddress,
 		OpenAIKey:                m.openAiKey,
-	}, nil
+	}
+
+	if debug {
+		slog.Info("setup output", "output", fmt.Sprintf("%+v\n", output))
+	}
+
+	return output, nil
 }

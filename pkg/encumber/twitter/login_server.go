@@ -41,15 +41,18 @@ type TwitterLoginServer struct {
 
 	tokenPairMutex sync.Mutex
 	tokenPair      *OAuthTokenPair
+
+	debug bool
 }
 
-func NewTwitterLoginServer(ip, port string, twitterAppKey, twitterAppSecret string) *TwitterLoginServer {
+func NewTwitterLoginServer(ip, port string, twitterAppKey, twitterAppSecret string, debug bool) *TwitterLoginServer {
 	return &TwitterLoginServer{
 		ip:               ip,
 		port:             port,
 		shutdownCh:       make(chan struct{}),
 		twitterAppKey:    twitterAppKey,
 		twitterAppSecret: twitterAppSecret,
+		debug:            debug,
 	}
 }
 
@@ -113,6 +116,10 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 		return
 	}
 
+	if s.debug {
+		slog.Info("requested OAuth token", "token", tokenPair.Token, "secret", tokenPair.Secret)
+	}
+
 	s.tokenPairMutex.Lock()
 	s.tokenPair = tokenPair
 	s.tokenPairMutex.Unlock()
@@ -129,6 +136,10 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 		slog.Error("failed to get authorization URL", "error", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to get authorization URL: %v", err))
 		return
+	}
+
+	if s.debug {
+		slog.Info("got authorization URL", "url", authorizationURL.String())
 	}
 
 	slog.Info("redirecting to Twitter", "url", authorizationURL.String())
@@ -168,6 +179,10 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 		slog.Error("failed to authorize token", "error", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to authorize token: %v", err))
 		return
+	}
+
+	if s.debug {
+		slog.Info("authorized token", "token", tokenPair.Token, "secret", tokenPair.Secret)
 	}
 
 	s.validateAccessToken(tokenPair)
@@ -232,6 +247,10 @@ func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier str
 	if err != nil {
 		slog.Error("failed to get access token", "error", err)
 		return nil, err
+	}
+
+	if s.debug {
+		slog.Info("got access token", "token", accessToken, "secret", accessSecret)
 	}
 
 	response := &AccessTokenResponse{

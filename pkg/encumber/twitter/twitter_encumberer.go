@@ -41,6 +41,7 @@ type TwitterEncumberer struct {
 	loginServerIp       string
 	loginServerPort     string
 	getVerificationCode func(ctx context.Context) (string, error)
+	debug               bool
 }
 
 type TwitterEncumbererOutput struct {
@@ -62,12 +63,13 @@ type TwitterEncumbererCredentials struct {
 	TwitterAppSecret string
 }
 
-func NewTwitterEncumberer(credentials TwitterEncumbererCredentials, loginServerIp, loginServerPort string, getVerificationCode func(ctx context.Context) (string, error)) *TwitterEncumberer {
+func NewTwitterEncumberer(credentials TwitterEncumbererCredentials, loginServerIp, loginServerPort string, getVerificationCode func(ctx context.Context) (string, error), debug bool) *TwitterEncumberer {
 	return &TwitterEncumberer{
 		credentials:         credentials,
 		loginServerIp:       loginServerIp,
 		loginServerPort:     loginServerPort,
 		getVerificationCode: getVerificationCode,
+		debug:               debug,
 	}
 }
 
@@ -294,7 +296,7 @@ func (t *TwitterEncumberer) GetCookies(ctx context.Context, driver *selenium_uti
 
 func (t *TwitterEncumberer) GetAccessKeys(ctx context.Context, driver *selenium_utils.SeleniumDriver) (*OAuthTokenPair, error) {
 	slog.Info("starting twitter login server", "ip", t.loginServerIp, "port", t.loginServerPort)
-	twitterLoginServer := NewTwitterLoginServer(t.loginServerIp, t.loginServerPort, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret)
+	twitterLoginServer := NewTwitterLoginServer(t.loginServerIp, t.loginServerPort, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret, t.debug)
 	twitterLoginServer.Start()
 
 	slog.Info("navigating to login", "url", twitterLoginServer.GetLoginRoute())
@@ -347,7 +349,9 @@ func (t *TwitterEncumberer) Encumber(ctx context.Context) (*TwitterEncumbererOut
 		return nil, fmt.Errorf("failed to generate new password: %v", err)
 	}
 
-	slog.Info("generated new twitter password", "password", newPassword)
+	if t.debug {
+		slog.Info("generated new twitter password", "password", newPassword)
+	}
 
 	if err := t.SetNewPassword(ctx, driver, newPassword); err != nil {
 		driver.Debug()
