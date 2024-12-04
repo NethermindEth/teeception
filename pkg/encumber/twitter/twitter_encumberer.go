@@ -260,6 +260,8 @@ func (t *TwitterEncumberer) SetNewPassword(ctx context.Context, driver *selenium
 	}
 	slog.Info("password change submitted")
 
+	time.Sleep(twitterLoginDelay)
+
 	return nil
 }
 
