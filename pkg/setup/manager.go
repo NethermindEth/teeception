@@ -9,6 +9,7 @@ import (
 
 	"github.com/NethermindEth/teeception/pkg/encumber/proton"
 	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
+	"github.com/NethermindEth/teeception/pkg/utils/wallet"
 	"github.com/defiweb/go-eth/types"
 )
 
@@ -113,7 +114,7 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 		return nil, fmt.Errorf("failed to encumber proton: %v", err)
 	}
 
-	ethPrivateKey := GeneratePrivateKey()
+	ethPrivateKey := wallet.GeneratePrivateKey()
 
 	contractAddress, err := types.AddressFromHex(m.contractAddress)
 	if err != nil {
