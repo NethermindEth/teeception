@@ -13,6 +13,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	twitterApiUrl = "https://api.twitter.com"
+	loginRoute    = "/login"
+	callbackRoute = "/callback"
+)
+
 type OAuthTokenPair struct {
 	Token  string
 	Secret string
@@ -47,11 +53,11 @@ func NewTwitterLoginServer(url string, twitterAppKey, twitterAppSecret string) *
 }
 
 func (s *TwitterLoginServer) GetLoginRoute() string {
-	return "http://" + s.url + "/login"
+	return "http://" + s.url + loginRoute
 }
 
 func (s *TwitterLoginServer) GetCallbackRoute() string {
-	return "http://" + s.url + "/callback"
+	return "http://" + s.url + callbackRoute
 }
 
 func (s *TwitterLoginServer) WaitForTokenPair(ctx context.Context) (*OAuthTokenPair, error) {
@@ -71,8 +77,8 @@ func (s *TwitterLoginServer) WaitForTokenPair(ctx context.Context) (*OAuthTokenP
 func (s *TwitterLoginServer) Start() {
 	router := gin.Default()
 
-	router.GET(s.GetLoginRoute(), s.handleLogin)
-	router.GET(s.GetCallbackRoute(), s.handleCallback)
+	router.GET(loginRoute, s.handleLogin)
+	router.GET(callbackRoute, s.handleCallback)
 
 	s.server = &http.Server{
 		Addr:    s.url,
