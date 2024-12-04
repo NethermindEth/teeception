@@ -94,7 +94,22 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 	}
 	slog.Info("username entered", "username", t.credentials.TwitterUsername)
 
-	time.Sleep(twitterInputDelay)
+	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+		email, err := wd.FindElement(selenium.ByCSSSelector, twitterEmailSelector)
+		if err != nil {
+			return false, nil
+		}
+		if err := email.SendKeys(t.credentials.TwitterEmail + selenium.EnterKey); err != nil {
+			return false, err
+		}
+		return true, nil
+	}, twitterSelectionTimeout)
+	if err != nil {
+		// This is not a critical error, so we just log it and continue
+		slog.Warn("failed to find possible email field", "error", err)
+	} else {
+		slog.Info("email entered", "email", t.credentials.TwitterEmail)
+	}
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		password, err := wd.FindElement(selenium.ByCSSSelector, twitterPasswordSelector)
