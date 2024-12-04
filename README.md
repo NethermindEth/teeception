@@ -79,10 +79,10 @@ go run cmd/agent/main.go
 cd contracts
 
 # Build contracts
-forge build
+snforge build
 
 # Run tests
-forge test
+snforge test
 ```
 
 ## Leaderboards
