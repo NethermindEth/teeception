@@ -75,7 +75,7 @@ func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.Sel
 	if err != nil {
 		return fmt.Errorf("failed to find or interact with username field: %v", err)
 	}
-	slog.Info("username entered")
+	slog.Info("username entered", "username", p.credentials.ProtonUsername)
 
 	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
 		password, err := wd.FindElement(selenium.ByID, protonPasswordElementId)
@@ -94,7 +94,7 @@ func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.Sel
 	if err != nil {
 		return fmt.Errorf("failed to find or interact with password field: %v", err)
 	}
-	slog.Info("password entered and submitted")
+	slog.Info("password entered and submitted", "password", p.credentials.ProtonPassword)
 
 	slog.Info("waiting for login to complete", "delay", protonLoginDelay)
 	time.Sleep(protonLoginDelay)
