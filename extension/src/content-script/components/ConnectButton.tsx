@@ -1,32 +1,17 @@
 import React, { useState } from 'react';
-import { Connector, useAccount, useConnect, useDisconnect, useSwitchChain } from "@starknet-react/core";
+import { Connector, useAccount, useConnect, useDisconnect } from "@starknet-react/core";
 import { Button } from '@/components/ui/button';
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit';
-import { constants } from "starknet";
 import { X, Copy, ExternalLink } from 'lucide-react';
 import { useTokenBalance } from '../hooks/useTokenBalance';
-
-const CHAINS = [
-  { id: constants.StarknetChainId.SN_MAIN, name: 'Mainnet' },
-  { id: constants.StarknetChainId.SN_SEPOLIA, name: 'Sepolia' },
-] as const;
+import { ACTIVE_NETWORK } from '../config/starknet';
 
 export const ConnectButton = () => {
-  const { address, status, chainId } = useAccount();
-  const { balance, symbol, loading } = useTokenBalance(address, chainId?.toString());
+  const { address, status } = useAccount();
+  const { balance, symbol, loading } = useTokenBalance(address);
   const [copied, setCopied] = useState(false);
   const { connectAsync, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const { switchChain: switchToMain } = useSwitchChain({
-    params: {
-      chainId: constants.StarknetChainId.SN_MAIN,
-    }
-  });
-  const { switchChain: switchToSepolia } = useSwitchChain({
-    params: {
-      chainId: constants.StarknetChainId.SN_SEPOLIA,
-    }
-  });
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: connectors as StarknetkitConnector[],
   });
@@ -36,18 +21,6 @@ export const ConnectButton = () => {
     if (!connector) return;
     await connectAsync({ connector: connector as Connector });
   }
-
-  const handleChainSwitch = async (newChainId: string) => {
-    try {
-      if (newChainId === constants.StarknetChainId.SN_MAIN) {
-        await switchToMain();
-      } else if (newChainId === constants.StarknetChainId.SN_SEPOLIA) {
-        await switchToSepolia();
-      }
-    } catch (error) {
-      console.error('Failed to switch chain:', error);
-    }
-  };
 
   const handleCopyAddress = async () => {
     if (address) {
@@ -82,17 +55,6 @@ export const ConnectButton = () => {
     ...bannerStyle,
     backgroundColor: 'rgba(234, 179, 8, 0.9)',
     cursor: 'pointer',
-  };
-
-  const selectStyle: React.CSSProperties = {
-    backgroundColor: 'transparent',
-    border: '1px solid rgba(255,255,255,0.2)',
-    borderRadius: '4px',
-    color: 'white',
-    padding: '2px 8px',
-    fontSize: '14px',
-    cursor: 'pointer',
-    outline: 'none',
   };
 
   const addressDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
@@ -136,17 +98,10 @@ export const ConnectButton = () => {
         <span style={{ color: 'white', fontSize: '14px' }}>
           {loading ? '...' : `${balance} ${symbol}`}
         </span>
-        <select 
-          style={selectStyle}
-          value={chainId?.toString()}
-          onChange={(e) => handleChainSwitch(e.target.value)}
-        >
-          {CHAINS.map((chain) => (
-            <option key={chain.id} value={chain.id}>
-              {chain.name}
-            </option>
-          ))}
-        </select>
+        <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
+        <span style={{ color: 'white', fontSize: '14px' }}>
+          {ACTIVE_NETWORK.name}
+        </span>
         <button
           onClick={() => disconnect()}
           style={{
@@ -167,14 +122,14 @@ export const ConnectButton = () => {
 
       {showTopUpBanner && (
         <a
-          href={`https://jediswap.xyz`}
+          href={ACTIVE_NETWORK.starkgate}
           target="_blank"
           rel="noopener noreferrer"
           style={topUpBannerStyle}
         >
           <ExternalLink size={14} style={{ color: 'white' }} />
           <span style={{ color: 'white', fontSize: '14px' }}>
-            Get {symbol} on JediSwap
+            Get {symbol} on Starkgate
           </span>
         </a>
       )}

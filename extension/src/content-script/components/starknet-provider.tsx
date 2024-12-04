@@ -1,24 +1,23 @@
 "use client";
 import React from "react";
- 
-import { sepolia, mainnet } from "@starknet-react/chains";
 import {
   StarknetConfig,
   publicProvider,
   voyager,
 } from "@starknet-react/core";
 import { ControllerConnector } from "@cartridge/connector";
+import { ACTIVE_NETWORK } from '../config/starknet';
 
 const cartridgeConnector = new ControllerConnector({
-  rpc: "https://api.cartridge.gg/x/starknet/mainnet",
+  rpc: ACTIVE_NETWORK.rpc,
 });
 
 export function StarknetProvider({ children }: { children: React.ReactNode }) {
   return (
     <StarknetConfig
-      chains={[mainnet, sepolia]}
+      chains={[ACTIVE_NETWORK.chain]}
       provider={publicProvider()}
-      connectors={[cartridgeConnector ]}
+      connectors={[cartridgeConnector]}
       explorer={voyager}
     >
       {children}
