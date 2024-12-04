@@ -305,6 +305,7 @@ func (t *TwitterEncumberer) Encumber(ctx context.Context) (*TwitterEncumbererOut
 	if err != nil {
 		return nil, fmt.Errorf("failed to create selenium driver: %v", err)
 	}
+	defer driver.Close()
 
 	if err := t.Login(ctx, driver); err != nil {
 		driver.Debug()
