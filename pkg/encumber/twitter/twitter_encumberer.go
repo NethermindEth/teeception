@@ -1,3 +1,5 @@
+// Twitter encumberance utilities
+// Initially based on https://github.com/tee-he-he/err_err_ttyl/blob/a3f296a5caaf7f23afa20c8841da39fe18a275bd/scripts/twitter.py
 package twitter
 
 import (
