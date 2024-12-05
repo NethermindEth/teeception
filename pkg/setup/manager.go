@@ -7,6 +7,9 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/NethermindEth/teeception/pkg/encumber/proton"
+	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
+	"github.com/NethermindEth/teeception/pkg/utils/wallet"
 	"github.com/defiweb/go-eth/types"
 )
 
@@ -20,7 +23,8 @@ type SetupManager struct {
 	ethRpcUrl        string
 	contractAddress  string
 	openAiKey        string
-	loginServerUrl   string
+	loginServerIp    string
+	loginServerPort  string
 }
 
 type SetupOutput struct {
@@ -57,7 +61,8 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		ethRpcUrl:        getEnv("ETH_RPC_URL"),
 		contractAddress:  getEnv("CONTRACT_ADDRESS"),
 		openAiKey:        getEnv("OPENAI_API_KEY"),
-		loginServerUrl:   getEnv("X_LOGIN_SERVER_URL"),
+		loginServerIp:    getEnv("X_LOGIN_SERVER_IP"),
+		loginServerPort:  getEnv("X_LOGIN_SERVER_PORT"),
 	}
 
 	if err := setupManager.Validate(); err != nil {
@@ -83,41 +88,57 @@ func (m *SetupManager) Validate() error {
 	return nil
 }
 
-func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
-	twitterPassword, err := m.ChangeTwitterPassword()
+func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, error) {
+	protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{
+		ProtonUsername: m.protonEmail,
+		ProtonPassword: m.protonPassword,
+	}, debug)
+
+	twitterEncumberer := twitter.NewTwitterEncumberer(twitter.TwitterEncumbererCredentials{
+		TwitterUsername:  m.twitterAccount,
+		TwitterPassword:  m.twitterPassword,
+		TwitterEmail:     m.protonEmail,
+		TwitterAppKey:    m.twitterAppKey,
+		TwitterAppSecret: m.twitterAppSecret,
+	}, m.loginServerIp, m.loginServerPort, func(ctx context.Context) (string, error) {
+		return protonEncumberer.GetTwitterVerificationCode(ctx)
+	}, debug)
+
+	twitterEncumbererOutput, err := twitterEncumberer.Encumber(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to change twitter password: %v", err)
+		return nil, fmt.Errorf("failed to encumber twitter: %v", err)
 	}
 
-	protonPassword, err := m.ChangeProtonPassword()
+	protonEncumbererOutput, err := protonEncumberer.Encumber(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to change proton password: %v", err)
+		return nil, fmt.Errorf("failed to encumber proton: %v", err)
 	}
 
-	twitterAuthTokens, twitterTokenPair, err := m.GetTwitterTokens(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get twitter tokens: %v", err)
-	}
-
-	ethPrivateKey := GeneratePrivateKey()
+	ethPrivateKey := wallet.GeneratePrivateKey()
 
 	contractAddress, err := types.AddressFromHex(m.contractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse contract address: %v", err)
 	}
 
-	return &SetupOutput{
-		TwitterAuthTokens:        twitterAuthTokens,
-		TwitterAccessToken:       twitterTokenPair.Token,
-		TwitterAccessTokenSecret: twitterTokenPair.Secret,
+	output := &SetupOutput{
+		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
+		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
+		TwitterAccessTokenSecret: twitterEncumbererOutput.OAuthTokenPair.TokenSecret,
 		TwitterConsumerKey:       m.twitterAppKey,
 		TwitterConsumerSecret:    m.twitterAppSecret,
 		TwitterUsername:          m.twitterAccount,
-		TwitterPassword:          twitterPassword,
-		ProtonPassword:           protonPassword,
+		TwitterPassword:          twitterEncumbererOutput.NewPassword,
+		ProtonPassword:           protonEncumbererOutput.NewPassword,
 		EthPrivateKey:            ethPrivateKey,
 		EthRpcUrl:                m.ethRpcUrl,
 		ContractAddress:          contractAddress,
 		OpenAIKey:                m.openAiKey,
-	}, nil
+	}
+
+	if debug {
+		slog.Info("setup output", "output", fmt.Sprintf("%+v\n", output))
+	}
+
+	return output, nil
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -17,12 +16,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	output, err := setupManager.Setup(ctx)
+	_, err = setupManager.Setup(ctx, true)
 	if err != nil {
 		slog.Error("failed to setup", "error", err)
 		os.Exit(1)
 	}
-
-	fmt.Println("setup complete")
-	fmt.Printf("%+v\n", output)
 }
