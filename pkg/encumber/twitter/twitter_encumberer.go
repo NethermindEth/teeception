@@ -83,78 +83,39 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 	slog.Info("waiting for page to load", "delay", twitterNavigationDelay)
 	time.Sleep(twitterNavigationDelay)
 
-	err := driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		username, err := wd.FindElement(selenium.ByCSSSelector, twitterUsernameSelector)
-		if err != nil {
-			return false, nil
-		}
-		if err := username.SendKeys(t.credentials.TwitterUsername + selenium.EnterKey); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByCSSSelector, twitterUsernameSelector, func(el selenium.WebElement) error {
+		return el.SendKeys(t.credentials.TwitterUsername + selenium.EnterKey)
+	}, twitterSelectionTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with username field: %v", err)
 	}
 	slog.Info("username entered", "username", t.credentials.TwitterUsername)
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		email, err := wd.FindElement(selenium.ByCSSSelector, twitterEmailSelector)
-		if err != nil {
-			return false, nil
-		}
-		if err := email.SendKeys(t.credentials.TwitterEmail + selenium.EnterKey); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
-		// This is not a critical error, so we just log it and continue
+	if err := driver.InteractWithElement(ctx, selenium.ByCSSSelector, twitterEmailSelector, func(el selenium.WebElement) error {
+		return el.SendKeys(t.credentials.TwitterEmail + selenium.EnterKey)
+	}, twitterSelectionTimeout); err != nil {
 		slog.Warn("failed to find possible email field", "error", err)
 	} else {
 		slog.Info("email entered", "email", t.credentials.TwitterEmail)
 	}
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		password, err := wd.FindElement(selenium.ByCSSSelector, twitterPasswordSelector)
-		if err != nil {
-			return false, nil
-		}
-		if err := password.SendKeys(t.credentials.TwitterPassword + selenium.EnterKey); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByCSSSelector, twitterPasswordSelector, func(el selenium.WebElement) error {
+		return el.SendKeys(t.credentials.TwitterPassword + selenium.EnterKey)
+	}, twitterSelectionTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with password field: %v", err)
 	}
 	slog.Info("password entered", "password", t.credentials.TwitterPassword)
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		email, err := wd.FindElement(selenium.ByCSSSelector, twitterEmailSelector)
-		if err != nil {
-			return false, nil
-		}
-		if err := email.SendKeys(t.credentials.TwitterEmail + selenium.EnterKey); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
-		// This is not a critical error, so we just log it and continue
+	if err := driver.InteractWithElement(ctx, selenium.ByCSSSelector, twitterEmailSelector, func(el selenium.WebElement) error {
+		return el.SendKeys(t.credentials.TwitterEmail + selenium.EnterKey)
+	}, twitterSelectionTimeout); err != nil {
 		slog.Warn("failed to find possible email field", "error", err)
 	} else {
 		slog.Info("email entered", "email", t.credentials.TwitterEmail)
 	}
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		_, err := wd.FindElement(selenium.ByXPATH, twitterConfirmationCodeSpanSelector)
-		if err != nil {
-			return false, nil
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByXPATH, twitterConfirmationCodeSpanSelector, func(el selenium.WebElement) error {
+		return nil
+	}, twitterSelectionTimeout); err != nil {
 		slog.Warn("failed to find possible verification code flow", "error", err)
 	} else {
 		slog.Info("found possible verification code flow")
@@ -164,17 +125,9 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 			slog.Warn("failed to find verification code", "error", err)
 		}
 
-		err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-			verificationCodeField, err := wd.FindElement(selenium.ByCSSSelector, twitterVerificationCodeSelector)
-			if err != nil {
-				return false, nil
-			}
-			if err := verificationCodeField.SendKeys(verificationCode + selenium.EnterKey); err != nil {
-				return false, err
-			}
-			return true, nil
-		}, twitterSelectionTimeout)
-		if err != nil {
+		if err := driver.InteractWithElement(ctx, selenium.ByCSSSelector, twitterVerificationCodeSelector, func(el selenium.WebElement) error {
+			return el.SendKeys(verificationCode + selenium.EnterKey)
+		}, twitterSelectionTimeout); err != nil {
 			return fmt.Errorf("failed to find or interact with verification code field: %v", err)
 		}
 		slog.Info("verification code entered", "code", verificationCode)
@@ -204,62 +157,30 @@ func (t *TwitterEncumberer) SetNewPassword(ctx context.Context, driver *selenium
 	slog.Info("waiting for input delay", "delay", twitterInputDelay)
 	time.Sleep(twitterInputDelay)
 
-	err := driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		currentPwdField, err := wd.FindElement(selenium.ByName, twitterCurrentPasswordName)
-		if err != nil {
-			return false, nil
-		}
-		if err := currentPwdField.SendKeys(t.credentials.TwitterPassword); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByName, twitterCurrentPasswordName, func(el selenium.WebElement) error {
+		return el.SendKeys(t.credentials.TwitterPassword)
+	}, twitterSelectionTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with current password field: %v", err)
 	}
 	slog.Info("current password entered")
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		newPwdField, err := wd.FindElement(selenium.ByName, twitterNewPasswordName)
-		if err != nil {
-			return false, nil
-		}
-		if err := newPwdField.SendKeys(newPassword); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByName, twitterNewPasswordName, func(el selenium.WebElement) error {
+		return el.SendKeys(newPassword)
+	}, twitterSelectionTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with new password field: %v", err)
 	}
 	slog.Info("new password entered")
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		confirmPwdField, err := wd.FindElement(selenium.ByName, twitterConfirmPasswordName)
-		if err != nil {
-			return false, nil
-		}
-		if err := confirmPwdField.SendKeys(newPassword); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByName, twitterConfirmPasswordName, func(el selenium.WebElement) error {
+		return el.SendKeys(newPassword)
+	}, twitterSelectionTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with confirm password field: %v", err)
 	}
 	slog.Info("password confirmation entered")
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		submitButton, err := wd.FindElement(selenium.ByXPATH, twitterSubmitButtonXpath)
-		if err != nil {
-			return false, nil
-		}
-		if err := submitButton.Click(); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByXPATH, twitterSubmitButtonXpath, func(el selenium.WebElement) error {
+		return el.Click()
+	}, twitterSelectionTimeout); err != nil {
 		return fmt.Errorf("failed to find or click submit button: %v", err)
 	}
 	slog.Info("password change submitted")
@@ -308,14 +229,9 @@ func (t *TwitterEncumberer) GetAccessKeys(ctx context.Context, driver *selenium_
 	slog.Info("waiting for page to load", "delay", twitterNavigationDelay)
 	time.Sleep(twitterNavigationDelay)
 
-	err := driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		allowButton, err := wd.FindElement(selenium.ByCSSSelector, `input[id="allow"]`)
-		if err != nil {
-			return false, nil
-		}
-		return true, allowButton.Click()
-	}, twitterSelectionTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByCSSSelector, `input[id="allow"]`, func(el selenium.WebElement) error {
+		return el.Click()
+	}, twitterSelectionTimeout); err != nil {
 		slog.Warn("failed to find or click allow button", "error", err)
 	} else {
 		slog.Info("clicked allow button")

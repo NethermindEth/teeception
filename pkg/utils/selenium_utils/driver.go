@@ -1,8 +1,10 @@
 package selenium_utils
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/tebeka/selenium"
 	"github.com/tebeka/selenium/chrome"
@@ -72,4 +74,25 @@ func (s *SeleniumDriver) Debug() error {
 	slog.Info("=================================")
 
 	return nil
+}
+
+func (s *SeleniumDriver) InteractWithElement(ctx context.Context, findBy string, findSelector string, cb func(el selenium.WebElement) error, timeout time.Duration) error {
+	resultChan := make(chan error, 1)
+	go func() {
+		resultChan <- s.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
+			el, err := wd.FindElement(findBy, findSelector)
+			if err != nil {
+				return false, nil
+			}
+			err = cb(el)
+			return err == nil, err
+		}, timeout)
+	}()
+
+	select {
+	case err := <-resultChan:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

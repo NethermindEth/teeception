@@ -62,37 +62,21 @@ func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.Sel
 	slog.Info("waiting for page to load", "delay", protonNavigationDelay)
 	time.Sleep(protonNavigationDelay)
 
-	err := driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		username, err := wd.FindElement(selenium.ByID, protonUsernameElementId)
-		if err != nil {
-			return false, nil
-		}
+	if err := driver.InteractWithElement(ctx, selenium.ByID, protonUsernameElementId, func(el selenium.WebElement) error {
 		time.Sleep(seleniumInputDelay)
-		if err := username.SendKeys(p.credentials.ProtonUsername); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, protonWaitTimeout)
-	if err != nil {
+		return el.SendKeys(p.credentials.ProtonUsername)
+	}, protonWaitTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with username field: %v", err)
 	}
 	slog.Info("username entered", "username", p.credentials.ProtonUsername)
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		password, err := wd.FindElement(selenium.ByID, protonPasswordElementId)
-		if err != nil {
-			return false, nil
-		}
+	if err := driver.InteractWithElement(ctx, selenium.ByID, protonPasswordElementId, func(el selenium.WebElement) error {
 		time.Sleep(seleniumInputDelay)
-		if err := password.SendKeys(p.credentials.ProtonPassword); err != nil {
-			return false, err
+		if err := el.SendKeys(p.credentials.ProtonPassword); err != nil {
+			return err
 		}
-		if err := password.Submit(); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, protonWaitTimeout)
-	if err != nil {
+		return el.Submit()
+	}, protonWaitTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with password field: %v", err)
 	}
 	slog.Info("password entered and submitted", "password", p.credentials.ProtonPassword)
@@ -112,70 +96,38 @@ func (p *ProtonEncumberer) SetNewPassword(ctx context.Context, driver *selenium_
 	slog.Info("waiting for page to load", "delay", protonNavigationDelay)
 	time.Sleep(protonNavigationDelay)
 
-	err := driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		button, err := wd.FindElement(selenium.ByXPATH, protonChangeButtonXpath)
-		if err != nil {
-			return false, nil
-		}
-		if err := button.Click(); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, protonWaitTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByXPATH, protonChangeButtonXpath, func(el selenium.WebElement) error {
+		return el.Click()
+	}, protonWaitTimeout); err != nil {
 		return fmt.Errorf("failed to find or click change password button: %v", err)
 	}
 	slog.Info("clicked change password button")
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		password, err := wd.FindElement(selenium.ByID, protonPasswordElementId)
-		if err != nil {
-			return false, nil
-		}
+	if err := driver.InteractWithElement(ctx, selenium.ByID, protonPasswordElementId, func(el selenium.WebElement) error {
 		time.Sleep(seleniumInputDelay)
-		if err := password.SendKeys(p.credentials.ProtonPassword); err != nil {
-			return false, err
+		if err := el.SendKeys(p.credentials.ProtonPassword); err != nil {
+			return err
 		}
-		if err := password.Submit(); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, protonWaitTimeout)
-	if err != nil {
+		return el.Submit()
+	}, protonWaitTimeout); err != nil {
 		return fmt.Errorf("failed to confirm current password: %v", err)
 	}
 	slog.Info("current password confirmed")
 	time.Sleep(protonSleepDelay)
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		newPwd, err := wd.FindElement(selenium.ByID, protonNewPwdElementId)
-		if err != nil {
-			return false, nil
-		}
-		if err := newPwd.SendKeys(newPassword); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, protonWaitTimeout)
-	if err != nil {
+	if err := driver.InteractWithElement(ctx, selenium.ByID, protonNewPwdElementId, func(el selenium.WebElement) error {
+		return el.SendKeys(newPassword)
+	}, protonWaitTimeout); err != nil {
 		return fmt.Errorf("failed to enter new password: %v", err)
 	}
 	slog.Info("entered new password")
 
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		confirm, err := wd.FindElement(selenium.ByID, protonConfirmElementId)
-		if err != nil {
-			return false, nil
+	if err := driver.InteractWithElement(ctx, selenium.ByID, protonConfirmElementId, func(el selenium.WebElement) error {
+		if err := el.SendKeys(newPassword); err != nil {
+			return err
 		}
-		if err := confirm.SendKeys(newPassword); err != nil {
-			return false, err
-		}
-		if err := confirm.Submit(); err != nil {
-			return false, err
-		}
-		return true, nil
-	}, protonWaitTimeout)
-	if err != nil {
+		return el.Submit()
+	}, protonWaitTimeout); err != nil {
 		return fmt.Errorf("failed to confirm new password: %v", err)
 	}
 	slog.Info("confirmed and submitted new password")
@@ -235,22 +187,17 @@ func (p *ProtonEncumberer) GetTwitterVerificationCode(ctx context.Context) (stri
 	slog.Info("successfully logged in to proton")
 
 	var verificationCode string
-	err = driver.WaitWithTimeout(func(wd selenium.WebDriver) (bool, error) {
-		verificationCodeSpan, err := wd.FindElement(selenium.ByXPATH, protonVerificationCodeXpath)
+	if err := driver.InteractWithElement(ctx, selenium.ByXPATH, protonVerificationCodeXpath, func(el selenium.WebElement) error {
+		text, err := el.Text()
 		if err != nil {
-			return false, nil
+			return err
 		}
-		verificationCodeSpanText, err := verificationCodeSpan.Text()
-		if err != nil {
-			return false, err
-		}
-		verificationCodeSpanTextParts := strings.Split(verificationCodeSpanText, " ")
 
-		verificationCode = verificationCodeSpanTextParts[len(verificationCodeSpanTextParts)-1]
+		textParts := strings.Split(text, " ")
+		verificationCode = textParts[len(textParts)-1]
 
-		return true, nil
-	}, protonWaitTimeout)
-	if err != nil {
+		return nil
+	}, protonWaitTimeout); err != nil {
 		driver.Debug()
 		return "", fmt.Errorf("failed to find verification code: %v", err)
 	}
