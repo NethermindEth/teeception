@@ -9,7 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -53,7 +53,7 @@ func GetEndpoint(endpoint string) string {
 		return endpoint
 	}
 	if simEndpoint, exists := os.LookupEnv("DSTACK_SIMULATOR_ENDPOINT"); exists {
-		log.Printf("Using simulator endpoint: %s", simEndpoint)
+		slog.Warn("Using simulator endpoint", "endpoint", simEndpoint)
 		return simEndpoint
 	}
 	return "/var/run/tappd.sock"
