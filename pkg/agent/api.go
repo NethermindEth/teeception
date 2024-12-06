@@ -12,7 +12,7 @@ func (a *Agent) StartServer(ctx context.Context) error {
 	router := gin.Default()
 
 	router.GET("/address", func(c *gin.Context) {
-		c.String(http.StatusOK, a.accountAddress.String())
+		c.String(http.StatusOK, a.account.AccountAddress.String())
 	})
 
 	router.GET("/quote", func(c *gin.Context) {

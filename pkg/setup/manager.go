@@ -6,24 +6,26 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/NethermindEth/juno/core/felt"
+	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/NethermindEth/teeception/pkg/encumber/proton"
 	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
-	"github.com/defiweb/go-eth/types"
 )
 
 type SetupManager struct {
-	twitterAccount   string
-	twitterPassword  string
-	protonEmail      string
-	protonPassword   string
-	twitterAppKey    string
-	twitterAppSecret string
-	starknetRpcUrl   string
-	contractAddress  string
-	openAiKey        string
-	loginServerIp    string
-	loginServerPort  string
+	twitterAccount       string
+	twitterPassword      string
+	protonEmail          string
+	protonPassword       string
+	twitterAppKey        string
+	twitterAppSecret     string
+	starknetRpcUrl       string
+	agentRegistryAddress string
+	openAiKey            string
+	loginServerIp        string
+	loginServerPort      string
+	dstackTappdEndpoint  string
 }
 
 type SetupOutput struct {
@@ -37,8 +39,9 @@ type SetupOutput struct {
 	TwitterAccessTokenSecret string
 	StarknetPrivateKeySeed   []byte
 	StarknetRpcUrl           string
-	ContractAddress          types.Address
+	AgentRegistryAddress     *felt.Felt
 	OpenAIKey                string
+	DstackTappdEndpoint      string
 }
 
 func getEnv(key string) string {
@@ -51,17 +54,18 @@ func getEnv(key string) string {
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
 	setupManager := &SetupManager{
-		twitterAccount:   getEnv("X_USERNAME"),
-		twitterPassword:  getEnv("X_PASSWORD"),
-		protonEmail:      getEnv("PROTONMAIL_EMAIL"),
-		protonPassword:   getEnv("PROTONMAIL_PASSWORD"),
-		twitterAppKey:    getEnv("X_CONSUMER_KEY"),
-		twitterAppSecret: getEnv("X_CONSUMER_SECRET"),
-		starknetRpcUrl:   getEnv("STARKNET_RPC_URL"),
-		contractAddress:  getEnv("CONTRACT_ADDRESS"),
-		openAiKey:        getEnv("OPENAI_API_KEY"),
-		loginServerIp:    getEnv("X_LOGIN_SERVER_IP"),
-		loginServerPort:  getEnv("X_LOGIN_SERVER_PORT"),
+		twitterAccount:       getEnv("X_USERNAME"),
+		twitterPassword:      getEnv("X_PASSWORD"),
+		protonEmail:          getEnv("PROTONMAIL_EMAIL"),
+		protonPassword:       getEnv("PROTONMAIL_PASSWORD"),
+		twitterAppKey:        getEnv("X_CONSUMER_KEY"),
+		twitterAppSecret:     getEnv("X_CONSUMER_SECRET"),
+		starknetRpcUrl:       getEnv("STARKNET_RPC_URL"),
+		agentRegistryAddress: getEnv("CONTRACT_ADDRESS"),
+		openAiKey:            getEnv("OPENAI_API_KEY"),
+		loginServerIp:        getEnv("X_LOGIN_SERVER_IP"),
+		loginServerPort:      getEnv("X_LOGIN_SERVER_PORT"),
+		dstackTappdEndpoint:  getEnv("DSTACK_TAPPD_ENDPOINT"),
 	}
 
 	if err := setupManager.Validate(); err != nil {
@@ -88,6 +92,13 @@ func (m *SetupManager) Validate() error {
 }
 
 func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, error) {
+	agentRegistryAddress, err := starknetgoutils.HexToFelt(m.agentRegistryAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse agent registry address: %v", err)
+	}
+
+	starknetPrivateKeySeed := snaccount.NewPrivateKey(nil).Bytes()
+
 	protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{
 		ProtonUsername: m.protonEmail,
 		ProtonPassword: m.protonPassword,
@@ -113,13 +124,6 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 		return nil, fmt.Errorf("failed to encumber proton: %v", err)
 	}
 
-	contractAddress, err := types.AddressFromHex(m.contractAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse contract address: %v", err)
-	}
-
-	starknetPrivateKeySeed := snaccount.NewPrivateKey(nil).Bytes()
-
 	output := &SetupOutput{
 		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
 		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
@@ -131,8 +135,9 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 		ProtonPassword:           protonEncumbererOutput.NewPassword,
 		StarknetPrivateKeySeed:   starknetPrivateKeySeed[:],
 		StarknetRpcUrl:           m.starknetRpcUrl,
-		ContractAddress:          contractAddress,
+		AgentRegistryAddress:     agentRegistryAddress,
 		OpenAIKey:                m.openAiKey,
+		DstackTappdEndpoint:      m.dstackTappdEndpoint,
 	}
 
 	if debug {

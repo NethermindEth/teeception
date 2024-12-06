@@ -30,15 +30,14 @@ func main() {
 		TwitterConsumerSecret:    output.TwitterConsumerSecret,
 		TwitterAccessToken:       output.TwitterAccessToken,
 		TwitterAccessTokenSecret: output.TwitterAccessTokenSecret,
-
-		EthPrivateKey:   output.EthPrivateKey,
-		EthRpcUrl:       output.EthRpcUrl,
-		ContractAddress: output.ContractAddress,
-
-		TickRate:        60 * time.Second,
-		TaskConcurrency: 10,
-
-		OpenAIKey: output.OpenAIKey,
+		OpenAIKey:                output.OpenAIKey,
+		StarknetRpcUrl:           output.StarknetRpcUrl,
+		DstackTappdEndpoint:      output.DstackTappdEndpoint,
+		StarknetPrivateKeySeed:   output.StarknetPrivateKeySeed,
+		AgentRegistryAddress:     output.AgentRegistryAddress,
+		TaskConcurrency:          10,
+		TickRate:                 10 * time.Second,
+		SafeBlockDelta:           0,
 	})
 	if err != nil {
 		slog.Error("failed to create agent", "error", err)
