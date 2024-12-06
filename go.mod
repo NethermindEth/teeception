@@ -8,7 +8,6 @@ require (
 	github.com/NethermindEth/juno v0.12.2
 	github.com/NethermindEth/starknet.go v0.7.2
 	github.com/alitto/pond/v2 v2.1.5
-	github.com/defiweb/go-eth v0.7.0
 	github.com/dghubble/oauth1 v0.7.3
 	github.com/gin-gonic/gin v1.10.0
 	github.com/sashabaranov/go-openai v1.35.7
@@ -21,7 +20,6 @@ require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/bits-and-blooms/bitset v1.14.2 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/btcsuite/btcd/btcec/v2 v2.3.4 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
 	github.com/bytedance/sonic/loader v0.1.1 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
@@ -30,10 +28,6 @@ require (
 	github.com/consensys/gnark-crypto v0.13.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
-	github.com/defiweb/go-anymapper v0.3.0 // indirect
-	github.com/defiweb/go-rlp v0.3.0 // indirect
-	github.com/defiweb/go-sigparser v0.6.0 // indirect
 	github.com/ethereum/go-ethereum v1.14.8 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
