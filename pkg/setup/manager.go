@@ -2,14 +2,13 @@ package setup
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/NethermindEth/teeception/pkg/encumber/proton"
 	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
-	"github.com/NethermindEth/teeception/pkg/utils/wallet"
+	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
 	"github.com/defiweb/go-eth/types"
 )
 
@@ -20,7 +19,7 @@ type SetupManager struct {
 	protonPassword   string
 	twitterAppKey    string
 	twitterAppSecret string
-	ethRpcUrl        string
+	starknetRpcUrl   string
 	contractAddress  string
 	openAiKey        string
 	loginServerIp    string
@@ -36,8 +35,8 @@ type SetupOutput struct {
 	TwitterAuthTokens        string
 	TwitterAccessToken       string
 	TwitterAccessTokenSecret string
-	EthPrivateKey            *ecdsa.PrivateKey
-	EthRpcUrl                string
+	StarknetPrivateKeySeed   []byte
+	StarknetRpcUrl           string
 	ContractAddress          types.Address
 	OpenAIKey                string
 }
@@ -58,7 +57,7 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		protonPassword:   getEnv("PROTONMAIL_PASSWORD"),
 		twitterAppKey:    getEnv("X_CONSUMER_KEY"),
 		twitterAppSecret: getEnv("X_CONSUMER_SECRET"),
-		ethRpcUrl:        getEnv("ETH_RPC_URL"),
+		starknetRpcUrl:   getEnv("STARKNET_RPC_URL"),
 		contractAddress:  getEnv("CONTRACT_ADDRESS"),
 		openAiKey:        getEnv("OPENAI_API_KEY"),
 		loginServerIp:    getEnv("X_LOGIN_SERVER_IP"),
@@ -114,12 +113,12 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 		return nil, fmt.Errorf("failed to encumber proton: %v", err)
 	}
 
-	ethPrivateKey := wallet.GeneratePrivateKey()
-
 	contractAddress, err := types.AddressFromHex(m.contractAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse contract address: %v", err)
 	}
+
+	starknetPrivateKeySeed := snaccount.NewPrivateKey(nil).Bytes()
 
 	output := &SetupOutput{
 		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
@@ -130,8 +129,8 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 		TwitterUsername:          m.twitterAccount,
 		TwitterPassword:          twitterEncumbererOutput.NewPassword,
 		ProtonPassword:           protonEncumbererOutput.NewPassword,
-		EthPrivateKey:            ethPrivateKey,
-		EthRpcUrl:                m.ethRpcUrl,
+		StarknetPrivateKeySeed:   starknetPrivateKeySeed[:],
+		StarknetRpcUrl:           m.starknetRpcUrl,
 		ContractAddress:          contractAddress,
 		OpenAIKey:                m.openAiKey,
 	}
