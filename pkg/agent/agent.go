@@ -155,7 +155,10 @@ func (a *Agent) Tick(ctx context.Context) error {
 				return
 			}
 
-			a.processDepositEvent(ctx, depositEvent)
+			err = a.processDepositEvent(ctx, depositEvent)
+			if err != nil {
+				slog.Warn("failed to process deposit event", "error", err)
+			}
 		})
 	}
 
