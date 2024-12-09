@@ -29,19 +29,19 @@ type SetupManager struct {
 }
 
 type SetupOutput struct {
-	TwitterUsername          string
-	TwitterPassword          string
-	ProtonPassword           string
-	TwitterConsumerKey       string
-	TwitterConsumerSecret    string
-	TwitterAuthTokens        string
-	TwitterAccessToken       string
-	TwitterAccessTokenSecret string
-	StarknetPrivateKeySeed   []byte
-	StarknetRpcUrl           string
-	AgentRegistryAddress     *felt.Felt
-	OpenAIKey                string
-	DstackTappdEndpoint      string
+	TwitterUsername          string     `json:"twitter_username"`
+	TwitterPassword          string     `json:"twitter_password"`
+	ProtonPassword           string     `json:"proton_password"`
+	TwitterConsumerKey       string     `json:"twitter_consumer_key"`
+	TwitterConsumerSecret    string     `json:"twitter_consumer_secret"`
+	TwitterAuthTokens        string     `json:"twitter_auth_tokens"`
+	TwitterAccessToken       string     `json:"twitter_access_token"`
+	TwitterAccessTokenSecret string     `json:"twitter_access_token_secret"`
+	StarknetPrivateKeySeed   []byte     `json:"starknet_private_key_seed"`
+	StarknetRpcUrl           string     `json:"starknet_rpc_url"`
+	AgentRegistryAddress     *felt.Felt `json:"agent_registry_address"`
+	OpenAIKey                string     `json:"openai_key"`
+	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
 }
 
 func getEnv(key string) string {
