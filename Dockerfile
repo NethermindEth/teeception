@@ -2,7 +2,7 @@
 # Build
 # ----------
 
-FROM golang:1.23-bookworm as builder
+FROM golang:1.23-bookworm AS builder
 
 WORKDIR /deps
 
