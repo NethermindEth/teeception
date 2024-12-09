@@ -16,7 +16,7 @@ COPY go.* ./
 RUN go mod download
 
 COPY . ./
-RUN go build -v cmd/agent/main.go
+RUN go build -v cmd/agent/main.go -o agent
 
 # Runtime
 # ----------
