@@ -1,7 +1,8 @@
-use starknet::ContractAddress;
+use starknet::{ContractAddress, get_block_timestamp};
 use snforge_std::{
     declare, ContractClassTrait, DeclareResultTrait, start_cheat_caller_address,
     stop_cheat_caller_address, spy_events, EventSpyAssertionsTrait,
+    start_cheat_block_timestamp_global,
 };
 
 use contracts::IAgentRegistryDispatcher;
@@ -39,6 +40,8 @@ fn deploy_registry(tee: ContractAddress) -> (ContractAddress, ContractAddress) {
 #[test]
 fn test_register_agent() {
     let tee = starknet::contract_address_const::<0x1>();
+    let owner = starknet::contract_address_const::<0x123>();
+    let end_time = 1234_u64;
 
     let (registry_address, _) = deploy_registry(tee);
     let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
@@ -46,28 +49,16 @@ fn test_register_agent() {
     let name = "Test Agent";
     let system_prompt = "I am a test agent";
 
-    dispatcher.register_agent(name.clone(), system_prompt.clone(), 1000_u256);
+    let agent_address = dispatcher
+        .register_agent(name.clone(), system_prompt.clone(), 1000_u256, end_time, owner);
 
-    let agents = dispatcher.get_agents();
-    assert(agents.len() == 1, 'Should have one agent');
+    assert(dispatcher.is_agent_registered(agent_address), 'Agent should be registered');
 
-    let agent_dispatcher = IAgentDispatcher { contract_address: *agents.at(0) };
+    let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
     assert(agent_dispatcher.get_name() == name.clone(), 'Wrong agent name');
     assert(agent_dispatcher.get_system_prompt() == system_prompt.clone(), 'Wrong system prompt');
-}
-
-#[test]
-fn test_register_multiple_agents() {
-    let (registry_address, _) = deploy_registry(starknet::contract_address_const::<0x1>());
-    let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
-
-    dispatcher.register_agent("Agent 1", "Prompt 1", 1000_u256);
-
-    dispatcher.register_agent("Agent 2", "Prompt 2", 1000_u256);
-
-    let agents = dispatcher.get_agents();
-
-    assert(agents.len() == 2, 'Should have two agents');
+    assert(agent_dispatcher.get_owner() == owner, 'Wrong owner');
+    assert(agent_dispatcher.get_end_time() == end_time, 'Wrong end time');
 }
 
 #[test]
@@ -76,10 +67,9 @@ fn test_unauthorized_transfer() {
     let (registry_address, _) = deploy_registry(starknet::contract_address_const::<0x1>());
     let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
 
-    dispatcher.register_agent("Test Agent", "Test Prompt", 1000_u256);
-
-    let agents = dispatcher.get_agents();
-    let agent_address = *agents.at(0);
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, 1234_u64, owner);
 
     // Should fail as we're not the signer
     dispatcher.transfer(agent_address, starknet::contract_address_const::<0x123>());
@@ -91,10 +81,12 @@ fn test_direct_agent_transfer_unauthorized() {
     let (registry_address, _) = deploy_registry(starknet::contract_address_const::<0x1>());
     let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
 
-    dispatcher.register_agent("Test Agent", "Test Prompt", 1000_u256);
+    let timestamp = get_block_timestamp();
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, timestamp + 1, owner);
 
-    let agents = dispatcher.get_agents();
-    let agent_dispatcher = IAgentDispatcher { contract_address: *agents.at(0) };
+    let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
 
     // Should fail as we're not the registry
     agent_dispatcher.transfer(starknet::contract_address_const::<0x123>());
@@ -108,10 +100,11 @@ fn test_get_agent_details() {
     let name = "Complex Agent";
     let system_prompt = "Complex system prompt with multiple words";
 
-    dispatcher.register_agent(name.clone(), system_prompt.clone(), 1000_u256);
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent(name.clone(), system_prompt.clone(), 1000_u256, 1234_u64, owner);
 
-    let agents = dispatcher.get_agents();
-    let agent_dispatcher = IAgentDispatcher { contract_address: *agents.at(0) };
+    let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
 
     assert(agent_dispatcher.get_name() == name, 'Wrong agent name');
     assert(agent_dispatcher.get_system_prompt() == system_prompt, 'Wrong system prompt');
@@ -124,10 +117,9 @@ fn test_authorized_token_transfer() {
     let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
-    dispatcher.register_agent("Test Agent", "Test Prompt", 1000_u256);
-
-    let agents = dispatcher.get_agents();
-    let agent_address = *agents.at(0);
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, 1234_u64, owner);
 
     let amount: u256 = 100;
     start_cheat_caller_address(token_dispatcher.contract_address, tee);
@@ -153,10 +145,9 @@ fn test_unauthorized_token_transfer() {
     let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
-    dispatcher.register_agent("Test Agent", "Test Prompt", 1000_u256);
-
-    let agents = dispatcher.get_agents();
-    let agent_address = *agents.at(0);
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, 1234_u64, owner);
 
     let amount: u256 = 100;
     start_cheat_caller_address(token_dispatcher.contract_address, tee);
@@ -178,9 +169,9 @@ fn test_deposit_with_tweet() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     // Register an agent
-    dispatcher.register_agent("Test Agent", "Test Prompt", 1000_u256);
-    let agents = dispatcher.get_agents();
-    let agent_address = *agents.at(0);
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, 1234_u64, owner);
     let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
 
     // Setup deposit amount and approve tokens
@@ -234,9 +225,9 @@ fn test_deposit_without_approval() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     // Register agent
-    dispatcher.register_agent("Test Agent", "Test Prompt", 1000_u256);
-    let agents = dispatcher.get_agents();
-    let agent_address = *agents.at(0);
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, 1234_u64, owner);
     let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
 
     // Try to deposit without approval
@@ -254,9 +245,9 @@ fn test_multiple_deposits_same_agent() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     // Register agent
-    dispatcher.register_agent("Test Agent", "Test Prompt", 1000_u256);
-    let agents = dispatcher.get_agents();
-    let agent_address = *agents.at(0);
+    let owner = starknet::contract_address_const::<0x123>();
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, 1234_u64, owner);
     let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
     let deposit_amount = agent_dispatcher.get_deposit_amount();
 
@@ -287,4 +278,101 @@ fn test_multiple_deposits_same_agent() {
         token_dispatcher.balance_of(agent_address) == deposit_amount * 2,
         'Wrong final agent balance',
     );
+}
+
+#[test]
+fn test_is_agent_registered() {
+    let tee = starknet::contract_address_const::<0x1>();
+    let owner = starknet::contract_address_const::<0x123>();
+    let (registry_address, _) = deploy_registry(tee);
+    let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
+
+    let random_address = starknet::contract_address_const::<0x456>();
+    assert(!dispatcher.is_agent_registered(random_address), 'Should not be registered');
+
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, 1234_u64, owner);
+    assert(dispatcher.is_agent_registered(agent_address), 'Should be registered');
+}
+
+#[test]
+fn test_owner_can_transfer_after_end_time() {
+    let tee = starknet::contract_address_const::<0x1>();
+    let owner = starknet::contract_address_const::<0x123>();
+    let end_time = 1234_u64;
+
+    let (registry_address, token) = deploy_registry(tee);
+    let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
+    let token_dispatcher = IERC20Dispatcher { contract_address: token };
+
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, end_time, owner);
+    let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
+
+    // Fund the agent
+    let amount: u256 = 100;
+    start_cheat_caller_address(token_dispatcher.contract_address, tee);
+    token_dispatcher.transfer(agent_address, amount);
+    stop_cheat_caller_address(token_dispatcher.contract_address);
+
+    let recipient = starknet::contract_address_const::<0x456>();
+
+    // Set block timestamp after end_time
+    start_cheat_block_timestamp_global(end_time + 1);
+
+    // Owner should be able to transfer
+    start_cheat_caller_address(agent_dispatcher.contract_address, owner);
+    agent_dispatcher.transfer(recipient);
+    stop_cheat_caller_address(agent_dispatcher.contract_address);
+
+    assert(token_dispatcher.balance_of(agent_address) == 0, 'Agent should have 0');
+    assert(token_dispatcher.balance_of(recipient) == amount, 'Recipient wrong balance');
+}
+
+#[test]
+#[should_panic(expected: ('Only registry can transfer',))]
+fn test_owner_cannot_transfer_before_end_time() {
+    let tee = starknet::contract_address_const::<0x1>();
+    let owner = starknet::contract_address_const::<0x123>();
+    let end_time = 1234_u64;
+
+    let (registry_address, _) = deploy_registry(tee);
+    let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
+
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, end_time, owner);
+    let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
+
+    let recipient = starknet::contract_address_const::<0x456>();
+
+    // Set block timestamp before end_time
+    start_cheat_block_timestamp_global(end_time - 1);
+
+    // Owner should not be able to transfer
+    start_cheat_caller_address(agent_dispatcher.contract_address, owner);
+    agent_dispatcher.transfer(recipient);
+}
+
+#[test]
+#[should_panic(expected: ('Only owner can transfer',))]
+fn test_registry_cannot_transfer_before_end_time() {
+    let tee = starknet::contract_address_const::<0x1>();
+    let owner = starknet::contract_address_const::<0x123>();
+    let end_time = get_block_timestamp();
+
+    let (registry_address, _) = deploy_registry(tee);
+    let dispatcher = IAgentRegistryDispatcher { contract_address: registry_address };
+
+    let agent_address = dispatcher
+        .register_agent("Test Agent", "Test Prompt", 1000_u256, end_time, owner);
+    let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
+
+    let recipient = starknet::contract_address_const::<0x456>();
+
+    // Set block timestamp after end_time
+    start_cheat_block_timestamp_global(end_time + 1);
+
+    // Registry should not be able to transfer
+    start_cheat_caller_address(dispatcher.contract_address, registry_address);
+    agent_dispatcher.transfer(recipient);
 }

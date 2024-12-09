@@ -3,10 +3,15 @@ use core::starknet::ContractAddress;
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
     fn register_agent(
-        ref self: TContractState, name: ByteArray, system_prompt: ByteArray, deposit_amount: u256,
-    );
+        ref self: TContractState,
+        name: ByteArray,
+        system_prompt: ByteArray,
+        deposit_amount: u256,
+        end_time: u64,
+        owner: ContractAddress,
+    ) -> ContractAddress;
     fn get_token(self: @TContractState) -> ContractAddress;
-    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+    fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
 }
 
@@ -15,24 +20,37 @@ pub trait IAgent<TContractState> {
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_deposit_amount(self: @TContractState) -> u256;
+    fn get_end_time(self: @TContractState) -> u64;
+    fn get_owner(self: @TContractState) -> ContractAddress;
     fn transfer(ref self: TContractState, recipient: ContractAddress);
     fn deposit(ref self: TContractState, tweet_id: felt252);
 }
 
 #[starknet::contract]
 mod AgentRegistry {
-    use core::starknet::storage::{
-        Vec, VecTrait, MutableVecTrait, StoragePointerReadAccess, StoragePointerWriteAccess,
-    };
-    use core::starknet::{ContractAddress, ClassHash};
+    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use core::starknet::syscalls::deploy_syscall;
-    use core::starknet::get_caller_address;
+    use core::starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
+    use core::starknet::{ContractAddress, ClassHash, get_caller_address};
+
     use super::{IAgentDispatcher, IAgentDispatcherTrait};
+
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    pub enum Event {
+        AgentRegistered: AgentRegistered,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct AgentRegistered {
+        pub name: ByteArray,
+        pub address: ContractAddress,
+    }
 
     #[storage]
     struct Storage {
         agent_class_hash: ClassHash,
-        agents: Vec<ContractAddress>,
+        agent_registered: Map::<ContractAddress, bool>,
         tee: ContractAddress,
         token: ContractAddress,
     }
@@ -56,26 +74,30 @@ mod AgentRegistry {
             name: ByteArray,
             system_prompt: ByteArray,
             deposit_amount: u256,
-        ) {
+            end_time: u64,
+            owner: ContractAddress,
+        ) -> ContractAddress {
             let mut constructor_calldata = ArrayTrait::<felt252>::new();
             name.serialize(ref constructor_calldata);
             system_prompt.serialize(ref constructor_calldata);
             deposit_amount.serialize(ref constructor_calldata);
+            end_time.serialize(ref constructor_calldata);
+            owner.serialize(ref constructor_calldata);
 
             let (deployed_address, _) = deploy_syscall(
                 self.agent_class_hash.read(), 0, constructor_calldata.span(), false,
             )
                 .unwrap();
 
-            self.agents.append().write(deployed_address);
+            self.agent_registered.write(deployed_address, true);
+
+            self.emit(Event::AgentRegistered(AgentRegistered { name, address: deployed_address }));
+
+            deployed_address
         }
 
-        fn get_agents(self: @ContractState) -> Array<ContractAddress> {
-            let mut addresses = array![];
-            for i in 0..self.agents.len() {
-                addresses.append(self.agents.at(i).read());
-            };
-            addresses
+        fn is_agent_registered(self: @ContractState, address: ContractAddress) -> bool {
+            self.agent_registered.read(address)
         }
 
         fn get_token(self: @ContractState) -> ContractAddress {
@@ -92,10 +114,12 @@ mod AgentRegistry {
 #[starknet::contract]
 pub mod Agent {
     use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use core::starknet::{ContractAddress, get_caller_address};
+    use core::starknet::{
+        ContractAddress, get_caller_address, get_contract_address, get_block_timestamp,
+    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+
     use super::{IAgentRegistryDispatcher, IAgentRegistryDispatcherTrait};
-    use starknet::get_contract_address;
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -116,16 +140,25 @@ pub mod Agent {
         system_prompt: ByteArray,
         name: ByteArray,
         deposit_amount: u256,
+        end_time: u64,
+        owner: ContractAddress,
     }
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, name: ByteArray, system_prompt: ByteArray, deposit_amount: u256,
+        ref self: ContractState,
+        name: ByteArray,
+        system_prompt: ByteArray,
+        deposit_amount: u256,
+        end_time: u64,
+        owner: ContractAddress,
     ) {
         self.registry.write(get_caller_address());
         self.name.write(name);
         self.system_prompt.write(system_prompt);
         self.deposit_amount.write(deposit_amount);
+        self.end_time.write(end_time);
+        self.owner.write(owner);
     }
 
     #[abi(embed_v0)]
@@ -141,11 +174,25 @@ pub mod Agent {
         fn get_deposit_amount(self: @ContractState) -> u256 {
             self.deposit_amount.read()
         }
+        fn get_end_time(self: @ContractState) -> u64 {
+            self.end_time.read()
+        }
+
+        fn get_owner(self: @ContractState) -> ContractAddress {
+            self.owner.read()
+        }
 
         fn transfer(ref self: ContractState, recipient: ContractAddress) {
-            assert(get_caller_address() == self.registry.read(), 'Only registry can transfer');
-            let token = IAgentRegistryDispatcher { contract_address: self.registry.read() }
-                .get_token();
+            let caller = get_caller_address();
+            let registry = self.registry.read();
+
+            if get_block_timestamp() > self.end_time.read() {
+                assert(caller == self.owner.read(), 'Only owner can transfer');
+            } else {
+                assert(get_caller_address() == registry, 'Only registry can transfer');
+            }
+
+            let token = IAgentRegistryDispatcher { contract_address: registry }.get_token();
             let balance = IERC20Dispatcher { contract_address: token }
                 .balance_of(get_contract_address());
             IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);
