@@ -23,7 +23,7 @@ import (
 )
 
 var (
-	depositSelector         = starknetgoutils.GetSelectorFromNameFelt("Deposit")
+	promptPaidSelector      = starknetgoutils.GetSelectorFromNameFelt("PromptPaid")
 	getSystemPromptSelector = starknetgoutils.GetSelectorFromNameFelt("get_system_prompt")
 	transferSelector        = starknetgoutils.GetSelectorFromNameFelt("transfer")
 )
@@ -136,7 +136,7 @@ func (a *Agent) Tick(ctx context.Context) error {
 			FromBlock: rpc.BlockID{Number: &a.lastBlockNumber},
 			ToBlock:   rpc.BlockID{Number: &blockNumber},
 			Keys: [][]*felt.Felt{
-				{depositSelector},
+				{promptPaidSelector},
 			},
 		},
 	})
@@ -146,7 +146,7 @@ func (a *Agent) Tick(ctx context.Context) error {
 
 	for _, event := range eventChunk.Events {
 		a.pool.Go(func() {
-			depositEvent, success, err := a.parseEvent(ctx, event)
+			promptPaidEvent, success, err := a.parseEvent(ctx, event)
 			if err != nil {
 				slog.Warn("failed to parse event", "error", err)
 				return
@@ -155,9 +155,9 @@ func (a *Agent) Tick(ctx context.Context) error {
 				return
 			}
 
-			err = a.processDepositEvent(ctx, depositEvent)
+			err = a.processPromptPaidEvent(ctx, promptPaidEvent)
 			if err != nil {
-				slog.Warn("failed to process deposit event", "error", err)
+				slog.Warn("failed to process prompt paid event", "error", err)
 			}
 		})
 	}
@@ -165,46 +165,46 @@ func (a *Agent) Tick(ctx context.Context) error {
 	return nil
 }
 
-type DepositEvent struct {
-	FromAddress  *felt.Felt
+type PromptPaidEvent struct {
 	AgentAddress *felt.Felt
+	FromAddress  *felt.Felt
 	TweetID      uint64
 }
 
-func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*DepositEvent, bool, error) {
-	if event.Keys[0] != depositSelector {
+func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*PromptPaidEvent, bool, error) {
+	if event.Keys[0] != promptPaidSelector {
 		return nil, false, nil
 	}
 
-	fromAddress := event.Keys[1]
 	agentAddress := event.FromAddress
-	tweetID := event.Data[0].Uint64()
+	fromAddress := event.Keys[1]
+	tweetID := event.Keys[2].Uint64()
 
-	if event.Data[0].Cmp(new(felt.Felt).SetUint64(tweetID)) != 0 {
+	if event.Keys[2].Cmp(new(felt.Felt).SetUint64(tweetID)) != 0 {
 		return nil, false, fmt.Errorf("twitter message ID overflow")
 	}
 
-	depositEvent := &DepositEvent{
+	promptPaidEvent := &PromptPaidEvent{
 		FromAddress:  fromAddress,
 		AgentAddress: agentAddress,
 		TweetID:      tweetID,
 	}
 
-	return depositEvent, true, nil
+	return promptPaidEvent, true, nil
 }
 
-func (a *Agent) processDepositEvent(ctx context.Context, depositEvent *DepositEvent) error {
-	tweetText, err := a.getTweetText(depositEvent.TweetID)
+func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *PromptPaidEvent) error {
+	tweetText, err := a.getTweetText(promptPaidEvent.TweetID)
 	if err != nil {
 		return fmt.Errorf("failed to get tweet text: %v", err)
 	}
 
-	systemPrompt, err := a.getSystemPrompt(depositEvent.AgentAddress)
+	systemPrompt, err := a.getSystemPrompt(promptPaidEvent.AgentAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get system prompt: %v", err)
 	}
 
-	return a.reactToTweet(ctx, depositEvent.AgentAddress, depositEvent.TweetID, tweetText, systemPrompt)
+	return a.reactToTweet(ctx, promptPaidEvent.AgentAddress, promptPaidEvent.TweetID, tweetText, systemPrompt)
 }
 
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {
