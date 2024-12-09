@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/account"
 	"github.com/NethermindEth/starknet.go/rpc"
@@ -18,7 +19,6 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/jsonschema"
 
-	"github.com/NethermindEth/teeception/pkg/dstack"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
 )
 
@@ -50,7 +50,7 @@ type Agent struct {
 	twitterClient     *http.Client
 	openaiClient      *openai.Client
 	starknetClient    *rpc.Provider
-	dStackTappdClient *dstack.TappdClient
+	dStackTappdClient *tappd.TappdClient
 
 	lastBlockNumber uint64
 
@@ -65,7 +65,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 	openaiClient := openai.NewClient(config.OpenAIKey)
 
-	dstackTappdClient := dstack.NewTappdClient(config.DstackTappdEndpoint)
+	dstackTappdClient := tappd.NewTappdClient(config.DstackTappdEndpoint, slog.Default())
 
 	starknetClient, err := rpc.NewProvider(config.StarknetRpcUrl)
 	if err != nil {
@@ -381,7 +381,7 @@ func (a *Agent) getTweetText(tweetID uint64) (string, error) {
 	return data.Data.Text, nil
 }
 
-func (a *Agent) quote(ctx context.Context) (*dstack.TdxQuoteResponse, error) {
+func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
 	reportData := ReportData{
 		Address:         a.account.AccountAddress,
 		ContractAddress: a.config.AgentRegistryAddress,
@@ -393,7 +393,7 @@ func (a *Agent) quote(ctx context.Context) (*dstack.TdxQuoteResponse, error) {
 		return nil, fmt.Errorf("failed to binary marshal report data: %v", err)
 	}
 
-	quoteResp, err := a.dStackTappdClient.TdxQuote(reportDataBytes)
+	quoteResp, err := a.dStackTappdClient.TdxQuote(ctx, reportDataBytes, tappd.KECCAK256)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get quote: %v", err)
 	}
