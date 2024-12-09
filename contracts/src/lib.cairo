@@ -6,9 +6,8 @@ pub trait IAgentRegistry<TContractState> {
         ref self: TContractState,
         name: ByteArray,
         system_prompt: ByteArray,
-        deposit_amount: u256,
+        prompt_price: u256,
         end_time: u64,
-        owner: ContractAddress,
     ) -> ContractAddress;
     fn get_token(self: @TContractState) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
@@ -19,19 +18,21 @@ pub trait IAgentRegistry<TContractState> {
 pub trait IAgent<TContractState> {
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
-    fn get_deposit_amount(self: @TContractState) -> u256;
     fn get_end_time(self: @TContractState) -> u64;
-    fn get_owner(self: @TContractState) -> ContractAddress;
+    fn get_creator(self: @TContractState) -> ContractAddress;
+    fn get_prompt_price(self: @TContractState) -> u256;
     fn transfer(ref self: TContractState, recipient: ContractAddress);
-    fn deposit(ref self: TContractState, tweet_id: felt252);
+    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64);
 }
 
 #[starknet::contract]
-mod AgentRegistry {
-    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use core::starknet::syscalls::deploy_syscall;
-    use core::starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
+pub mod AgentRegistry {
     use core::starknet::{ContractAddress, ClassHash, get_caller_address};
+    use core::starknet::syscalls::deploy_syscall;
+    use core::starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
+    };
 
     use super::{IAgentDispatcher, IAgentDispatcherTrait};
 
@@ -43,8 +44,11 @@ mod AgentRegistry {
 
     #[derive(Drop, starknet::Event)]
     pub struct AgentRegistered {
+        pub agent: ContractAddress,
+        #[key]
         pub name: ByteArray,
-        pub address: ContractAddress,
+        #[key]
+        pub creator: ContractAddress,
     }
 
     #[storage]
@@ -56,12 +60,8 @@ mod AgentRegistry {
     }
 
     #[constructor]
-    fn constructor(
-        ref self: ContractState,
-        agent_class_hash: ClassHash,
-        tee: ContractAddress,
-        token: ContractAddress,
-    ) {
+    fn constructor(ref self: ContractState, agent_class_hash: ClassHash, token: ContractAddress) {
+        let tee = get_caller_address();
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
         self.token.write(token);
@@ -73,16 +73,18 @@ mod AgentRegistry {
             ref self: ContractState,
             name: ByteArray,
             system_prompt: ByteArray,
-            deposit_amount: u256,
+            prompt_price: u256,
             end_time: u64,
-            owner: ContractAddress,
         ) -> ContractAddress {
+            let creator = get_caller_address();
+
             let mut constructor_calldata = ArrayTrait::<felt252>::new();
             name.serialize(ref constructor_calldata);
             system_prompt.serialize(ref constructor_calldata);
-            deposit_amount.serialize(ref constructor_calldata);
+            self.token.read().serialize(ref constructor_calldata);
+            prompt_price.serialize(ref constructor_calldata);
             end_time.serialize(ref constructor_calldata);
-            owner.serialize(ref constructor_calldata);
+            creator.serialize(ref constructor_calldata);
 
             let (deployed_address, _) = deploy_syscall(
                 self.agent_class_hash.read(), 0, constructor_calldata.span(), false,
@@ -91,7 +93,12 @@ mod AgentRegistry {
 
             self.agent_registered.write(deployed_address, true);
 
-            self.emit(Event::AgentRegistered(AgentRegistered { name, address: deployed_address }));
+            self
+                .emit(
+                    Event::AgentRegistered(
+                        AgentRegistered { agent: deployed_address, creator, name },
+                    ),
+                );
 
             deployed_address
         }
@@ -121,12 +128,6 @@ pub mod Agent {
 
     use super::{IAgentRegistryDispatcher, IAgentRegistryDispatcherTrait};
 
-    #[event]
-    #[derive(Drop, starknet::Event)]
-    pub enum Event {
-        Deposit: Deposit,
-    }
-
     #[derive(Drop, starknet::Event)]
     pub struct Deposit {
         #[key]
@@ -134,14 +135,35 @@ pub mod Agent {
         pub tweet_id: felt252,
     }
 
+    const PROMPT_REWARD_BPS: u16 = 8000; // 80% goes to agent
+    const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
+    const BPS_DENOMINATOR: u16 = 10000;
+
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    pub enum Event {
+        PromptPaid: PromptPaid,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct PromptPaid {
+        #[key]
+        pub user: ContractAddress,
+        #[key]
+        pub twitter_message_id: u64,
+        pub amount: u256,
+        pub creator_fee: u256,
+    }
+
     #[storage]
     struct Storage {
         registry: ContractAddress,
         system_prompt: ByteArray,
         name: ByteArray,
-        deposit_amount: u256,
+        token: ContractAddress,
+        prompt_price: u256,
         end_time: u64,
-        owner: ContractAddress,
+        creator: ContractAddress,
     }
 
     #[constructor]
@@ -149,16 +171,18 @@ pub mod Agent {
         ref self: ContractState,
         name: ByteArray,
         system_prompt: ByteArray,
-        deposit_amount: u256,
+        token: ContractAddress,
+        prompt_price: u256,
         end_time: u64,
-        owner: ContractAddress,
+        creator: ContractAddress,
     ) {
         self.registry.write(get_caller_address());
         self.name.write(name);
         self.system_prompt.write(system_prompt);
-        self.deposit_amount.write(deposit_amount);
+        self.token.write(token);
+        self.prompt_price.write(prompt_price);
         self.end_time.write(end_time);
-        self.owner.write(owner);
+        self.creator.write(creator);
     }
 
     #[abi(embed_v0)]
@@ -171,15 +195,16 @@ pub mod Agent {
             self.system_prompt.read()
         }
 
-        fn get_deposit_amount(self: @ContractState) -> u256 {
-            self.deposit_amount.read()
+        fn get_prompt_price(self: @ContractState) -> u256 {
+            self.prompt_price.read()
         }
+
         fn get_end_time(self: @ContractState) -> u64 {
             self.end_time.read()
         }
 
-        fn get_owner(self: @ContractState) -> ContractAddress {
-            self.owner.read()
+        fn get_creator(self: @ContractState) -> ContractAddress {
+            self.creator.read()
         }
 
         fn transfer(ref self: ContractState, recipient: ContractAddress) {
@@ -187,7 +212,7 @@ pub mod Agent {
             let registry = self.registry.read();
 
             if get_block_timestamp() > self.end_time.read() {
-                assert(caller == self.owner.read(), 'Only owner can transfer');
+                assert(caller == self.creator.read(), 'Only creator can transfer');
             } else {
                 assert(get_caller_address() == registry, 'Only registry can transfer');
             }
@@ -198,18 +223,26 @@ pub mod Agent {
             IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);
         }
 
-        fn deposit(ref self: ContractState, tweet_id: felt252) {
-            let token = IAgentRegistryDispatcher { contract_address: self.registry.read() }
-                .get_token();
+        fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) {
+            let caller = get_caller_address();
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+            let prompt_price = self.prompt_price.read();
 
-            IERC20Dispatcher { contract_address: token }
-                .transfer_from(
-                    get_caller_address(), get_contract_address(), self.deposit_amount.read(),
-                );
+            // Calculate fee split
+            let creator_fee = (prompt_price * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
+            let agent_amount = prompt_price - creator_fee;
+
+            // Transfer tokens
+            token.transfer_from(caller, get_contract_address(), agent_amount);
+            token.transfer_from(caller, self.creator.read(), creator_fee);
 
             self
                 .emit(
-                    Event::Deposit(Deposit { depositor: get_caller_address(), tweet_id: tweet_id }),
+                    Event::PromptPaid(
+                        PromptPaid {
+                            user: caller, twitter_message_id, amount: agent_amount, creator_fee,
+                        },
+                    ),
                 );
         }
     }
