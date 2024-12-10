@@ -13,6 +13,10 @@ teeception = { path = "../../contracts" }
 [dev-dependencies]
 cairo_test = "2.9.1"
 
+[lib]
+sierra = true
+casm = true
+
 [[target.starknet-contract]]
 build-external-contracts = [
     "teeception::Agent",
