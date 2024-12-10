@@ -1,28 +1,33 @@
 use sncast_std::{declare, deploy, DeclareResultTrait, get_nonce, FeeSettings, EthFeeSettings};
 use starknet::{ContractAddress};
+
 fn main() {
     let max_fee = 999999999999999;
     let salt = 0x3;
 
     // Declare Agent contract first
     let agent_declare_nonce = get_nonce('latest');
-    let agent_declare_result = declare(
+    let agent_declare_result = match declare(
         "Agent",
         FeeSettings::Eth(EthFeeSettings { max_fee: Option::Some(max_fee) }),
         Option::Some(agent_declare_nonce),
-    )
-        .expect('agent declare failed');
+    ) {
+        Result::Ok(result) => result,
+        Result::Err(err) => panic!("Agent declare failed with error: {:?}", err),
+    };
 
     let agent_class_hash = agent_declare_result.class_hash();
 
     // Declare and deploy AgentRegistry
     let registry_declare_nonce = get_nonce('pending');
-    let registry_declare_result = declare(
+    let registry_declare_result = match declare(
         "AgentRegistry",
         FeeSettings::Eth(EthFeeSettings { max_fee: Option::Some(max_fee) }),
         Option::Some(registry_declare_nonce),
-    )
-        .expect('registry declare failed');
+    ) {
+        Result::Ok(result) => result,
+        Result::Err(err) => panic!("Registry declare failed with error: {:?}", err),
+    };
 
     let registry_class_hash = registry_declare_result.class_hash();
     let tee: ContractAddress = 0x065cda5b8c9e475382b1942fd3e7bf34d0258d5a043d0c34787144a8d0ce4bcb.try_into().unwrap();
@@ -34,15 +39,17 @@ fn main() {
     registry_constructor.append(strk.into());
 
     let registry_deploy_nonce = get_nonce('pending');
-    let registry_deploy_result = deploy(
+    let registry_deploy_result = match deploy(
         *registry_class_hash,
         registry_constructor,
         Option::Some(salt),
         true,
         FeeSettings::Eth(EthFeeSettings { max_fee: Option::Some(max_fee) }),
         Option::Some(registry_deploy_nonce),
-    )
-        .expect('registry deploy failed');
+    ) {
+        Result::Ok(result) => result,
+        Result::Err(err) => panic!("Registry deploy failed with error: {:?}", err),
+    };
 
     assert(registry_deploy_result.transaction_hash != 0, registry_deploy_result.transaction_hash);
 }

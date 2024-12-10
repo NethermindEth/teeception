@@ -1,5 +1,5 @@
 [package]
-name = "deploy"
+name = "teeception_scripts"
 version = "0.1.0"
 edition = "2024_07"
 
@@ -8,6 +8,13 @@ edition = "2024_07"
 [dependencies]
 sncast_std = { git = "https://github.com/foundry-rs/starknet-foundry", tag = "v0.34.0" }
 starknet = ">=2.9.1"
+teeception = { path = "../../contracts" }
 
 [dev-dependencies]
 cairo_test = "2.9.1"
+
+[[target.starknet-contract]]
+build-external-contracts = [
+    "teeception::Agent",
+    "teeception::AgentRegistry"
+]

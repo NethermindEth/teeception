@@ -9,11 +9,11 @@ use snforge_std::{
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use core::serde::{Serde};
 
-use contracts::IAgentRegistryDispatcher;
-use contracts::IAgentRegistryDispatcherTrait;
-use contracts::IAgentDispatcher;
-use contracts::IAgentDispatcherTrait;
-use contracts::{AgentRegistry, Agent};
+use teeception::IAgentRegistryDispatcher;
+use teeception::IAgentRegistryDispatcherTrait;
+use teeception::IAgentDispatcher;
+use teeception::IAgentDispatcherTrait;
+use teeception::{AgentRegistry, Agent};
 
 fn deploy_test_token(token_holder: ContractAddress) -> ContractAddress {
     let contract = declare("ERC20").unwrap().contract_class();

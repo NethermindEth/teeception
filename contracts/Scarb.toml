@@ -1,5 +1,5 @@
 [package]
-name = "contracts"
+name = "teeception"
 version = "0.1.0"
 edition = "2024_07"
 
@@ -15,6 +15,9 @@ sncast_std = { git = "https://github.com/foundry-rs/starknet-foundry", tag = "v0
 assert_macros = "2.9.1"
 
 [[target.starknet-contract]]
+sierra = true
+
+[[target.lib]]
 sierra = true
 
 [scripts]
