@@ -25,10 +25,11 @@ fn main() {
         .expect('registry declare failed');
 
     let registry_class_hash = registry_declare_result.class_hash();
-
+    let tee: ContractAddress = 0x065cda5b8c9e475382b1942fd3e7bf34d0258d5a043d0c34787144a8d0ce4bcb.try_into().unwrap();
     let strk: ContractAddress = 0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d.try_into().unwrap();
 
     let mut registry_constructor = ArrayTrait::new();
+    registry_constructor.append(tee.into());
     registry_constructor.append((*agent_class_hash).into());
     registry_constructor.append(strk.into());
 

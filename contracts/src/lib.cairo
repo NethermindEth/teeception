@@ -60,8 +60,7 @@ pub mod AgentRegistry {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, agent_class_hash: ClassHash, token: ContractAddress) {
-        let tee = get_caller_address();
+    fn constructor(ref self: ContractState, tee: ContractAddress, agent_class_hash: ClassHash, token: ContractAddress) {
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
         self.token.write(token);

@@ -30,6 +30,7 @@ fn deploy_registry(tee: ContractAddress) -> (ContractAddress, ContractAddress) {
     let token = deploy_test_token(tee);
 
     let mut calldata = ArrayTrait::<felt252>::new();
+    tee.serialize(ref calldata);
     agent_contract.serialize(ref calldata);
     token.serialize(ref calldata);
 
