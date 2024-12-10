@@ -6,6 +6,7 @@ name = "contracts"
 version = "0.1.0"
 dependencies = [
  "openzeppelin",
+ "sncast_std",
  "snforge_std",
 ]
 
@@ -114,6 +115,11 @@ source = "git+https://github.com/OpenZeppelin/cairo-contracts.git?tag=v0.19.0#8d
 name = "openzeppelin_utils"
 version = "0.19.0"
 source = "git+https://github.com/OpenZeppelin/cairo-contracts.git?tag=v0.19.0#8d49e8c445efd9bdc99b050c8b7d11ae5ad19628"
+
+[[package]]
+name = "sncast_std"
+version = "0.34.0"
+source = "git+https://github.com/foundry-rs/starknet-foundry?tag=v0.34.0#d6976d4635cbe69bd199fd502788c469d408ed2d"
 
 [[package]]
 name = "snforge_scarb_plugin"
