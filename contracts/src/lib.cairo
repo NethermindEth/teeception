@@ -12,6 +12,7 @@ pub trait IAgentRegistry<TContractState> {
     fn get_token(self: @TContractState) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
     fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+    fn get_registration_price(self: @TContractState) -> u256;
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
 }
 
@@ -28,12 +29,13 @@ pub trait IAgent<TContractState> {
 
 #[starknet::contract]
 pub mod AgentRegistry {
-    use core::starknet::{ContractAddress, ClassHash, get_caller_address};
+    use core::starknet::{ContractAddress, ClassHash, get_caller_address, get_contract_address};
     use core::starknet::syscalls::deploy_syscall;
     use core::starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess, Vec, VecTrait, MutableVecTrait,
     };
+    use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
     use super::{IAgentDispatcher, IAgentDispatcherTrait};
 
@@ -59,6 +61,7 @@ pub mod AgentRegistry {
         agents: Vec::<ContractAddress>,
         tee: ContractAddress,
         token: ContractAddress,
+        registration_price: u256,
     }
 
     #[constructor]
@@ -67,10 +70,12 @@ pub mod AgentRegistry {
         tee: ContractAddress,
         agent_class_hash: ClassHash,
         token: ContractAddress,
+        registration_price: u256,
     ) {
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
         self.token.write(token);
+        self.registration_price.write(registration_price);
     }
 
     #[abi(embed_v0)]
@@ -83,6 +88,11 @@ pub mod AgentRegistry {
             end_time: u64,
         ) -> ContractAddress {
             let creator = get_caller_address();
+
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+
+            // TODO: redirect to the owner
+            token.transfer_from(creator, get_contract_address(), self.registration_price.read());
 
             let mut constructor_calldata = ArrayTrait::<felt252>::new();
             name.serialize(ref constructor_calldata);
@@ -124,6 +134,10 @@ pub mod AgentRegistry {
 
         fn get_token(self: @ContractState) -> ContractAddress {
             self.token.read()
+        }
+
+        fn get_registration_price(self: @ContractState) -> u256 {
+            self.registration_price.read()
         }
 
         fn transfer(ref self: ContractState, agent: ContractAddress, recipient: ContractAddress) {

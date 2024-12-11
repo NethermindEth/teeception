@@ -2,6 +2,7 @@
 
 TEE='0x065cda5b8c9e475382b1942fd3e7bf34d0258d5a043d0c34787144a8d0ce4bcb'
 STRK='0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
+REGISTRATION_PRICE='100000000000000000000'
 
 # Attempt to declare Agent contract and handle potential "already declared" error
 AGENT_DECLARE_RESP=$(sncast declare -c Agent --fee-token strk 2>&1)
@@ -23,7 +24,7 @@ else
     echo "Registry contract declared with class hash: $REGISTRY_CLASS_HASH"
 fi
 
-REGISTRY_DEPLOY_RESP=$(sncast deploy --fee-token strk --class-hash $REGISTRY_CLASS_HASH --constructor-calldata $TEE $AGENT_CLASS_HASH $STRK)
+REGISTRY_DEPLOY_RESP=$(sncast deploy --fee-token strk --class-hash $REGISTRY_CLASS_HASH --constructor-calldata $TEE $AGENT_CLASS_HASH $STRK $REGISTRATION_PRICE)
 REGISTRY_CONTRACT_ADDRESS=$(echo "$REGISTRY_DEPLOY_RESP" | awk '/contract_address:/ {print $2}')
 
 echo "Registry contract deployed with address: $REGISTRY_CONTRACT_ADDRESS"

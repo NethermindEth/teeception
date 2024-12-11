@@ -37,6 +37,7 @@ fn main() {
     registry_constructor.append(tee.into());
     registry_constructor.append((*agent_class_hash).into());
     registry_constructor.append(strk.into());
+    registry_constructor.append(100000000000000000000.into());
 
     let registry_deploy_nonce = get_nonce('pending');
     let registry_deploy_result = match deploy(
