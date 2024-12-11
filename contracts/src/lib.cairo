@@ -11,6 +11,7 @@ pub trait IAgentRegistry<TContractState> {
     ) -> ContractAddress;
     fn get_token(self: @TContractState) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
+    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
 }
 
@@ -31,7 +32,7 @@ pub mod AgentRegistry {
     use core::starknet::syscalls::deploy_syscall;
     use core::starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
-        StoragePointerWriteAccess,
+        StoragePointerWriteAccess, Vec, VecTrait, MutableVecTrait,
     };
 
     use super::{IAgentDispatcher, IAgentDispatcherTrait};
@@ -55,12 +56,18 @@ pub mod AgentRegistry {
     struct Storage {
         agent_class_hash: ClassHash,
         agent_registered: Map::<ContractAddress, bool>,
+        agents: Vec::<ContractAddress>,
         tee: ContractAddress,
         token: ContractAddress,
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, tee: ContractAddress, agent_class_hash: ClassHash, token: ContractAddress) {
+    fn constructor(
+        ref self: ContractState,
+        tee: ContractAddress,
+        agent_class_hash: ClassHash,
+        token: ContractAddress,
+    ) {
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
         self.token.write(token);
@@ -91,6 +98,7 @@ pub mod AgentRegistry {
                 .unwrap();
 
             self.agent_registered.write(deployed_address, true);
+            self.agents.append().write(deployed_address);
 
             self
                 .emit(
@@ -100,6 +108,14 @@ pub mod AgentRegistry {
                 );
 
             deployed_address
+        }
+
+        fn get_agents(self: @ContractState) -> Array<ContractAddress> {
+            let mut addresses = array![];
+            for i in 0..self.agents.len() {
+                addresses.append(self.agents.at(i).read());
+            };
+            addresses
         }
 
         fn is_agent_registered(self: @ContractState, address: ContractAddress) -> bool {
