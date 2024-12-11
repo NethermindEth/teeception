@@ -1,0 +1,11 @@
+# Visit https://foundry-rs.github.io/starknet-foundry/appendix/snfoundry-toml.html
+# and https://foundry-rs.github.io/starknet-foundry/projects/configuration.html for more information
+
+[sncast.default]
+url = "https://free-rpc.nethermind.io/sepolia-juno/v0_7"
+# accounts-file = "../account-file"
+# account = "test"
+# keystore = "~/keystore"
+# wait-params = { timeout = 300, retry-interval = 10 }
+# block-explorer = "Voyager"
+# show-explorer-links = true
