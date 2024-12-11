@@ -11,7 +11,6 @@ import (
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/starknet.go/account"
 	"github.com/NethermindEth/starknet.go/rpc"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/alitto/pond/v2"
@@ -54,7 +53,7 @@ type Agent struct {
 
 	lastBlockNumber uint64
 
-	account *account.Account
+	account *snaccount.StarknetAccount
 
 	pool pond.Pool
 }
@@ -77,7 +76,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	connectedAccount, err := account.Connect(starknetClient)
+	err = account.Connect(starknetClient)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +91,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 		lastBlockNumber: 0,
 
-		account: connectedAccount,
+		account: account,
 		pool:    pond.NewPool(config.TaskConcurrency),
 	}, nil
 }
@@ -278,7 +277,12 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 }
 
 func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr string) (*felt.Felt, error) {
-	nonce, err := a.account.Nonce(ctx, rpc.BlockID{Tag: "latest"}, a.account.AccountAddress)
+	acc, err := a.account.Account()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account: %v", err)
+	}
+
+	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), a.account.Address())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nonce: %v", err)
 	}
@@ -294,19 +298,19 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 			Version:       rpc.TransactionV1,
 			Nonce:         nonce,
 			Type:          rpc.TransactionType_Invoke,
-			SenderAddress: a.account.AccountAddress,
+			SenderAddress: a.account.Address(),
 		}}
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    a.config.AgentRegistryAddress,
 		EntryPointSelector: transferSelector,
 		Calldata:           []*felt.Felt{agentAddress, addressFelt},
 	}
-	invokeTxn.Calldata, err = a.account.FmtCalldata([]rpc.FunctionCall{fnCall})
+	invokeTxn.Calldata, err = acc.FmtCalldata([]rpc.FunctionCall{fnCall})
 	if err != nil {
 		return nil, fmt.Errorf("failed to format calldata: %v", err)
 	}
 
-	feeResp, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
+	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate fee: %v", err)
 	}
@@ -314,12 +318,12 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 	fee := feeResp[0].OverallFee
 	invokeTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
 
-	err = a.account.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
+	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign transaction: %v", err)
 	}
 
-	resp, err := a.account.AddInvokeTransaction(ctx, invokeTxn)
+	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add transaction: %v", err)
 	}
@@ -383,7 +387,7 @@ func (a *Agent) getTweetText(tweetID uint64) (string, error) {
 
 func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
 	reportData := ReportData{
-		Address:         a.account.AccountAddress,
+		Address:         a.account.Address(),
 		ContractAddress: a.config.AgentRegistryAddress,
 		TwitterUsername: a.config.TwitterUsername,
 	}

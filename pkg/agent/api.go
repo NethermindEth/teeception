@@ -12,7 +12,17 @@ func (a *Agent) StartServer(ctx context.Context) error {
 	router := gin.Default()
 
 	router.GET("/address", func(c *gin.Context) {
-		c.String(http.StatusOK, a.account.AccountAddress.String())
+		c.String(http.StatusOK, a.account.Address().String())
+	})
+
+	router.GET("/deploy-account", func(c *gin.Context) {
+		err := a.account.Deploy(context.Background(), a.starknetClient)
+		if err != nil {
+			c.String(http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		c.String(http.StatusOK, "deployed")
 	})
 
 	router.GET("/quote", func(c *gin.Context) {
