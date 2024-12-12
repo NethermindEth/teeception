@@ -133,6 +133,9 @@ func (a *StarknetAccount) Connect(provider rpc.RpcProvider) error {
 	if err := a.connect(provider); err != nil {
 		return fmt.Errorf("failed to connect account: %w", err)
 	}
+
+	a.connected = true
+
 	return nil
 }
 
@@ -228,5 +231,8 @@ func (a *StarknetAccount) Deploy(ctx context.Context, provider rpc.RpcProvider) 
 	if err := a.deploy(ctx, provider); err != nil {
 		return fmt.Errorf("failed to deploy account: %w", err)
 	}
+
+	a.deployed = true
+
 	return nil
 }
