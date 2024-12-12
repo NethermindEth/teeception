@@ -3,6 +3,7 @@ package starknet
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"sync"
 
@@ -39,14 +40,17 @@ type StarknetAccount struct {
 
 func NewPrivateKey(seed []byte) *felt.Felt {
 	if seed == nil {
+		slog.Info("generating random private key")
 		_, _, priv := account.GetRandomKeys()
 		return priv
 	}
 
+	slog.Info("generating private key from seed")
 	return curve.Curve.StarknetKeccak(seed)
 }
 
 func NewStarknetAccount(privateKey *felt.Felt) (*StarknetAccount, error) {
+	slog.Info("creating new starknet account")
 	privateKeyBytes := privateKey.Bytes()
 	privateKeyBI := new(big.Int).SetBytes(privateKeyBytes[:])
 	pubX, _, err := curve.Curve.PrivateToPoint(privateKeyBI)
@@ -62,6 +66,7 @@ func NewStarknetAccount(privateKey *felt.Felt) (*StarknetAccount, error) {
 	}
 	ks.Put(pubFelt.String(), privKeyBI)
 
+	slog.Info("starknet account created", "public_key", pubFelt.String())
 	return &StarknetAccount{
 		options: StarknetAccountOptions{
 			PublicKey:  pubFelt,
@@ -90,6 +95,7 @@ func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
 
 	var err error
 
+	slog.Info("creating new account instance")
 	a.account, err = account.NewAccount(provider, a.options.PublicKey, a.options.PublicKey.String(), a.options.Keystore, cairoVersion)
 	if err != nil {
 		return err
@@ -100,10 +106,12 @@ func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
 		return err
 	}
 
+	slog.Info("precomputing account address")
 	a.address, err = a.account.PrecomputeAccountAddress(a.options.PublicKey, classHashFelt, []*felt.Felt{a.options.PublicKey})
 	if err != nil {
 		return err
 	}
+	slog.Info("account address computed", "address", a.address.String())
 
 	return nil
 }
@@ -113,14 +121,17 @@ func (a *StarknetAccount) Connect(provider rpc.RpcProvider) error {
 	defer a.connectMu.Unlock()
 
 	if a.connected {
+		slog.Info("account already connected")
 		return nil
 	}
 
+	slog.Info("connecting account")
 	return a.connect(provider)
 }
 
 func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) error {
 	if !a.connected {
+		slog.Info("connecting account before deployment")
 		err := a.Connect(provider)
 		if err != nil {
 			return err
@@ -132,15 +143,18 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 		return err
 	}
 
+	slog.Info("checking current class hash")
 	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
 	if err != nil {
 		return err
 	}
 
 	if currentClassHash.Cmp(classHashFelt) == 0 {
+		slog.Info("account already deployed with correct class hash")
 		return nil
 	}
 
+	slog.Info("preparing deploy account transaction")
 	tx := rpc.BroadcastDeployAccountTxn{
 		DeployAccountTxn: rpc.DeployAccountTxn{
 			Nonce:               &felt.Zero,
@@ -154,11 +168,13 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 		},
 	}
 
+	slog.Info("signing deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
 		return err
 	}
 
+	slog.Info("estimating transaction fee")
 	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
 		return err
@@ -166,12 +182,15 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 
 	fee := feeRes[0].OverallFee
 	tx.DeployAccountTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
+	slog.Info("estimated fee", "fee", fee.String())
 
+	slog.Info("signing final deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
 		return err
 	}
 
+	slog.Info("broadcasting deploy account transaction")
 	resp, err := a.account.AddDeployAccountTransaction(ctx, tx)
 	if err != nil {
 		return err
@@ -181,6 +200,7 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 		return fmt.Errorf("contract address mismatch")
 	}
 
+	slog.Info("account deployed successfully", "address", a.address.String())
 	return nil
 }
 
@@ -189,8 +209,10 @@ func (a *StarknetAccount) Deploy(ctx context.Context, provider rpc.RpcProvider) 
 	defer a.deployMu.Unlock()
 
 	if a.deployed {
+		slog.Info("account already deployed")
 		return nil
 	}
 
+	slog.Info("deploying account")
 	return a.deploy(ctx, provider)
 }

@@ -59,6 +59,8 @@ type Agent struct {
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
+	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
+
 	twitterClient := oauth1.NewConfig(config.TwitterConsumerKey, config.TwitterConsumerSecret).
 		Client(oauth1.NoContext, oauth1.NewToken(config.TwitterAccessToken, config.TwitterAccessTokenSecret))
 
@@ -66,6 +68,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 	dstackTappdClient := tappd.NewTappdClient(config.DstackTappdEndpoint, slog.Default())
 
+	slog.Info("connecting to starknet", "rpc_url", config.StarknetRpcUrl)
 	starknetClient, err := rpc.NewProvider(config.StarknetRpcUrl)
 	if err != nil {
 		return nil, err
@@ -80,6 +83,8 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	slog.Info("agent initialized successfully", "account_address", account.Address())
 
 	return &Agent{
 		config: config,
@@ -97,17 +102,21 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
+	slog.Info("starting agent")
+
 	blockNumber, err := a.starknetClient.BlockNumber(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get latest block number: %v", err)
 	}
 
 	a.lastBlockNumber = blockNumber
+	slog.Info("initialized last block number", "block_number", blockNumber)
 
 	if err := a.StartServer(ctx); err != nil {
 		return fmt.Errorf("failed to start server: %v", err)
 	}
 
+	slog.Info("entering main loop")
 	for {
 		select {
 		case <-ctx.Done():
@@ -130,6 +139,8 @@ func (a *Agent) Tick(ctx context.Context) error {
 		return nil
 	}
 
+	slog.Info("processing new blocks", "from_block", a.lastBlockNumber, "to_block", blockNumber)
+
 	eventChunk, err := a.starknetClient.Events(ctx, rpc.EventsInput{
 		EventFilter: rpc.EventFilter{
 			FromBlock: rpc.BlockID{Number: &a.lastBlockNumber},
@@ -143,6 +154,8 @@ func (a *Agent) Tick(ctx context.Context) error {
 		return fmt.Errorf("failed to get block receipts: %v", err)
 	}
 
+	slog.Info("found events", "count", len(eventChunk.Events))
+
 	for _, event := range eventChunk.Events {
 		a.pool.Go(func() {
 			promptPaidEvent, success, err := a.parseEvent(ctx, event)
@@ -153,6 +166,11 @@ func (a *Agent) Tick(ctx context.Context) error {
 			if !success {
 				return
 			}
+
+			slog.Info("processing prompt paid event",
+				"agent_address", promptPaidEvent.AgentAddress,
+				"from_address", promptPaidEvent.FromAddress,
+				"tweet_id", promptPaidEvent.TweetID)
 
 			err = a.processPromptPaidEvent(ctx, promptPaidEvent)
 			if err != nil {
@@ -193,11 +211,13 @@ func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*Prompt
 }
 
 func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *PromptPaidEvent) error {
+	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
 	tweetText, err := a.getTweetText(promptPaidEvent.TweetID)
 	if err != nil {
 		return fmt.Errorf("failed to get tweet text: %v", err)
 	}
 
+	slog.Info("fetching system prompt", "agent_address", promptPaidEvent.AgentAddress)
 	systemPrompt, err := a.getSystemPrompt(promptPaidEvent.AgentAddress)
 	if err != nil {
 		return fmt.Errorf("failed to get system prompt: %v", err)
@@ -207,6 +227,8 @@ func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *Pro
 }
 
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {
+	slog.Info("generating AI response", "tweet_id", tweetID)
+
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    openai.ChatMessageRoleSystem,
@@ -252,6 +274,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 		return fmt.Errorf("no response received")
 	}
 
+	slog.Info("replying to tweet", "tweet_id", tweetID)
 	a.replyToTweet(tweetID, resp.Choices[0].Message.Content)
 
 	for _, toolCall := range resp.Choices[0].Message.ToolCalls {
@@ -263,12 +286,14 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 			var args drainArgs
 			json.Unmarshal([]byte(toolCall.Function.Arguments), &args)
 
+			slog.Info("draining tokens", "from", agentAddress, "to", args.Address)
 			txHash, err := a.drain(ctx, agentAddress, args.Address)
 			if err != nil {
 				a.replyToTweet(tweetID, fmt.Sprintf("Almost drained %s to %s!", agentAddress, args.Address))
 				return fmt.Errorf("failed to drain: %v", err)
 			}
 
+			slog.Info("drain successful", "tx_hash", txHash)
 			a.replyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, args.Address, txHash))
 		}
 	}
@@ -277,6 +302,8 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 }
 
 func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr string) (*felt.Felt, error) {
+	slog.Info("initiating drain transaction")
+
 	acc, err := a.account.Account()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get account: %v", err)
@@ -310,6 +337,7 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 		return nil, fmt.Errorf("failed to format calldata: %v", err)
 	}
 
+	slog.Info("estimating transaction fee")
 	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate fee: %v", err)
@@ -318,16 +346,19 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 	fee := feeResp[0].OverallFee
 	invokeTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
 
+	slog.Info("signing transaction")
 	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign transaction: %v", err)
 	}
 
+	slog.Info("broadcasting transaction")
 	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add transaction: %v", err)
 	}
 
+	slog.Info("transaction broadcast successful", "tx_hash", resp.TransactionHash)
 	return resp.TransactionHash, nil
 }
 
@@ -386,6 +417,8 @@ func (a *Agent) getTweetText(tweetID uint64) (string, error) {
 }
 
 func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
+	slog.Info("requesting quote")
+
 	reportData := ReportData{
 		Address:         a.account.Address(),
 		ContractAddress: a.config.AgentRegistryAddress,
@@ -402,5 +435,6 @@ func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
 		return nil, fmt.Errorf("failed to get quote: %v", err)
 	}
 
+	slog.Info("quote received successfully")
 	return quoteResp, nil
 }
