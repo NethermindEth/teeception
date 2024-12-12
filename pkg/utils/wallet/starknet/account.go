@@ -80,6 +80,10 @@ func (a *StarknetAccount) Address() *felt.Felt {
 	return a.address
 }
 
+func (a *StarknetAccount) PublicKey() *felt.Felt {
+	return a.options.PublicKey
+}
+
 func (a *StarknetAccount) Account() (*account.Account, error) {
 	if !a.deployed {
 		return nil, fmt.Errorf("account not deployed")

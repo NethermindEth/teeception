@@ -15,6 +15,10 @@ func (a *Agent) StartServer(ctx context.Context) error {
 		c.String(http.StatusOK, a.account.Address().String())
 	})
 
+	router.GET("/pubkey", func(c *gin.Context) {
+		c.String(http.StatusOK, a.account.PublicKey().String())
+	})
+
 	router.GET("/deploy-account", func(c *gin.Context) {
 		err := a.account.Deploy(context.Background(), a.starknetClient)
 		if err != nil {
