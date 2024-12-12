@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -355,7 +356,8 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 	}
 
 	fee := feeResp[0].OverallFee
-	invokeTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
+	feeBI := fee.BigInt(new(big.Int))
+	invokeTxn.MaxFee = new(felt.Felt).SetBigInt(new(big.Int).Add(feeBI, new(big.Int).Div(feeBI, new(big.Int).SetUint64(5))))
 
 	slog.Info("signing transaction")
 	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
