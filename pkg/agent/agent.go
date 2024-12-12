@@ -155,6 +155,11 @@ func (a *Agent) Tick(ctx context.Context) error {
 		},
 	})
 	if err != nil {
+		if rpcErr, ok := err.(*rpc.RPCError); ok {
+			slog.Error("rpc error", "error", rpcErr, "data", rpcErr.Data, "code", rpcErr.Code, "message", rpcErr.Message)
+			return fmt.Errorf("failed to get block receipts: %w", rpcErr)
+		}
+
 		return fmt.Errorf("failed to get block receipts: %v", err)
 	}
 
