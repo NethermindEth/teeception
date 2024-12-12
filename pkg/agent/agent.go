@@ -122,7 +122,10 @@ func (a *Agent) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(a.config.TickRate):
-			a.Tick(ctx)
+			err := a.Tick(ctx)
+			if err != nil {
+				slog.Warn("failed to tick", "error", err)
+			}
 		}
 	}
 }
