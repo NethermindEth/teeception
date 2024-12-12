@@ -149,7 +149,11 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	slog.Info("checking current class hash")
 	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
 	if err != nil {
-		return fmt.Errorf("failed to get current class hash: %w", err)
+		if err.Error() != "Contract not found" {
+			return fmt.Errorf("failed to get current class hash: %w", err)
+		} else {
+			currentClassHash = new(felt.Felt).SetUint64(0)
+		}
 	}
 
 	if currentClassHash.Cmp(classHashFelt) == 0 {
