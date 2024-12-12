@@ -209,10 +209,11 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	if err != nil {
 		rpcErr, ok := err.(*rpc.RPCError)
 		if ok {
+			slog.Error("rpc error", "error", rpcErr)
 			return fmt.Errorf("failed to broadcast deploy account transaction: %w", rpcErr)
 		}
 
-		return fmt.Errorf("failed to broadcast deploy account transaction: %w", rpcErr)
+		return fmt.Errorf("failed to broadcast deploy account transaction: %w", err)
 	}
 
 	if resp.ContractAddress.Cmp(a.address) != 0 {
