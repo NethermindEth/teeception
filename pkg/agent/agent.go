@@ -107,6 +107,7 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	blockNumber, err := a.starknetClient.BlockNumber(ctx)
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return fmt.Errorf("failed to get latest block number: %v", err)
 	}
 
@@ -134,6 +135,7 @@ func (a *Agent) Run(ctx context.Context) error {
 func (a *Agent) Tick(ctx context.Context) error {
 	blockNumber, err := a.starknetClient.BlockNumber(ctx)
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return fmt.Errorf("failed to get latest block number: %v", err)
 	}
 
@@ -158,6 +160,7 @@ func (a *Agent) Tick(ctx context.Context) error {
 		},
 	})
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return fmt.Errorf("failed to get block receipts: %v", err)
 	}
 
@@ -323,6 +326,7 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 
 	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), a.account.Address())
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return nil, fmt.Errorf("failed to get nonce: %v", err)
 	}
 
@@ -346,12 +350,14 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 	}
 	invokeTxn.Calldata, err = acc.FmtCalldata([]rpc.FunctionCall{fnCall})
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return nil, fmt.Errorf("failed to format calldata: %v", err)
 	}
 
 	slog.Info("estimating transaction fee")
 	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return nil, fmt.Errorf("failed to estimate fee: %v", err)
 	}
 
@@ -368,6 +374,7 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 	slog.Info("broadcasting transaction")
 	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return nil, fmt.Errorf("failed to add transaction: %v", err)
 	}
 
@@ -383,6 +390,7 @@ func (a *Agent) getSystemPrompt(agentAddress *felt.Felt) (string, error) {
 
 	systemPromptByteArrFelt, err := a.starknetClient.Call(context.Background(), tx, rpc.BlockID{Tag: "latest"})
 	if err != nil {
+		snaccount.LogRpcError(err)
 		return "", fmt.Errorf("failed to get system prompt: %v", err)
 	}
 
