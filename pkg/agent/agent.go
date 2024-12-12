@@ -157,7 +157,7 @@ func (a *Agent) Tick(ctx context.Context) error {
 	slog.Info("found events", "count", len(eventChunk.Events))
 
 	for _, event := range eventChunk.Events {
-		a.pool.Go(func() {
+		err := a.pool.Go(func() {
 			promptPaidEvent, success, err := a.parseEvent(ctx, event)
 			if err != nil {
 				slog.Warn("failed to parse event", "error", err)
@@ -177,7 +177,12 @@ func (a *Agent) Tick(ctx context.Context) error {
 				slog.Warn("failed to process prompt paid event", "error", err)
 			}
 		})
+		if err != nil {
+			slog.Warn("failed to submit task to pool", "error", err)
+		}
 	}
+
+	a.lastBlockNumber = blockNumber
 
 	return nil
 }
