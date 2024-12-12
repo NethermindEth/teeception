@@ -382,6 +382,12 @@ func (a *Agent) getSystemPrompt(agentAddress *felt.Felt) (string, error) {
 }
 
 func (a *Agent) replyToTweet(tweetID uint64, reply string) error {
+	slog.Info("replying to tweet", "tweet_id", tweetID, "reply", reply)
+
+	if len(reply) > 280 {
+		reply = reply[:280]
+	}
+
 	resp, err := a.twitterClient.Post(fmt.Sprintf("https://api.twitter.com/2/tweets/%d/reply", tweetID), "application/json", strings.NewReader(reply))
 	if err != nil {
 		return fmt.Errorf("failed to reply to tweet: %v", err)
