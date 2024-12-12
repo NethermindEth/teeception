@@ -152,6 +152,9 @@ func (a *Agent) Tick(ctx context.Context) error {
 				{promptPaidSelector},
 			},
 		},
+		ResultPageRequest: rpc.ResultPageRequest{
+			ChunkSize: 1000,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get block receipts: %v", err)
