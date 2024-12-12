@@ -195,7 +195,7 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	}
 
 	fee := feeRes[0].OverallFee
-	tx.DeployAccountTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
+	tx.DeployAccountTxn.MaxFee = new(felt.Felt).Add(fee, new(felt.Felt).Div(fee, new(felt.Felt).SetUint64(5)))
 	slog.Info("estimated fee", "fee", fee.String())
 
 	slog.Info("signing final deploy account transaction")

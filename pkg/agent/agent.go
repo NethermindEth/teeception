@@ -352,7 +352,7 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 	}
 
 	fee := feeResp[0].OverallFee
-	invokeTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
+	invokeTxn.MaxFee = new(felt.Felt).Add(fee, new(felt.Felt).Div(fee, new(felt.Felt).SetUint64(5)))
 
 	slog.Info("signing transaction")
 	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
