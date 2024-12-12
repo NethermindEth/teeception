@@ -55,14 +55,14 @@ func NewStarknetAccount(privateKey *felt.Felt) (*StarknetAccount, error) {
 	privateKeyBI := new(big.Int).SetBytes(privateKeyBytes[:])
 	pubX, _, err := curve.Curve.PrivateToPoint(privateKeyBI)
 	if err != nil {
-		return nil, fmt.Errorf("can't generate public key: %w", err)
+		return nil, fmt.Errorf("failed to generate public key: %w", err)
 	}
 	pubFelt := utils.BigIntToFelt(pubX)
 
 	ks := account.NewMemKeystore()
 	privKeyBI, ok := new(big.Int).SetString(privateKey.String(), 0)
 	if !ok {
-		return nil, fmt.Errorf("error setting up account key store")
+		return nil, fmt.Errorf("failed to setup account key store: invalid private key string")
 	}
 	ks.Put(pubFelt.String(), privKeyBI)
 
@@ -98,18 +98,18 @@ func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
 	slog.Info("creating new account instance")
 	a.account, err = account.NewAccount(provider, a.options.PublicKey, a.options.PublicKey.String(), a.options.Keystore, cairoVersion)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create new account instance: %w", err)
 	}
 
 	classHashFelt, err := utils.HexToFelt(classHash)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to convert class hash to felt: %w", err)
 	}
 
 	slog.Info("precomputing account address")
 	a.address, err = a.account.PrecomputeAccountAddress(a.options.PublicKey, classHashFelt, []*felt.Felt{a.options.PublicKey})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to precompute account address: %w", err)
 	}
 	slog.Info("account address computed", "address", a.address.String())
 
@@ -126,7 +126,10 @@ func (a *StarknetAccount) Connect(provider rpc.RpcProvider) error {
 	}
 
 	slog.Info("connecting account")
-	return a.connect(provider)
+	if err := a.connect(provider); err != nil {
+		return fmt.Errorf("failed to connect account: %w", err)
+	}
+	return nil
 }
 
 func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) error {
@@ -134,19 +137,19 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 		slog.Info("connecting account before deployment")
 		err := a.Connect(provider)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to connect account before deployment: %w", err)
 		}
 	}
 
 	classHashFelt, err := utils.HexToFelt(classHash)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to convert class hash to felt: %w", err)
 	}
 
 	slog.Info("checking current class hash")
 	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get current class hash: %w", err)
 	}
 
 	if currentClassHash.Cmp(classHashFelt) == 0 {
@@ -171,13 +174,13 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	slog.Info("signing deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to sign deploy account transaction: %w", err)
 	}
 
 	slog.Info("estimating transaction fee")
 	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to estimate transaction fee: %w", err)
 	}
 
 	fee := feeRes[0].OverallFee
@@ -187,17 +190,17 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	slog.Info("signing final deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to sign final deploy account transaction: %w", err)
 	}
 
 	slog.Info("broadcasting deploy account transaction")
 	resp, err := a.account.AddDeployAccountTransaction(ctx, tx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to broadcast deploy account transaction: %w", err)
 	}
 
 	if resp.ContractAddress.Cmp(a.address) != 0 {
-		return fmt.Errorf("contract address mismatch")
+		return fmt.Errorf("contract address mismatch: expected %s, got %s", a.address.String(), resp.ContractAddress.String())
 	}
 
 	slog.Info("account deployed successfully", "address", a.address.String())
@@ -214,5 +217,8 @@ func (a *StarknetAccount) Deploy(ctx context.Context, provider rpc.RpcProvider) 
 	}
 
 	slog.Info("deploying account")
-	return a.deploy(ctx, provider)
+	if err := a.deploy(ctx, provider); err != nil {
+		return fmt.Errorf("failed to deploy account: %w", err)
+	}
+	return nil
 }
