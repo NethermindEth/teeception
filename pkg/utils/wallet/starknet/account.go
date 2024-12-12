@@ -102,6 +102,7 @@ func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
 	slog.Info("creating new account instance")
 	a.account, err = account.NewAccount(provider, a.options.PublicKey, a.options.PublicKey.String(), a.options.Keystore, cairoVersion)
 	if err != nil {
+		LogRpcError(err)
 		return fmt.Errorf("failed to create new account instance: %w", err)
 	}
 
@@ -113,6 +114,7 @@ func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
 	slog.Info("precomputing account address")
 	a.address, err = a.account.PrecomputeAccountAddress(a.options.PublicKey, classHashFelt, []*felt.Felt{a.options.PublicKey})
 	if err != nil {
+		LogRpcError(err)
 		return fmt.Errorf("failed to precompute account address: %w", err)
 	}
 	slog.Info("account address computed", "address", a.address.String())
@@ -185,12 +187,14 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	slog.Info("signing deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
+		LogRpcError(err)
 		return fmt.Errorf("failed to sign deploy account transaction: %w", err)
 	}
 
 	slog.Info("estimating transaction fee")
 	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
+		LogRpcError(err)
 		return fmt.Errorf("failed to estimate transaction fee: %w", err)
 	}
 
@@ -202,18 +206,14 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	slog.Info("signing final deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
+		LogRpcError(err)
 		return fmt.Errorf("failed to sign final deploy account transaction: %w", err)
 	}
 
 	slog.Info("broadcasting deploy account transaction")
 	resp, err := a.account.AddDeployAccountTransaction(ctx, tx)
 	if err != nil {
-		rpcErr, ok := err.(*rpc.RPCError)
-		if ok {
-			slog.Error("rpc error", "error", rpcErr, "data", rpcErr.Data, "code", rpcErr.Code, "message", rpcErr.Message)
-			return fmt.Errorf("failed to broadcast deploy account transaction: %w", rpcErr)
-		}
-
+		LogRpcError(err)
 		return fmt.Errorf("failed to broadcast deploy account transaction: %w", err)
 	}
 
