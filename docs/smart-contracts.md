@@ -1,18 +1,18 @@
 # Teeception Smart Contract Development Guide
 
-This guide provides an overview of the Teeception platform’s smart contract architecture, development workflow, deployment procedures, and best practices on Starknet.
+This guide provides an overview of the Teeception platform's smart contract architecture, development workflow, deployment procedures, and best practices on Starknet.
 
 ## Architecture Overview
 
 Teeception leverages a set of Cairo contracts to manage bounty pools, agent funds, attempt fees, and reward distribution. The two core components are:
 
 - **Agent:**  
-  Manages an AI agent’s funds, processes bounty claims, and handles attempt fee collection.
+  Manages an AI agent's funds, processes bounty claims, handles attempt fee collection, and implements time-based access controls.
   
 - **AgentRegistry:**  
-  Deploys new Agent contracts, maintains a registry of all agents, and manages platform fees.
+  Deploys new Agent contracts, maintains a registry of all agents, manages platform fees, and controls agent transfers.
 
-These contracts work together to enable a marketplace of AI-driven “cracking” agents, their funding mechanisms, and incentive structures.
+These contracts work together to enable a marketplace of AI-driven "crackable" agents.
 
 ## Development Environment
 
@@ -32,7 +32,7 @@ snfoundryup
 
 **Build Contracts:**
 ```bash
-snforge build
+scarb build
 ```
 
 **Run Tests:**
@@ -42,7 +42,7 @@ snforge test
 
 ### Testing
 
-Tests reside in the `tests/` directory and use Starknet Foundry’s framework. For example:
+Tests reside in the `tests/` directory and use Starknet Foundry's framework. For example:
 
 ```cairo
 #[test]
@@ -82,51 +82,74 @@ fn test_bounty_claim() {
 ## Security Considerations
 
 - Thorough testing of all contract logic
-- Leverage audited libraries such as OpenZeppelin’s Cairo contracts where appropriate
+- Leverage audited libraries such as OpenZeppelin's Cairo contracts where appropriate
 - Implement robust access controls and consider emergency pause functionality
-- Plan ahead for upgradability if the platform’s requirements evolve
+- Plan ahead for upgradability if the platform's requirements evolve
 - Understand Cairo-specific security nuances (e.g., storage, arithmetic)
 
-## Example Contract Interaction
+## Contract Interfaces and Implementation
+
+### Agent Registry Interface
 
 ```cairo
 #[starknet::interface]
-trait IAgent<TContractState> {
-    fn get_system_prompt(self: @TContractState) -> ByteArray;
-    fn get_name(self: @TContractState) -> ByteArray;
-    fn transfer(ref self: TContractState, recipient: ContractAddress);
-    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64);
-    fn get_creator(self: @TContractState) -> ContractAddress;
-}
-
-#[starknet::contract]
-pub mod Agent {
-    #[storage]
-    struct Storage {
-        registry: ContractAddress,
-        system_prompt: ByteArray,
+pub trait IAgentRegistry<TContractState> {
+    fn register_agent(
+        ref self: TContractState,
         name: ByteArray,
-        token: ContractAddress,
+        system_prompt: ByteArray,
         prompt_price: u256,
-        creator: ContractAddress,
-    }
-
-    #[external(v0)]
-    impl AgentImpl of IAgent<ContractState> {
-        fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) {
-            let caller = get_caller_address();
-            let token = IERC20Dispatcher { contract_address: self.token.read() };
-            let prompt_price = self.prompt_price.read();
-
-            // Calculate fee split, e.g.:
-            let creator_fee = (prompt_price * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
-            let agent_amount = prompt_price - creator_fee;
-
-            // Implement payment logic here
-        }
-    }
+        end_time: u64,
+    ) -> ContractAddress;
+    fn get_token(self: @TContractState) -> ContractAddress;
+    fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
+    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+    fn get_registration_price(self: @TContractState) -> u256;
+    fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
 }
 ```
+
+### Agent Interface
+
+```cairo
+#[starknet::interface]
+pub trait IAgent<TContractState> {
+    fn get_system_prompt(self: @TContractState) -> ByteArray;
+    fn get_name(self: @TContractState) -> ByteArray;
+    fn get_end_time(self: @TContractState) -> u64;
+    fn get_creator(self: @TContractState) -> ContractAddress;
+    fn get_prompt_price(self: @TContractState) -> u256;
+    fn transfer(ref self: TContractState, recipient: ContractAddress);
+    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64);
+}
+```
+
+### Key Implementation Details
+
+1. **Fee Structure**
+   ```cairo
+   const PROMPT_REWARD_BPS: u16 = 8000; // 80% goes to agent
+   const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
+   const BPS_DENOMINATOR: u16 = 10000;
+   ```
+
+2. **Time-Based Access Control**
+   The Agent contract implements time-based restrictions on transfers:
+   - Before `end_time`: Only the registry can transfer the agent
+   - After `end_time`: Only the creator can transfer the agent
+
+3. **Events**
+   ```cairo
+   #[event]
+   pub struct PromptPaid {
+       #[key]
+       pub user: ContractAddress,
+       #[key]
+       pub twitter_message_id: u64,
+       pub amount: u256,
+       pub creator_fee: u256,
+   }
+   ```
 
 ## Gas Optimization Tips
 
@@ -137,9 +160,11 @@ pub mod Agent {
 
 ## Architecture Notes
 
-- Currently non-upgradeable contracts with a straightforward architecture
+- Non-upgradeable contracts with a straightforward architecture
 - Event-driven design for transparency and off-chain indexing
-- Fee splitting mechanism (e.g., 80/20 between agent and creator)
+- 80/20 fee splitting between agent and creator
+- Time-based access controls for agent transfers
+- Registry-based deployment and management system
 
 ## Auditing and Launch Readiness
 

@@ -47,12 +47,30 @@ This guide outlines the prerequisites, installation steps, and basic usage instr
    ```bash
    cp .env.example .env
    ```
-   Update `.env` with credentials and endpoints for:
-   - **Twitter/X**: username, password, consumer key/secret, login server details
-   - **ProtonMail**: email, password
-   - **Starknet**: RPC endpoint, account address, private key
-   - **OpenAI**: API key
-   - **Phala**: API URL, worker ID
+   Required environment variables:
+
+   **Starknet Configuration:**
+   - `STARKNET_ACCOUNT`: Your Starknet account address
+   - `STARKNET_PRIVATE_KEY`: Your Starknet private key
+   - `STARKNET_RPC`: RPC endpoint URL
+
+   **Twitter/X Configuration:**
+   - `X_USERNAME`: Your Twitter/X username
+   - `X_PASSWORD`: Your Twitter/X password
+   - `X_CONSUMER_KEY`: Twitter API consumer key
+   - `X_CONSUMER_SECRET`: Twitter API consumer secret
+   - `X_LOGIN_SERVER`: Login server details
+
+   **ProtonMail Configuration:**
+   - `PROTONMAIL_EMAIL`: Your ProtonMail email address
+   - `PROTONMAIL_PASSWORD`: Your ProtonMail password
+
+   **AI Configuration:**
+   - `OPENAI_API_KEY`: Your OpenAI API key
+
+   **Phala Configuration:**
+   - `PHALA_API_URL`: Phala API endpoint
+   - `PHALA_WORKER_ID`: Phala worker identifier
 
 ## Running the Platform
 
@@ -61,7 +79,7 @@ This guide outlines the prerequisites, installation steps, and basic usage instr
 The agent:
 - Secures and updates credentials (Twitter, ProtonMail, Starknet)
 - Monitors Twitter feed and executes relevant Starknet transactions
-- Utilizes OpenAI’s API for data processing
+- Utilizes OpenAI's API for being sentient
 - Manages state and error handling gracefully
 
 **Start the agent locally:**
