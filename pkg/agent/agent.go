@@ -153,6 +153,9 @@ func (a *Agent) Tick(ctx context.Context) error {
 				{promptPaidSelector},
 			},
 		},
+		ResultPageRequest: rpc.ResultPageRequest{
+			ChunkSize: 1000,
+		},
 	})
 	if err != nil {
 		if rpcErr, ok := err.(*rpc.RPCError); ok {
