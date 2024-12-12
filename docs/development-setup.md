@@ -1,99 +1,93 @@
 # Development Setup Guide
 
+This guide outlines the prerequisites, installation steps, and basic usage instructions for setting up and running the Teeception platform, including its agents and Chrome extension.
+
 ## Prerequisites
 
-- Go 1.22.0 or later
-- [Foundry](https://book.getfoundry.sh/) (for smart contract development)
-- Node.js and npm (for contract deployment)
-- Twitter/X account
-- ProtonMail account
-- OpenAI API key
-- Chrome/Brave browser (for the extension)
+- **Go ≥ 1.23.0**
+- **Starknet Foundry (snforge)** for smart contract development  
+  [GitHub: starknet-foundry](https://github.com/foundry-rs/starknet-foundry)
+- **Node.js & npm** for contract deployment and extension development
+- **Twitter/X account**, **ProtonMail account**, and **OpenAI API key**
+- **Chrome or Brave browser** for loading and testing the extension
 
 ## Installation Steps
 
-1. Clone the repository:
-```bash
-git clone https://github.com/NethermindEth/teeception.git
-cd teeception
-```
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/NethermindEth/teeception.git
+   cd teeception
+   ```
 
-2. Install Go dependencies:
-```bash
-go mod download
-```
+2. **Install Go dependencies:**
+   ```bash
+   go mod download
+   ```
 
-3. Install Foundry components:
-```bash
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-```
+3. **Install Starknet Foundry:**
+   ```bash
+   curl -L https://raw.githubusercontent.com/foundry-rs/starknet-foundry/master/scripts/install.sh | sh
+   snfoundryup
+   ```
 
-4. Install contract dependencies:
-```bash
-cd contracts
-forge install
-```
+4. **Install contract dependencies:**
+   ```bash
+   cd contracts
+   scarb install
+   ```
 
-5. Install extension dependencies:
-```bash
-cd extension
-npm install
-npm run build
-```
+5. **Install and build the extension:**
+   ```bash
+   cd ../extension
+   npm install
+   npm run build
+   ```
 
-6. Set up environment variables:
-```bash
-cp .env.example .env
-```
-
-Configure your `.env` with:
-- Twitter/X Credentials:
-  - `X_USERNAME`: Your Twitter/X account username
-  - `X_PASSWORD`: Your Twitter/X account password
-  - `X_CONSUMER_KEY`: Twitter API consumer key (from Developer Portal)
-  - `X_CONSUMER_SECRET`: Twitter API consumer secret (from Developer Portal)
-- ProtonMail Credentials:
-  - `PROTONMAIL_EMAIL`: Your ProtonMail email address
-  - `PROTONMAIL_PASSWORD`: Your ProtonMail password
-- Ethereum Configuration:
-  - `ETH_RPC_URL`: Your Ethereum RPC endpoint
-  - `CONTRACT_ADDRESS`: The deployed contract address
-- OpenAI Configuration:
-  - `OPENAI_API_KEY`: Your OpenAI API key
+6. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   ```
+   Update `.env` with credentials and endpoints for:
+   - **Twitter/X**: username, password, consumer key/secret, login server details
+   - **ProtonMail**: email, password
+   - **Starknet**: RPC endpoint, account address, private key
+   - **OpenAI**: API key
+   - **Phala**: API URL, worker ID
 
 ## Running the Platform
 
 ### Running an Agent
 
-The agent performs the following operations:
+The agent:
+- Secures and updates credentials (Twitter, ProtonMail, Starknet)
+- Monitors Twitter feed and executes relevant Starknet transactions
+- Utilizes OpenAI’s API for data processing
+- Manages state and error handling gracefully
 
-1. Account Setup and Security
-  - Securely takes control of provided accounts
-  - Updates Twitter password with a strong randomly generated password
-  - Updates ProtonMail password with a strong randomly generated password
-  - Generates new Twitter API access tokens
-  - Creates a new Ethereum account
-  - Configures all credentials securely in memory
-  - Generates a TDX quote attesting to the related accounts 
-
-2. Core Functionality
-  - Continuously monitors Twitter feed and interactions
-  - Executes Ethereum smart contract transactions as needed
-  - Processes and analyzes data using OpenAI's API
-  - Maintains state and handles errors gracefully
-
-In order to locally start the agent, run:
+**Start the agent locally:**
 ```bash
 go run cmd/agent/main.go
 ```
 
 ## Chrome Extension Development
 
-Load the extension in Chrome:
-1. Go to chrome://extensions/
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `extension/dist` directory
+The extension is built with Vite and TypeScript.
 
-For more detailed information about extension development, see [`extension-development.md`](extension-development.md). 
+**Development server:**
+```bash
+cd extension
+npm run dev
+```
+
+**Load the extension in Chrome:**
+- Open `chrome://extensions/`
+- Enable "Developer mode"
+- Click "Load unpacked"
+- Select `extension/dist`
+
+**Production build:**
+```bash
+npm run build
+```
+
+The extension auto-reloads during development as changes are made.

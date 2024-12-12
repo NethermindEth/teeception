@@ -1,154 +1,150 @@
-# Smart Contract Development Guide
+# Teeception Smart Contract Development Guide
 
-This guide covers the development and deployment of smart contracts for the Teeception platform.
+This guide provides an overview of the Teeception platform’s smart contract architecture, development workflow, deployment procedures, and best practices on Starknet.
 
-## Contract Architecture
+## Architecture Overview
 
-The Teeception platform uses several smart contracts to manage:
-- Bounty pools
-- Agent funds
-- Attempt fees
-- Reward distribution
+Teeception leverages a set of Cairo contracts to manage bounty pools, agent funds, attempt fees, and reward distribution. The two core components are:
 
-### Core Contracts
+- **Agent:**  
+  Manages an AI agent’s funds, processes bounty claims, and handles attempt fee collection.
+  
+- **AgentRegistry:**  
+  Deploys new Agent contracts, maintains a registry of all agents, and manages platform fees.
 
-1. **TeeceptionAgent**
-   - Manages individual AI agent funds
-   - Handles bounty claims
-   - Controls attempt fee collection
-
-2. **TeeceptionFactory**
-   - Deploys new agent contracts
-   - Manages agent registry
-   - Handles platform fees
+These contracts work together to enable a marketplace of AI-driven “cracking” agents, their funding mechanisms, and incentive structures.
 
 ## Development Environment
 
-### Setup
+### Prerequisites
 
-1. Install Foundry:
+- **Starknet Foundry** for building and testing
+- **Scarb** for managing and deploying Cairo projects
+- A local Starknet node (e.g., `starknet-devnet`) for testing
 
+### Setup Commands
+
+**Install Starknet Foundry:**
 ```bash
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
+curl -L https://raw.githubusercontent.com/foundry-rs/starknet-foundry/master/scripts/install.sh | sh
+snfoundryup
 ```
 
-2. Build contracts:
-
+**Build Contracts:**
 ```bash
-forge build
+snforge build
 ```
 
-3. Run tests:
-
+**Run Tests:**
 ```bash
-forge test
+snforge test
 ```
 
 ### Testing
 
-We use Foundry's testing framework. Create tests in the `test/` directory:
+Tests reside in the `tests/` directory and use Starknet Foundry’s framework. For example:
 
-```solidity
-// test/TeeceptionAgent.t.sol
-pragma solidity ^0.8.13;
-import "forge-std/Test.sol";
-import "../src/TeeceptionAgent.sol";
-
-contract TeeceptionAgentTest is Test {
-    TeeceptionAgent agent;
-
-    function setUp() public {
-        agent = new TeeceptionAgent();
-    }
-
-    function testBountyClaim() public {
-        // Test implementation
-    }
+```cairo
+#[test]
+fn test_bounty_claim() {
+    // Example test implementation
 }
 ```
 
 ## Deployment
 
-### Local Development
+### Local Deployment
 
-1. Start local node:
-
-```bash
-anvil
-```
-
-2. Deploy contracts:
-
-```bash
-forge script script/Deploy.s.sol:DeployScript --rpc-url http://localhost:8545 --broadcast
-```
+1. Start a local Starknet node:
+   ```bash
+   starknet-devnet
+   ```
+   
+2. Deploy contracts locally:
+   ```bash
+   scarb run deploy-local
+   ```
 
 ### Testnet Deployment
 
-1. Set environment variables:
-
-```bash
-export PRIVATE_KEY=your_private_key
-export RPC_URL=your_rpc_url
-```
-
+1. Set required environment variables:
+   ```bash
+   export STARKNET_ACCOUNT=your_account_address
+   export STARKNET_PRIVATE_KEY=your_private_key
+   export STARKNET_RPC=your_rpc_url
+   ```
+   
 2. Deploy to testnet:
-
-```bash
-forge script script/Deploy.s.sol:DeployScript --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
-```
+   ```bash
+   scarb run deploy-testnet
+   ```
 
 ## Security Considerations
 
-- All contracts should be thoroughly tested
-- Consider using OpenZeppelin contracts for standard functionality
-- Implement proper access controls
-- Add emergency pause functionality
-- Plan for upgradability where appropriate
+- Thorough testing of all contract logic
+- Leverage audited libraries such as OpenZeppelin’s Cairo contracts where appropriate
+- Implement robust access controls and consider emergency pause functionality
+- Plan ahead for upgradability if the platform’s requirements evolve
+- Understand Cairo-specific security nuances (e.g., storage, arithmetic)
 
-## Contract Interaction
+## Example Contract Interaction
 
-Example interaction with deployed contracts:
-
-```solidity
-// Create new agent
-function createAgent(string memory prompt) external payable {
-    require(msg.value >= minimumBounty, "Insufficient bounty");
-    // Implementation
+```cairo
+#[starknet::interface]
+trait IAgent<TContractState> {
+    fn get_system_prompt(self: @TContractState) -> ByteArray;
+    fn get_name(self: @TContractState) -> ByteArray;
+    fn transfer(ref self: TContractState, recipient: ContractAddress);
+    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64);
+    fn get_creator(self: @TContractState) -> ContractAddress;
 }
 
-// Attempt to crack prompt
-function attemptCrack(uint256 agentId, string memory attempt) external payable {
-    require(msg.value >= attemptFee, "Insufficient fee");
-    // Implementation
+#[starknet::contract]
+pub mod Agent {
+    #[storage]
+    struct Storage {
+        registry: ContractAddress,
+        system_prompt: ByteArray,
+        name: ByteArray,
+        token: ContractAddress,
+        prompt_price: u256,
+        creator: ContractAddress,
+    }
+
+    #[external(v0)]
+    impl AgentImpl of IAgent<ContractState> {
+        fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) {
+            let caller = get_caller_address();
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+            let prompt_price = self.prompt_price.read();
+
+            // Calculate fee split, e.g.:
+            let creator_fee = (prompt_price * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
+            let agent_amount = prompt_price - creator_fee;
+
+            // Implement payment logic here
+        }
+    }
 }
 ```
 
-## Gas Optimization
+## Gas Optimization Tips
 
-- Use appropriate data structures
-- Batch operations where possible
-- Optimize storage usage
-- Consider using assembly for complex operations
+- Use efficient data structures and batch operations
+- Optimize storage access and minimize writes
+- Consider Cairo-specific optimizations (e.g., using felt252 where suitable)
+- Keep calculations and loops as simple as possible
 
-## Upgradeability
+## Architecture Notes
 
-The platform uses the OpenZeppelin upgradeable contracts pattern:
+- Currently non-upgradeable contracts with a straightforward architecture
+- Event-driven design for transparency and off-chain indexing
+- Fee splitting mechanism (e.g., 80/20 between agent and creator)
 
-1. Proxy contracts
-2. Implementation contracts
-3. ProxyAdmin contract
+## Auditing and Launch Readiness
 
-## Auditing
+Before mainnet launch:
 
-Before mainnet deployment:
-1. Internal audit
-2. External audit
-3. Bug bounty program
-
-## Future Improvements
-
-- Implement governance mechanisms
-- Add more complex reward structures
-- Develop additional agent types 
+- Conduct internal and external audits by Starknet-focused professionals
+- Offer a bug bounty program to encourage community testing and feedback
+- Iterate and refine based on audit findings and ongoing testnet usage
