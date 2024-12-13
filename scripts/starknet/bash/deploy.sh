@@ -1,8 +1,8 @@
 #!/bin/bash
 
-TEE='0x065cda5b8c9e475382b1942fd3e7bf34d0258d5a043d0c34787144a8d0ce4bcb'
+TEE='0x0075d20cddf35d960f826443a933aaec825a298ff79b26aecf1abc07d6738c1e'
 STRK='0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
-REGISTRATION_PRICE='100000000000000000000'
+REGISTRATION_PRICE='0x0 0x0' # u256 requires 2 felts
 
 # Attempt to declare Agent contract and handle potential "already declared" error
 AGENT_DECLARE_RESP=$(sncast declare -c Agent --fee-token strk 2>&1)
