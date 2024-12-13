@@ -167,6 +167,7 @@ pub mod Agent {
     const PROMPT_REWARD_BPS: u16 = 8000; // 80% goes to agent
     const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
     const BPS_DENOMINATOR: u16 = 10000;
+    const PROMPT_END_TIME_BUFFER: u64 = 120;
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -253,6 +254,11 @@ pub mod Agent {
         }
 
         fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) {
+            assert(
+                get_block_timestamp() <= self.end_time.read() - PROMPT_END_TIME_BUFFER,
+                'Game has ended',
+            );
+
             let caller = get_caller_address();
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let prompt_price = self.prompt_price.read();
