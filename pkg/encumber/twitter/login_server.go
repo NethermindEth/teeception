@@ -34,6 +34,9 @@ type TwitterLoginServer struct {
 
 	shutdownCh chan struct{}
 
+	requestTokenPairMutex sync.Mutex
+	requestTokenPair      *oauth1.Token
+
 	tokenPairMutex sync.Mutex
 	tokenPair      *oauth1.Token
 
@@ -104,7 +107,7 @@ func (s *TwitterLoginServer) shutdown() error {
 func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 	slog.Info("login request received")
 
-	tokenPair, err := s.requestOAuthToken(s.twitterAppKey, s.twitterAppSecret)
+	requestTokenPair, err := s.requestOAuthToken(s.twitterAppKey, s.twitterAppSecret)
 	if err != nil {
 		slog.Error("failed to request OAuth token", "error", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to request OAuth token: %v", err))
@@ -112,12 +115,12 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 	}
 
 	if s.debug {
-		slog.Info("requested OAuth token", "token", tokenPair.Token, "secret", tokenPair.TokenSecret)
+		slog.Info("requested OAuth token", "token", requestTokenPair.Token, "secret", requestTokenPair.TokenSecret)
 	}
 
-	s.tokenPairMutex.Lock()
-	s.tokenPair = tokenPair
-	s.tokenPairMutex.Unlock()
+	s.requestTokenPairMutex.Lock()
+	s.requestTokenPair = requestTokenPair
+	s.requestTokenPairMutex.Unlock()
 
 	config := oauth1.Config{
 		ConsumerKey:    s.twitterAppKey,
@@ -126,7 +129,7 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 		Endpoint:       twauth.AuthorizeEndpoint,
 	}
 
-	authorizationURL, err := config.AuthorizationURL(tokenPair.Token)
+	authorizationURL, err := config.AuthorizationURL(requestTokenPair.Token)
 	if err != nil {
 		slog.Error("failed to get authorization URL", "error", err)
 		c.String(http.StatusInternalServerError, fmt.Sprintf("Failed to get authorization URL: %v", err))
@@ -151,14 +154,14 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 	slog.Info("callback received")
 
 	err := func() error {
-		s.tokenPairMutex.Lock()
-		defer s.tokenPairMutex.Unlock()
+		s.requestTokenPairMutex.Lock()
+		defer s.requestTokenPairMutex.Unlock()
 
-		if s.tokenPair == nil {
+		if s.requestTokenPair == nil {
 			return fmt.Errorf("no token pair found")
 		}
 
-		if query.OAuthToken != s.tokenPair.Token {
+		if query.OAuthToken != s.requestTokenPair.Token {
 			return fmt.Errorf("oauth token mismatch")
 		}
 
@@ -187,6 +190,10 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 		c.String(http.StatusOK, "Successfully logged in")
 	}
 
+	s.tokenPairMutex.Lock()
+	s.tokenPair = tokenPair
+	s.tokenPairMutex.Unlock()
+
 	go func() {
 		s.shutdown()
 	}()
@@ -210,9 +217,9 @@ func (s *TwitterLoginServer) requestOAuthToken(appKey, appSecret string) (*oauth
 }
 
 func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier string) (*oauth1.Token, error) {
-	s.tokenPairMutex.Lock()
-	tokenPair := s.tokenPair
-	s.tokenPairMutex.Unlock()
+	s.requestTokenPairMutex.Lock()
+	requestTokenPair := s.requestTokenPair
+	s.requestTokenPairMutex.Unlock()
 
 	config := oauth1.Config{
 		ConsumerKey:    appKey,
@@ -221,7 +228,7 @@ func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier str
 		Endpoint:       twauth.AuthorizeEndpoint,
 	}
 
-	accessToken, accessSecret, err := config.AccessToken(tokenPair.Token, tokenPair.TokenSecret, oauthVerifier)
+	accessToken, accessSecret, err := config.AccessToken(requestTokenPair.Token, requestTokenPair.TokenSecret, oauthVerifier)
 	if err != nil {
 		slog.Error("failed to get access token", "error", err)
 		return nil, err
