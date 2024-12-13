@@ -149,8 +149,8 @@ func (a *Agent) Tick(ctx context.Context) error {
 
 	eventChunk, err := a.starknetClient.Events(ctx, rpc.EventsInput{
 		EventFilter: rpc.EventFilter{
-			FromBlock: rpc.BlockID{Number: &a.lastBlockNumber},
-			ToBlock:   rpc.BlockID{Number: &blockNumber},
+			FromBlock: rpc.WithBlockNumber(a.lastBlockNumber + 1),
+			ToBlock:   rpc.WithBlockNumber(blockNumber),
 			Keys: [][]*felt.Felt{
 				{promptPaidSelector},
 			},
