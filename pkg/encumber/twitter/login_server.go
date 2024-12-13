@@ -180,13 +180,16 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 		slog.Info("authorized token", "token", tokenPair.Token, "secret", tokenPair.TokenSecret)
 	}
 
-	s.validateAccessToken(tokenPair)
+	err = s.validateAccessToken(tokenPair)
+	if err != nil {
+		slog.Error("failed to validate access token", "error", err)
+	} else {
+		c.String(http.StatusOK, "Successfully logged in")
+	}
 
 	go func() {
 		s.shutdown()
 	}()
-
-	c.String(http.StatusOK, "Successfully logged in")
 }
 
 func (s *TwitterLoginServer) requestOAuthToken(appKey, appSecret string) (*oauth1.Token, error) {
