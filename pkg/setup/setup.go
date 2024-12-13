@@ -58,7 +58,7 @@ func initializeSetup(ctx context.Context, secureFilePath string, sealingKey []by
 		return nil, fmt.Errorf("failed to setup: %v", err)
 	}
 
-	if err := writeSetupOutput(setupOutput, secureFilePath, sealingKey); err != nil {
+	if err := writeSetupOutput(setupOutput, secureFilePath, sealingKey, debug); err != nil {
 		return nil, fmt.Errorf("failed to write setup output: %v", err)
 	}
 
@@ -84,7 +84,22 @@ func loadSetup(ctx context.Context, secureFilePath string, sealingKey []byte, de
 	return setupOutput, nil
 }
 
-func writeSetupOutput(setupOutput *SetupOutput, filePath string, key []byte) error {
+func writeSetupOutput(setupOutput *SetupOutput, filePath string, key []byte, debug bool) error {
+	if debug && os.Getenv(DEBUG_PLAIN_OUTPUT_KEY) == "true" {
+		slog.Info("writing plaintext setup output")
+
+		plaintext, err := json.Marshal(setupOutput)
+		if err != nil {
+			return fmt.Errorf("failed to marshal setup output: %v", err)
+		}
+
+		if err := os.WriteFile(filePath, plaintext, 0600); err != nil {
+			return fmt.Errorf("failed to write plaintext setup output: %v", err)
+		}
+
+		return nil
+	}
+
 	plaintext, err := json.Marshal(setupOutput)
 	if err != nil {
 		return fmt.Errorf("failed to marshal setup output: %v", err)
