@@ -17,6 +17,7 @@ import (
 const (
 	SECURE_FILE_KEY           = "SECURE_FILE"
 	DSTACK_TAPPD_ENDPOINT_KEY = "DSTACK_TAPPD_ENDPOINT"
+	DEBUG_PLAIN_OUTPUT_KEY    = "DEBUG_PLAIN_OUTPUT"
 )
 
 func Setup(ctx context.Context, debug bool) (*SetupOutput, error) {
@@ -113,7 +114,24 @@ func writeSetupOutput(setupOutput *SetupOutput, filePath string, key []byte) err
 	return nil
 }
 
-func readSetupOutput(filePath string, key []byte) (*SetupOutput, error) {
+func readSetupOutput(filePath string, key []byte, debug bool) (*SetupOutput, error) {
+	if debug && os.Getenv(DEBUG_PLAIN_OUTPUT_KEY) == "true" {
+		slog.Info("reading plaintext setup output")
+
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open secure file: %v", err)
+		}
+		defer file.Close()
+
+		var setupOutput SetupOutput
+		if err := json.NewDecoder(file).Decode(&setupOutput); err != nil {
+			return nil, fmt.Errorf("failed to decode secure file: %v", err)
+		}
+
+		return &setupOutput, nil
+	}
+
 	ciphertext, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secure file: %v", err)
