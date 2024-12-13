@@ -7,6 +7,7 @@ import { useTokenBalance } from '../hooks/useTokenBalance';
 import { ACTIVE_NETWORK } from '../config/starknet';
 import { useAgentRegistry } from '../hooks/useAgentRegistry';
 import { AgentRegistryModal } from './AgentRegistryModal';
+import { AgentList } from './AgentList';
 
 export const ConnectButton = () => {
   const { address, status } = useAccount();
@@ -121,7 +122,7 @@ export const ConnectButton = () => {
             style={{ color: 'white', fontSize: '14px', cursor: 'pointer' }}
             onClick={() => setIsModalOpen(true)}
           >
-            Agent: {agentRegistryDisplay}
+            Registry: {agentRegistryDisplay}
           </span>
           <button
             onClick={() => disconnect()}
@@ -161,6 +162,7 @@ export const ConnectButton = () => {
         error={error}
         onClose={() => setIsModalOpen(false)}
       />
+      {status === 'connected' && <AgentList />}
     </>
   );
 } 
