@@ -174,6 +174,7 @@ func (a *Agent) Tick(ctx context.Context) error {
 				return
 			}
 			if !success {
+				slog.Warn("event not handled", "event", event)
 				return
 			}
 
@@ -204,7 +205,7 @@ type PromptPaidEvent struct {
 }
 
 func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*PromptPaidEvent, bool, error) {
-	if event.Keys[0] != promptPaidSelector {
+	if event.Keys[0].Cmp(promptPaidSelector) != 0 {
 		return nil, false, nil
 	}
 
