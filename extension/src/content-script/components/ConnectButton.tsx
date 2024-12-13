@@ -5,6 +5,8 @@ import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit';
 import { X, Copy, ExternalLink } from 'lucide-react';
 import { useTokenBalance } from '../hooks/useTokenBalance';
 import { ACTIVE_NETWORK } from '../config/starknet';
+import { useAgentRegistry } from '../hooks/useAgentRegistry';
+import { AgentRegistryModal } from './AgentRegistryModal';
 
 export const ConnectButton = () => {
   const { address, status } = useAccount();
@@ -15,6 +17,7 @@ export const ConnectButton = () => {
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: connectors as StarknetkitConnector[],
   });
+  const { address: agentRegistryAddress, isModalOpen, error, updateAddress, setIsModalOpen } = useAgentRegistry();
 
   async function connectWalletWithModal() {
     const { connector } = await starknetkitConnectModal();
@@ -58,81 +61,106 @@ export const ConnectButton = () => {
   };
 
   const addressDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
+  const agentRegistryDisplay = agentRegistryAddress ? 
+    `${agentRegistryAddress.slice(0, 6)}...${agentRegistryAddress.slice(-4)}` : 'Not Set';
 
   if (status !== 'connected') {
     return (
-      <Button 
-        variant="default"
-        size="sm"
-        onClick={connectWalletWithModal}
-        className="fixed top-3 right-3 rounded-full shadow-lg hover:shadow-xl transition-all"
-      >
-        Connect Wallet
-      </Button>
+      <>
+        <Button 
+          variant="default"
+          size="sm"
+          onClick={connectWalletWithModal}
+          className="fixed top-3 right-3 rounded-full shadow-lg hover:shadow-xl transition-all"
+        >
+          Connect Wallet
+        </Button>
+        <AgentRegistryModal
+          isOpen={isModalOpen}
+          onSubmit={updateAddress}
+          error={error}
+          onClose={() => setIsModalOpen(false)}
+        />
+      </>
     );
   }
 
   const showTopUpBanner = Number(balance) === 0 && !loading;
 
   return (
-    <div style={containerStyle}>
-      <div style={bannerStyle}>
-        <span style={{ 
-          width: '8px', 
-          height: '8px', 
-          borderRadius: '50%', 
-          backgroundColor: '#4ade80',
-        }} />
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '4px',
-          cursor: 'pointer' 
-        }} onClick={handleCopyAddress}>
+    <>
+      <div style={containerStyle}>
+        <div style={bannerStyle}>
+          <span style={{ 
+            width: '8px', 
+            height: '8px', 
+            borderRadius: '50%', 
+            backgroundColor: '#4ade80',
+          }} />
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '4px',
+            cursor: 'pointer' 
+          }} onClick={handleCopyAddress}>
+            <span style={{ color: 'white', fontSize: '14px' }}>
+              {addressDisplay}
+            </span>
+            <Copy size={12} style={{ color: copied ? '#4ade80' : 'white' }} />
+          </div>
+          <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
           <span style={{ color: 'white', fontSize: '14px' }}>
-            {addressDisplay}
+            {loading ? '...' : `${balance} ${symbol}`}
           </span>
-          <Copy size={12} style={{ color: copied ? '#4ade80' : 'white' }} />
+          <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
+          <span style={{ color: 'white', fontSize: '14px' }}>
+            {ACTIVE_NETWORK.name}
+          </span>
+          <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
+          <span 
+            style={{ color: 'white', fontSize: '14px', cursor: 'pointer' }}
+            onClick={() => setIsModalOpen(true)}
+          >
+            Agent: {agentRegistryDisplay}
+          </span>
+          <button
+            onClick={() => disconnect()}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '4px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgb(239, 68, 68)',
+              borderRadius: '4px',
+            }}
+          >
+            <X size={16} />
+          </button>
         </div>
-        <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
-        <span style={{ color: 'white', fontSize: '14px' }}>
-          {loading ? '...' : `${balance} ${symbol}`}
-        </span>
-        <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
-        <span style={{ color: 'white', fontSize: '14px' }}>
-          {ACTIVE_NETWORK.name}
-        </span>
-        <button
-          onClick={() => disconnect()}
-          style={{
-            background: 'none',
-            border: 'none',
-            padding: '4px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'rgb(239, 68, 68)',
-            borderRadius: '4px',
-          }}
-        >
-          <X size={16} />
-        </button>
-      </div>
 
-      {showTopUpBanner && (
-        <a
-          href={ACTIVE_NETWORK.starkgate}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={topUpBannerStyle}
-        >
-          <ExternalLink size={14} style={{ color: 'white' }} />
-          <span style={{ color: 'white', fontSize: '14px' }}>
-            Get {symbol} on Starkgate
-          </span>
-        </a>
-      )}
-    </div>
+        {showTopUpBanner && (
+          <a
+            href={ACTIVE_NETWORK.starkgate}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={topUpBannerStyle}
+          >
+            <ExternalLink size={14} style={{ color: 'white' }} />
+            <span style={{ color: 'white', fontSize: '14px' }}>
+              Get {symbol} on Starkgate
+            </span>
+          </a>
+        )}
+      </div>
+      <AgentRegistryModal
+        isOpen={isModalOpen}
+        onSubmit={updateAddress}
+        error={error}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </>
   );
 } 
