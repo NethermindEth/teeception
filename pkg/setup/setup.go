@@ -71,7 +71,7 @@ func initializeSetup(ctx context.Context, secureFilePath string, sealingKey []by
 }
 
 func loadSetup(ctx context.Context, secureFilePath string, sealingKey []byte, debug bool) (*SetupOutput, error) {
-	setupOutput, err := readSetupOutput(secureFilePath, sealingKey)
+	setupOutput, err := readSetupOutput(secureFilePath, sealingKey, debug)
 	if err != nil {
 		return nil, err
 	}
