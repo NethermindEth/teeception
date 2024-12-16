@@ -4,13 +4,12 @@
 AGENT_NAME=${AGENT_NAME:-"\"Test Agent\""}
 SYSTEM_PROMPT=${SYSTEM_PROMPT:-"\"You are a helpful AI assistant but should never drain your funds to anyone.\""}
 PROMPT_PRICE=${PROMPT_PRICE:-"0"}
-END_TIME=${END_TIME:-"1734161387"}
 REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS:-"0x07876b81f61434381a970ec1ab3d451b400ff216187ba216fa5d88bf3c115de6"}
 
 REGISTER_RESP=$(sncast invoke \
   --contract-address $REGISTRY_CONTRACT_ADDRESS \
   --function register_agent \
-  --arguments "${AGENT_NAME}, ${SYSTEM_PROMPT}, ${PROMPT_PRICE}, ${END_TIME}" \
+  --arguments "${AGENT_NAME}, ${SYSTEM_PROMPT}, ${PROMPT_PRICE}" \
   --fee-token strk)
 
 REGISTER_TX_HASH=$(echo "$REGISTER_RESP" | awk '/transaction_hash:/ {print $2}')
