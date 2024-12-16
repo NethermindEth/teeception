@@ -2,8 +2,7 @@ use starknet::{ContractAddress};
 use snforge_std::{
     declare, ContractClassTrait, DeclareResultTrait, start_cheat_caller_address,
     stop_cheat_caller_address, spy_events, EventSpyAssertionsTrait,
-    start_cheat_block_timestamp_global, start_cheat_caller_address_global,
-    stop_cheat_caller_address_global,
+    start_cheat_caller_address_global, stop_cheat_caller_address_global,
 };
 
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
@@ -61,13 +60,11 @@ fn test_register_agent() {
 
     let name = "Test Agent";
     let system_prompt = "I am a test agent";
-    let end_time = 1234_u64;
 
     let mut spy = spy_events();
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent(name.clone(), system_prompt.clone(), prompt_price, end_time);
+    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     assert(registry.is_agent_registered(agent_address), 'Agent should be registered');
@@ -80,7 +77,6 @@ fn test_register_agent() {
     assert(agent_dispatcher.get_name() == name.clone(), 'Wrong agent name');
     assert(agent_dispatcher.get_system_prompt() == system_prompt.clone(), 'Wrong system prompt');
     assert(agent_dispatcher.get_creator() == creator, 'Wrong creator');
-    assert(agent_dispatcher.get_end_time() == end_time, 'Wrong end time');
 
     // Verify event was emitted
     spy
@@ -108,10 +104,8 @@ fn test_pay_for_prompt() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     // Register agent
-    let end_time = 1234_u64;
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, end_time);
+    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -178,12 +172,11 @@ fn test_register_multiple_agents() {
     let (registry_address, _) = deploy_registry(tee, creator);
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
-    let end_time = 1234_u64;
     start_cheat_caller_address(registry.contract_address, creator);
 
-    let agent1_address = registry.register_agent("Agent 1", "Prompt 1", prompt_price, end_time);
+    let agent1_address = registry.register_agent("Agent 1", "Prompt 1", prompt_price);
 
-    let agent2_address = registry.register_agent("Agent 2", "Prompt 2", prompt_price, end_time);
+    let agent2_address = registry.register_agent("Agent 2", "Prompt 2", prompt_price);
 
     stop_cheat_caller_address(registry.contract_address);
 
@@ -204,8 +197,7 @@ fn test_unauthorized_transfer() {
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, 1234_u64);
+    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     // Should fail as we're not the TEE
@@ -222,8 +214,7 @@ fn test_direct_agent_transfer_unauthorized() {
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, 1234_u64);
+    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -244,8 +235,7 @@ fn test_get_agent_details() {
     let system_prompt = "Complex system prompt with multiple words";
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent(name.clone(), system_prompt.clone(), prompt_price, 1234_u64);
+    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -264,8 +254,7 @@ fn test_authorized_token_transfer() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, 1234_u64);
+    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let amount: u256 = 100;
@@ -295,8 +284,7 @@ fn test_unauthorized_token_transfer() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, 1234_u64);
+    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let amount: u256 = 100;
@@ -322,8 +310,7 @@ fn test_pay_for_prompt_without_approval() {
 
     // Register agent
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, 1234_u64);
+    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
     stop_cheat_caller_address(registry.contract_address);
     let agent = IAgentDispatcher { contract_address: agent_address };
 
@@ -344,99 +331,8 @@ fn test_is_agent_registered() {
     assert(!registry.is_agent_registered(random_address), 'Should not be registered');
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, 1234_u64);
+    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     assert(registry.is_agent_registered(agent_address), 'Should be registered');
-}
-
-#[test]
-fn test_creator_can_transfer_after_end_time() {
-    let tee = starknet::contract_address_const::<0x1>();
-    let creator = starknet::contract_address_const::<0x123>();
-    let prompt_price: u256 = 100;
-    let end_time = 1234_u64;
-
-    let (registry_address, token) = deploy_registry(tee, creator);
-    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
-    let token_dispatcher = IERC20Dispatcher { contract_address: token };
-
-    start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, end_time);
-    stop_cheat_caller_address(registry.contract_address);
-    let agent = IAgentDispatcher { contract_address: agent_address };
-
-    // Fund the agent
-    let amount: u256 = 100;
-    start_cheat_caller_address(token_dispatcher.contract_address, creator);
-    token_dispatcher.transfer(agent_address, amount);
-    stop_cheat_caller_address(token_dispatcher.contract_address);
-
-    let recipient = starknet::contract_address_const::<0x456>();
-
-    // Set block timestamp after end_time
-    start_cheat_block_timestamp_global(end_time + 1);
-
-    // Creator should be able to transfer
-    start_cheat_caller_address(agent.contract_address, creator);
-    agent.transfer(recipient);
-    stop_cheat_caller_address(agent.contract_address);
-
-    assert(token_dispatcher.balance_of(agent_address) == 0, 'Agent should have 0');
-    assert(token_dispatcher.balance_of(recipient) == amount, 'Recipient wrong balance');
-}
-
-#[test]
-#[should_panic(expected: ('Only registry can transfer',))]
-fn test_creator_cannot_transfer_before_end_time() {
-    let tee = starknet::contract_address_const::<0x1>();
-    let creator = starknet::contract_address_const::<0x123>();
-    let end_time = 1234_u64;
-    let prompt_price: u256 = 100;
-
-    let (registry_address, _) = deploy_registry(tee, creator);
-    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
-
-    start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, end_time);
-    stop_cheat_caller_address(registry.contract_address);
-    let agent = IAgentDispatcher { contract_address: agent_address };
-
-    let recipient = starknet::contract_address_const::<0x456>();
-
-    // Set block timestamp before end_time
-    start_cheat_block_timestamp_global(end_time - 1);
-
-    // Creator should not be able to transfer
-    start_cheat_caller_address(agent.contract_address, creator);
-    agent.transfer(recipient);
-}
-
-#[test]
-#[should_panic(expected: ('Only creator can transfer',))]
-fn test_registry_cannot_transfer_after_end_time() {
-    let tee = starknet::contract_address_const::<0x1>();
-    let creator = starknet::contract_address_const::<0x123>();
-    let prompt_price: u256 = 100;
-    let end_time = 1234_u64;
-
-    let (registry_address, _) = deploy_registry(tee, creator);
-    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
-
-    start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry
-        .register_agent("Test Agent", "Test Prompt", prompt_price, end_time);
-    stop_cheat_caller_address(registry.contract_address);
-
-    let recipient = starknet::contract_address_const::<0x456>();
-
-    // Set block timestamp after end_time
-    start_cheat_block_timestamp_global(end_time + 1);
-
-    // Registry should not be able to transfer
-    start_cheat_caller_address(registry.contract_address, tee);
-    registry.transfer(agent_address, recipient);
 }

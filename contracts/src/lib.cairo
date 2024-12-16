@@ -3,11 +3,7 @@ use core::starknet::ContractAddress;
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
     fn register_agent(
-        ref self: TContractState,
-        name: ByteArray,
-        system_prompt: ByteArray,
-        prompt_price: u256,
-        end_time: u64,
+        ref self: TContractState, name: ByteArray, system_prompt: ByteArray, prompt_price: u256,
     ) -> ContractAddress;
     fn get_token(self: @TContractState) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
@@ -20,7 +16,6 @@ pub trait IAgentRegistry<TContractState> {
 pub trait IAgent<TContractState> {
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
-    fn get_end_time(self: @TContractState) -> u64;
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
     fn transfer(ref self: TContractState, recipient: ContractAddress);
@@ -81,11 +76,7 @@ pub mod AgentRegistry {
     #[abi(embed_v0)]
     impl AgentRegistryImpl of super::IAgentRegistry<ContractState> {
         fn register_agent(
-            ref self: ContractState,
-            name: ByteArray,
-            system_prompt: ByteArray,
-            prompt_price: u256,
-            end_time: u64,
+            ref self: ContractState, name: ByteArray, system_prompt: ByteArray, prompt_price: u256,
         ) -> ContractAddress {
             let creator = get_caller_address();
 
@@ -99,7 +90,6 @@ pub mod AgentRegistry {
             system_prompt.serialize(ref constructor_calldata);
             self.token.read().serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
-            end_time.serialize(ref constructor_calldata);
             creator.serialize(ref constructor_calldata);
 
             let (deployed_address, _) = deploy_syscall(
@@ -150,9 +140,7 @@ pub mod AgentRegistry {
 #[starknet::contract]
 pub mod Agent {
     use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use core::starknet::{
-        ContractAddress, get_caller_address, get_contract_address, get_block_timestamp,
-    };
+    use core::starknet::{ContractAddress, get_caller_address, get_contract_address};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
     use super::{IAgentRegistryDispatcher, IAgentRegistryDispatcherTrait};
@@ -167,7 +155,6 @@ pub mod Agent {
     const PROMPT_REWARD_BPS: u16 = 8000; // 80% goes to agent
     const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
     const BPS_DENOMINATOR: u16 = 10000;
-    const PROMPT_END_TIME_BUFFER: u64 = 120;
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -192,7 +179,6 @@ pub mod Agent {
         name: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
-        end_time: u64,
         creator: ContractAddress,
     }
 
@@ -203,7 +189,6 @@ pub mod Agent {
         system_prompt: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
-        end_time: u64,
         creator: ContractAddress,
     ) {
         self.registry.write(get_caller_address());
@@ -211,7 +196,6 @@ pub mod Agent {
         self.system_prompt.write(system_prompt);
         self.token.write(token);
         self.prompt_price.write(prompt_price);
-        self.end_time.write(end_time);
         self.creator.write(creator);
     }
 
@@ -229,23 +213,14 @@ pub mod Agent {
             self.prompt_price.read()
         }
 
-        fn get_end_time(self: @ContractState) -> u64 {
-            self.end_time.read()
-        }
-
         fn get_creator(self: @ContractState) -> ContractAddress {
             self.creator.read()
         }
 
         fn transfer(ref self: ContractState, recipient: ContractAddress) {
-            let caller = get_caller_address();
             let registry = self.registry.read();
 
-            if get_block_timestamp() > self.end_time.read() {
-                assert(caller == self.creator.read(), 'Only creator can transfer');
-            } else {
-                assert(get_caller_address() == registry, 'Only registry can transfer');
-            }
+            assert(get_caller_address() == registry, 'Only registry can transfer');
 
             let token = IAgentRegistryDispatcher { contract_address: registry }.get_token();
             let balance = IERC20Dispatcher { contract_address: token }
@@ -254,11 +229,6 @@ pub mod Agent {
         }
 
         fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) {
-            assert(
-                get_block_timestamp() <= self.end_time.read() - PROMPT_END_TIME_BUFFER,
-                'Game has ended',
-            );
-
             let caller = get_caller_address();
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let prompt_price = self.prompt_price.read();
