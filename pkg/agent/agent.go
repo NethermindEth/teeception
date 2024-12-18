@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/jsonschema"
 
+	"github.com/NethermindEth/teeception/pkg/utils/errors"
+	"github.com/NethermindEth/teeception/pkg/utils/metrics"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
 )
 
@@ -55,6 +58,7 @@ type Agent struct {
 	lastBlockNumber uint64
 
 	account *snaccount.StarknetAccount
+	metrics *metrics.MetricsCollector
 
 	pool pond.Pool
 }
@@ -103,19 +107,41 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	slog.Info("starting agent")
+	// Add panic recovery
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("agent panic",
+				"error", r,
+				"stack", string(debug.Stack()),
+			)
+		}
+	}()
+
+	// Add metrics collection for run duration
+	start := time.Now()
+	defer func() {
+		a.metrics.RecordLatency(metrics.MetricAgentOperations, time.Since(start))
+	}()
+
+	slog.Info("starting agent",
+		"config", map[string]interface{}{
+			"twitter_username":  a.config.TwitterUsername,
+			"task_concurrency": a.config.TaskConcurrency,
+			"tick_rate":        a.config.TickRate,
+		},
+	)
 
 	blockNumber, err := a.starknetClient.BlockNumber(ctx)
 	if err != nil {
 		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get latest block number: %v", err)
+		return errors.New(errors.TypeBlockchain, "failed to get latest block number", err)
 	}
 
 	a.lastBlockNumber = blockNumber
 	slog.Info("initialized last block number", "block_number", blockNumber)
 
 	if err := a.StartServer(ctx); err != nil {
-		return fmt.Errorf("failed to start server: %v", err)
+		return errors.New(errors.TypeAgent, "failed to start server", err)
 	}
 
 	slog.Info("entering main loop")
@@ -124,19 +150,29 @@ func (a *Agent) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(a.config.TickRate):
+			tickStart := time.Now()
 			err := a.Tick(ctx)
+			a.metrics.RecordLatency("tick_duration", time.Since(tickStart))
 			if err != nil {
-				slog.Warn("failed to tick", "error", err)
+				slog.Error("failed to tick",
+					"error", err,
+					"type", errors.TypeAgent,
+				)
 			}
 		}
 	}
 }
 
 func (a *Agent) Tick(ctx context.Context) error {
+	start := time.Now()
+	defer func() {
+		a.metrics.RecordLatency(metrics.MetricBlockchainInteraction, time.Since(start))
+	}()
+
 	blockNumber, err := a.starknetClient.BlockNumber(ctx)
 	if err != nil {
 		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get latest block number: %v", err)
+		return errors.New(errors.TypeBlockchain, "failed to get latest block number", err)
 	}
 
 	blockNumber = blockNumber - a.config.SafeBlockDelta
@@ -145,7 +181,11 @@ func (a *Agent) Tick(ctx context.Context) error {
 		return nil
 	}
 
-	slog.Info("processing new blocks", "from_block", a.lastBlockNumber, "to_block", blockNumber)
+	slog.Info("processing new blocks",
+		"from_block", a.lastBlockNumber,
+		"to_block", blockNumber,
+		"delta", blockNumber-a.lastBlockNumber,
+	)
 
 	eventChunk, err := a.starknetClient.Events(ctx, rpc.EventsInput{
 		EventFilter: rpc.EventFilter{
@@ -161,40 +201,54 @@ func (a *Agent) Tick(ctx context.Context) error {
 	})
 	if err != nil {
 		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get block receipts: %v", err)
+		return errors.New(errors.TypeBlockchain, "failed to get block receipts", err)
 	}
 
 	slog.Info("found events", "count", len(eventChunk.Events))
 
 	for _, event := range eventChunk.Events {
 		err := a.pool.Go(func() {
+			eventStart := time.Now()
+			defer func() {
+				a.metrics.RecordLatency("event_processing", time.Since(eventStart))
+			}()
+
 			promptPaidEvent, success, err := a.parseEvent(ctx, event)
 			if err != nil {
-				slog.Warn("failed to parse event", "error", err)
+				slog.Error("failed to parse event",
+					"error", err,
+					"type", errors.TypeAgent,
+				)
 				return
 			}
 			if !success {
-				slog.Warn("event not handled", "event", event)
+				slog.Info("event not handled", "event", event)
 				return
 			}
 
 			slog.Info("processing prompt paid event",
 				"agent_address", promptPaidEvent.AgentAddress,
 				"from_address", promptPaidEvent.FromAddress,
-				"tweet_id", promptPaidEvent.TweetID)
+				"tweet_id", promptPaidEvent.TweetID,
+			)
 
 			err = a.processPromptPaidEvent(ctx, promptPaidEvent)
 			if err != nil {
-				slog.Warn("failed to process prompt paid event", "error", err)
+				slog.Error("failed to process prompt paid event",
+					"error", err,
+					"type", errors.TypeAgent,
+				)
 			}
 		})
 		if err != nil {
-			slog.Warn("failed to submit task to pool", "error", err)
+			slog.Error("failed to submit task to pool",
+				"error", err,
+				"type", errors.TypeAgent,
+			)
 		}
 	}
 
 	a.lastBlockNumber = blockNumber
-
 	return nil
 }
 
@@ -227,23 +281,40 @@ func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*Prompt
 }
 
 func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *PromptPaidEvent) error {
-	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
+	start := time.Now()
+	defer func() {
+		a.metrics.RecordLatency(metrics.MetricTwitterAPI, time.Since(start))
+	}()
+
+	slog.Info("fetching tweet text",
+		"tweet_id", promptPaidEvent.TweetID,
+		"agent_address", promptPaidEvent.AgentAddress,
+	)
 	tweetText, err := a.getTweetText(promptPaidEvent.TweetID)
 	if err != nil {
-		return fmt.Errorf("failed to get tweet text: %v", err)
+		return errors.New(errors.TypeTwitter, "failed to get tweet text", err)
 	}
 
 	slog.Info("fetching system prompt", "agent_address", promptPaidEvent.AgentAddress)
 	systemPrompt, err := a.getSystemPrompt(promptPaidEvent.AgentAddress)
 	if err != nil {
-		return fmt.Errorf("failed to get system prompt: %v", err)
+		return errors.New(errors.TypeBlockchain, "failed to get system prompt", err)
 	}
 
 	return a.reactToTweet(ctx, promptPaidEvent.AgentAddress, promptPaidEvent.TweetID, tweetText, systemPrompt)
 }
 
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {
-	slog.Info("generating AI response", "tweet_id", tweetID)
+	start := time.Now()
+	defer func() {
+		a.metrics.RecordLatency(metrics.MetricOpenAIAPI, time.Since(start))
+	}()
+
+	slog.Info("generating AI response",
+		"tweet_id", tweetID,
+		"agent_address", agentAddress,
+		"text_length", len(tweetText),
+	)
 
 	messages := []openai.ChatCompletionMessage{
 		{
@@ -283,15 +354,20 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("chat completion failed: %v", err)
+		return errors.New(errors.TypeOpenAI, "chat completion failed", err)
 	}
 
 	if len(resp.Choices) == 0 {
-		return fmt.Errorf("no response received")
+		return errors.New(errors.TypeOpenAI, "no response received", nil)
 	}
 
-	slog.Info("replying to tweet", "tweet_id", tweetID)
-	a.replyToTweet(tweetID, resp.Choices[0].Message.Content)
+	slog.Info("replying to tweet",
+		"tweet_id", tweetID,
+		"response_length", len(resp.Choices[0].Message.Content),
+	)
+	if err := a.replyToTweet(tweetID, resp.Choices[0].Message.Content); err != nil {
+		return errors.New(errors.TypeTwitter, "failed to reply to tweet", err)
+	}
 
 	for _, toolCall := range resp.Choices[0].Message.ToolCalls {
 		if toolCall.Function.Name == "drain" {
@@ -300,17 +376,29 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 			}
 
 			var args drainArgs
-			json.Unmarshal([]byte(toolCall.Function.Arguments), &args)
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+				return errors.New(errors.TypeAgent, "failed to parse drain arguments", err)
+			}
 
-			slog.Info("draining tokens", "from", agentAddress, "to", args.Address)
+			slog.Info("draining tokens",
+				"from", agentAddress,
+				"to", args.Address,
+			)
 			txHash, err := a.drain(ctx, agentAddress, args.Address)
 			if err != nil {
-				a.replyToTweet(tweetID, fmt.Sprintf("Almost drained %s to %s!", agentAddress, args.Address))
-				return fmt.Errorf("failed to drain: %v", err)
+				if err := a.replyToTweet(tweetID, fmt.Sprintf("Almost drained %s to %s!", agentAddress, args.Address)); err != nil {
+					slog.Error("failed to send error reply",
+						"error", err,
+						"type", errors.TypeTwitter,
+					)
+				}
+				return errors.New(errors.TypeBlockchain, "failed to drain", err)
 			}
 
 			slog.Info("drain successful", "tx_hash", txHash)
-			a.replyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, args.Address, txHash))
+			if err := a.replyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, args.Address, txHash)); err != nil {
+				return errors.New(errors.TypeTwitter, "failed to send success reply", err)
+			}
 		}
 	}
 
