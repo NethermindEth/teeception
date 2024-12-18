@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -56,6 +55,7 @@ type Agent struct {
 	lastBlockNumber uint64
 
 	account *snaccount.StarknetAccount
+	txQueue *snaccount.TxQueue
 
 	pool pond.Pool
 }
@@ -99,7 +99,12 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		lastBlockNumber: 0,
 
 		account: account,
-		pool:    pond.NewPool(config.TaskConcurrency),
+		txQueue: snaccount.NewTxQueue(account, starknetClient, &snaccount.TxQueueConfig{
+			MaxBatchSize:       10,
+			SubmissionInterval: 20 * time.Second,
+		}),
+
+		pool: pond.NewPool(config.TaskConcurrency),
 	}, nil
 }
 
@@ -304,146 +309,89 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 			var args drainArgs
 			json.Unmarshal([]byte(toolCall.Function.Arguments), &args)
 
-			slog.Info("draining tokens", "from", agentAddress, "to", args.Address)
-			txHash, err := a.drain(ctx, agentAddress, args.Address)
-			if err != nil {
-				a.replyToTweet(tweetID, fmt.Sprintf("Almost drained %s to %s!", agentAddress, args.Address))
-				return fmt.Errorf("failed to drain: %v", err)
-			}
+			go func() {
+				err := a.drainAndReply(ctx, agentAddress, args.Address, tweetID)
+				if err != nil {
+					slog.Warn("failed to drain and reply", "error", err)
+				}
 
-			slog.Info("drain successful", "tx_hash", txHash)
-			a.replyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, args.Address, txHash))
+				err = a.consumePrompt(ctx, agentAddress, tweetID)
+				if err != nil {
+					slog.Warn("failed to consume prompt", "error", err)
+				}
+			}()
+
+			return nil
 		}
+	}
+
+	err = a.consumePrompt(ctx, agentAddress, tweetID)
+	if err != nil {
+		slog.Warn("failed to consume prompt", "error", err)
 	}
 
 	return nil
 }
 
-func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64) (*felt.Felt, error) {
-	slog.Info("consuming prompt", "agent_address", agentAddress, "prompt_id", promptID)
-
-	acc, err := a.account.Account()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get account: %v", err)
-	}
-
-	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), a.account.Address())
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to get nonce: %v", err)
-	}
-
-	invokeTxn := rpc.BroadcastInvokev1Txn{
-		InvokeTxnV1: rpc.InvokeTxnV1{
-			MaxFee:        new(felt.Felt).SetUint64(100000000000000),
-			Version:       rpc.TransactionV1,
-			Nonce:         nonce,
-			Type:          rpc.TransactionType_Invoke,
-			SenderAddress: a.account.Address(),
-		}}
+func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64) error {
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    a.config.AgentRegistryAddress,
 		EntryPointSelector: consumePromptSelector,
 		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID)},
 	}
-	invokeTxn.Calldata, err = acc.FmtCalldata([]rpc.FunctionCall{fnCall})
+
+	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
 	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to format calldata: %v", err)
+		return fmt.Errorf("failed to enqueue transaction: %v", err)
 	}
 
-	slog.Info("estimating transaction fee")
-	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to estimate fee: %v", err)
-	}
+	go func() {
+		txHash, err := snaccount.WaitForResult(ch)
+		if err != nil {
+			slog.Warn("failed to wait for transaction result", "error", err)
+		}
 
-	fee := feeResp[0].OverallFee
-	feeBI := fee.BigInt(new(big.Int))
-	invokeTxn.MaxFee = new(felt.Felt).SetBigInt(new(big.Int).Add(feeBI, new(big.Int).Div(feeBI, new(big.Int).SetUint64(5))))
+		slog.Info("transaction broadcast successful", "tx_hash", txHash)
+	}()
 
-	slog.Info("signing transaction")
-	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign transaction: %v", err)
-	}
-
-	slog.Info("broadcasting transaction")
-	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to add transaction: %v", err)
-	}
-
-	slog.Info("transaction broadcast successful", "tx_hash", resp.TransactionHash)
-	return resp.TransactionHash, nil
+	return nil
 }
 
 func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr string) (*felt.Felt, error) {
 	slog.Info("initiating drain transaction")
-
-	acc, err := a.account.Account()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get account: %v", err)
-	}
-
-	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), a.account.Address())
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to get nonce: %v", err)
-	}
 
 	addressFelt, err := starknetgoutils.HexToFelt(addressStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert address to felt: %v", err)
 	}
 
-	invokeTxn := rpc.BroadcastInvokev1Txn{
-		InvokeTxnV1: rpc.InvokeTxnV1{
-			MaxFee:        new(felt.Felt).SetUint64(100000000000000),
-			Version:       rpc.TransactionV1,
-			Nonce:         nonce,
-			Type:          rpc.TransactionType_Invoke,
-			SenderAddress: a.account.Address(),
-		}}
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    a.config.AgentRegistryAddress,
 		EntryPointSelector: transferSelector,
 		Calldata:           []*felt.Felt{agentAddress, addressFelt},
 	}
-	invokeTxn.Calldata, err = acc.FmtCalldata([]rpc.FunctionCall{fnCall})
+
+	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
 	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to format calldata: %v", err)
+		return nil, fmt.Errorf("failed to enqueue transaction: %v", err)
 	}
 
-	slog.Info("estimating transaction fee")
-	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
+	txHash, err := snaccount.WaitForResult(ch)
 	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to estimate fee: %v", err)
+		return nil, fmt.Errorf("failed to wait for transaction result: %v", err)
 	}
 
-	fee := feeResp[0].OverallFee
-	feeBI := fee.BigInt(new(big.Int))
-	invokeTxn.MaxFee = new(felt.Felt).SetBigInt(new(big.Int).Add(feeBI, new(big.Int).Div(feeBI, new(big.Int).SetUint64(5))))
+	slog.Info("transaction broadcast successful", "tx_hash", txHash)
+	return txHash, nil
+}
 
-	slog.Info("signing transaction")
-	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
+func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addressStr string, tweetID uint64) error {
+	txHash, err := a.drain(ctx, agentAddress, addressStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign transaction: %v", err)
+		return fmt.Errorf("failed to drain: %v", err)
 	}
 
-	slog.Info("broadcasting transaction")
-	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return nil, fmt.Errorf("failed to add transaction: %v", err)
-	}
-
-	slog.Info("transaction broadcast successful", "tx_hash", resp.TransactionHash)
-	return resp.TransactionHash, nil
+	return a.replyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
 }
 
 func (a *Agent) getSystemPrompt(agentAddress *felt.Felt) (string, error) {
