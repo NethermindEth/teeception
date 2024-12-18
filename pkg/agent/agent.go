@@ -25,6 +25,7 @@ import (
 var (
 	promptPaidSelector      = starknetgoutils.GetSelectorFromNameFelt("PromptPaid")
 	getSystemPromptSelector = starknetgoutils.GetSelectorFromNameFelt("get_system_prompt")
+	consumePromptSelector   = starknetgoutils.GetSelectorFromNameFelt("consume_prompt")
 	transferSelector        = starknetgoutils.GetSelectorFromNameFelt("transfer")
 )
 
@@ -211,9 +212,10 @@ func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*Prompt
 
 	agentAddress := event.FromAddress
 	fromAddress := event.Keys[1]
-	tweetID := event.Keys[2].Uint64()
+	tweetIDKey := event.Keys[3]
+	tweetID := tweetIDKey.Uint64()
 
-	if event.Keys[2].Cmp(new(felt.Felt).SetUint64(tweetID)) != 0 {
+	if tweetIDKey.Cmp(new(felt.Felt).SetUint64(tweetID)) != 0 {
 		return nil, false, fmt.Errorf("twitter message ID overflow")
 	}
 
@@ -315,6 +317,67 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 	}
 
 	return nil
+}
+
+func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64) (*felt.Felt, error) {
+	slog.Info("consuming prompt", "agent_address", agentAddress, "prompt_id", promptID)
+
+	acc, err := a.account.Account()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get account: %v", err)
+	}
+
+	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), a.account.Address())
+	if err != nil {
+		snaccount.LogRpcError(err)
+		return nil, fmt.Errorf("failed to get nonce: %v", err)
+	}
+
+	invokeTxn := rpc.BroadcastInvokev1Txn{
+		InvokeTxnV1: rpc.InvokeTxnV1{
+			MaxFee:        new(felt.Felt).SetUint64(100000000000000),
+			Version:       rpc.TransactionV1,
+			Nonce:         nonce,
+			Type:          rpc.TransactionType_Invoke,
+			SenderAddress: a.account.Address(),
+		}}
+	fnCall := rpc.FunctionCall{
+		ContractAddress:    a.config.AgentRegistryAddress,
+		EntryPointSelector: consumePromptSelector,
+		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID)},
+	}
+	invokeTxn.Calldata, err = acc.FmtCalldata([]rpc.FunctionCall{fnCall})
+	if err != nil {
+		snaccount.LogRpcError(err)
+		return nil, fmt.Errorf("failed to format calldata: %v", err)
+	}
+
+	slog.Info("estimating transaction fee")
+	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
+	if err != nil {
+		snaccount.LogRpcError(err)
+		return nil, fmt.Errorf("failed to estimate fee: %v", err)
+	}
+
+	fee := feeResp[0].OverallFee
+	feeBI := fee.BigInt(new(big.Int))
+	invokeTxn.MaxFee = new(felt.Felt).SetBigInt(new(big.Int).Add(feeBI, new(big.Int).Div(feeBI, new(big.Int).SetUint64(5))))
+
+	slog.Info("signing transaction")
+	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign transaction: %v", err)
+	}
+
+	slog.Info("broadcasting transaction")
+	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
+	if err != nil {
+		snaccount.LogRpcError(err)
+		return nil, fmt.Errorf("failed to add transaction: %v", err)
+	}
+
+	slog.Info("transaction broadcast successful", "tx_hash", resp.TransactionHash)
+	return resp.TransactionHash, nil
 }
 
 func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr string) (*felt.Felt, error) {

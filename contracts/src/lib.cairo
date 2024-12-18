@@ -10,6 +10,7 @@ pub trait IAgentRegistry<TContractState> {
     fn get_agents(self: @TContractState) -> Array<ContractAddress>;
     fn get_registration_price(self: @TContractState) -> u256;
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
+    fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
     fn pause(ref self: TContractState);
     fn unpause(ref self: TContractState);
 }
@@ -21,7 +22,9 @@ pub trait IAgent<TContractState> {
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
     fn transfer(ref self: TContractState, recipient: ContractAddress);
-    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64);
+    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
+    fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
+    fn consume_prompt(ref self: TContractState, prompt_id: u64);
 }
 
 #[starknet::contract]
@@ -56,7 +59,6 @@ pub mod AgentRegistry {
         PausableEvent: PausableComponent::Event,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
-
         AgentRegistered: AgentRegistered,
     }
 
@@ -75,7 +77,6 @@ pub mod AgentRegistry {
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         pausable: PausableComponent::Storage,
-
         agent_class_hash: ClassHash,
         agent_registered: Map::<ContractAddress, bool>,
         agents: Vec::<ContractAddress>,
@@ -91,9 +92,8 @@ pub mod AgentRegistry {
         agent_class_hash: ClassHash,
         token: ContractAddress,
         registration_price: u256,
-        owner: ContractAddress,
     ) {
-        self.ownable.initializer(owner);
+        self.ownable.initializer(get_caller_address());
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
         self.token.write(token);
@@ -166,11 +166,17 @@ pub mod AgentRegistry {
             IAgentDispatcher { contract_address: agent }.transfer(recipient);
         }
 
+        fn consume_prompt(ref self: ContractState, agent: ContractAddress, prompt_id: u64) {
+            self.pausable.assert_not_paused();
+            assert(get_caller_address() == self.tee.read(), 'Only tee can consume');
+            IAgentDispatcher { contract_address: agent }.consume_prompt(prompt_id);
+        }
+
         fn pause(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.pausable.pause();
         }
-    
+
         fn unpause(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.pausable.unpause();
@@ -180,10 +186,18 @@ pub mod AgentRegistry {
 
 #[starknet::contract]
 pub mod Agent {
-    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use core::starknet::{ContractAddress, get_caller_address, get_contract_address};
+    use core::starknet::storage::{
+        Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
+    };
+    use core::starknet::{
+        ContractAddress, get_caller_address, get_contract_address, get_block_timestamp,
+        contract_address_const,
+    };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use openzeppelin::security::{pausable::PausableComponent, interface::{IPausableDispatcher, IPausableDispatcherTrait}};
+    use openzeppelin::security::{
+        pausable::PausableComponent, interface::{IPausableDispatcher, IPausableDispatcherTrait},
+    };
 
     use super::{IAgentRegistryDispatcher, IAgentRegistryDispatcherTrait};
 
@@ -196,13 +210,16 @@ pub mod Agent {
 
     const PROMPT_REWARD_BPS: u16 = 7000; // 70% goes to agent
     const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
-    const PROTOCOL_FEE_BPS: u16 = 1000;   // 10% goes to protocol
+    const PROTOCOL_FEE_BPS: u16 = 1000; // 10% goes to protocol
     const BPS_DENOMINATOR: u16 = 10000;
+    const RECLAIM_DELAY: u64 = 1800; // 30 minutes in seconds
 
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         PromptPaid: PromptPaid,
+        PromptConsumed: PromptConsumed,
+        PromptReclaimed: PromptReclaimed,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -210,10 +227,34 @@ pub mod Agent {
         #[key]
         pub user: ContractAddress,
         #[key]
+        pub prompt_id: u64,
+        #[key]
         pub twitter_message_id: u64,
+        pub amount: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct PromptConsumed {
+        #[key]
+        pub prompt_id: u64,
         pub amount: u256,
         pub creator_fee: u256,
         pub protocol_fee: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct PromptReclaimed {
+        #[key]
+        pub prompt_id: u64,
+        pub amount: u256,
+        pub reclaimer: ContractAddress,
+    }
+
+    #[derive(Drop, Copy, Serde, starknet::Store)]
+    struct PendingPrompt {
+        reclaimer: ContractAddress,
+        amount: u256,
+        timestamp: u64,
     }
 
     #[storage]
@@ -224,6 +265,8 @@ pub mod Agent {
         token: ContractAddress,
         prompt_price: u256,
         creator: ContractAddress,
+        pending_prompts: Map::<u64, PendingPrompt>,
+        next_prompt_id: u64,
     }
 
     #[constructor]
@@ -241,6 +284,7 @@ pub mod Agent {
         self.token.write(token);
         self.prompt_price.write(prompt_price);
         self.creator.write(creator);
+        self.next_prompt_id.write(1_u64);
     }
 
     #[abi(embed_v0)]
@@ -272,7 +316,7 @@ pub mod Agent {
             IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);
         }
 
-        fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) {
+        fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) -> u64 {
             let registry = self.registry.read();
 
             let registry_pausable = IPausableDispatcher { contract_address: registry };
@@ -282,25 +326,100 @@ pub mod Agent {
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let prompt_price = self.prompt_price.read();
 
+            // Transfer tokens to this contract
+            token.transfer_from(caller, get_contract_address(), prompt_price);
+
+            // Generate unique prompt ID
+            let prompt_id = self.next_prompt_id.read();
+            self.next_prompt_id.write(prompt_id + 1);
+
+            // Store pending prompt
+            self
+                .pending_prompts
+                .write(
+                    prompt_id,
+                    PendingPrompt {
+                        reclaimer: caller, amount: prompt_price, timestamp: get_block_timestamp(),
+                    },
+                );
+
+            self
+                .emit(
+                    Event::PromptPaid(
+                        PromptPaid {
+                            user: caller, prompt_id, twitter_message_id, amount: prompt_price,
+                        },
+                    ),
+                );
+
+            prompt_id
+        }
+
+        fn reclaim_prompt(ref self: ContractState, prompt_id: u64) {
+            let pending = self.pending_prompts.read(prompt_id);
+            let caller = get_caller_address();
+
+            assert(
+                get_block_timestamp() >= pending.timestamp + RECLAIM_DELAY, 'Too early to reclaim',
+            );
+
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+            token.transfer(pending.reclaimer, pending.amount);
+
+            self
+                .pending_prompts
+                .write(
+                    prompt_id,
+                    PendingPrompt {
+                        reclaimer: contract_address_const::<0>(), amount: 0, timestamp: 0,
+                    },
+                );
+
+            self
+                .emit(
+                    Event::PromptReclaimed(
+                        PromptReclaimed { prompt_id, amount: pending.amount, reclaimer: caller },
+                    ),
+                );
+        }
+
+        fn consume_prompt(ref self: ContractState, prompt_id: u64) {
+            let registry = self.registry.read();
+            assert(get_caller_address() == registry, 'Only registry can consume');
+
+            let pending = self.pending_prompts.read(prompt_id);
+            assert(pending.amount > 0, 'No pending prompt');
+
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+            let amount = pending.amount;
+
             // Calculate fee splits
-            let creator_fee = (prompt_price * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
-            let protocol_fee = (prompt_price * PROTOCOL_FEE_BPS.into()) / BPS_DENOMINATOR.into();
-            let agent_amount = prompt_price - creator_fee - protocol_fee;
+            let creator_fee = (amount * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
+            let protocol_fee = (amount * PROTOCOL_FEE_BPS.into()) / BPS_DENOMINATOR.into();
+            let agent_amount = amount - creator_fee - protocol_fee;
 
-            // Transfer tokens
-            token.transfer_from(caller, get_contract_address(), agent_amount);
-            token.transfer_from(caller, self.creator.read(), creator_fee);
-            token.transfer_from(caller, self.registry.read(), protocol_fee);
+            // Transfer fees
+            token.transfer(self.creator.read(), creator_fee);
+            token.transfer(registry, protocol_fee);
 
-            self.emit(Event::PromptPaid(
-                PromptPaid {
-                    user: caller,
-                    twitter_message_id,
-                    amount: agent_amount,
-                    creator_fee,
-                    protocol_fee,
-                },
-            ));
+            // Clear pending prompt
+            self
+                .pending_prompts
+                .write(
+                    prompt_id,
+                    PendingPrompt {
+                        reclaimer: contract_address_const::<0>(), amount: 0, timestamp: 0,
+                    },
+                );
+
+            self
+                .emit(
+                    Event::PromptConsumed(
+                        PromptConsumed {
+                            prompt_id, amount: agent_amount, creator_fee, protocol_fee,
+                        },
+                    ),
+                );
         }
     }
 }

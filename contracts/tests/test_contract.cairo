@@ -123,27 +123,14 @@ fn test_pay_for_prompt() {
     stop_cheat_caller_address(token_dispatcher.contract_address);
 
     let mut spy = spy_events();
-    let prev_creator_balance = token_dispatcher.balance_of(creator);
 
     assert(token_dispatcher.allowance(user, agent_address) == prompt_price, 'Wrong allowance');
 
     start_cheat_caller_address(agent_address, user);
     // Pay for prompt
     let twitter_message_id = 12345_u64;
-    agent.pay_for_prompt(twitter_message_id);
+    let prompt_id = agent.pay_for_prompt(twitter_message_id);
     stop_cheat_caller_address(agent_address);
-
-    // Calculate expected splits
-    let creator_fee = (prompt_price * 2000) / 10000; // 20%
-    let agent_amount = prompt_price - creator_fee;
-
-    // Verify token transfers
-    assert(token_dispatcher.balance_of(agent_address) == agent_amount, 'Wrong agent balance');
-    assert(
-        token_dispatcher.balance_of(creator) == prev_creator_balance + creator_fee,
-        'Wrong creator fee',
-    );
-    assert(token_dispatcher.balance_of(user) == 0, 'Wrong user balance');
 
     // Verify event was emitted
     spy
@@ -154,9 +141,9 @@ fn test_pay_for_prompt() {
                     Agent::Event::PromptPaid(
                         Agent::PromptPaid {
                             user: user,
+                            prompt_id: prompt_id,
                             twitter_message_id: twitter_message_id,
-                            amount: agent_amount,
-                            creator_fee: creator_fee,
+                            amount: prompt_price,
                         },
                     ),
                 ),
