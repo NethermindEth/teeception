@@ -194,8 +194,9 @@ pub mod Agent {
         pub tweet_id: felt252,
     }
 
-    const PROMPT_REWARD_BPS: u16 = 8000; // 80% goes to agent
+    const PROMPT_REWARD_BPS: u16 = 7000; // 70% goes to agent
     const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
+    const PROTOCOL_FEE_BPS: u16 = 1000;   // 10% goes to protocol
     const BPS_DENOMINATOR: u16 = 10000;
 
     #[event]
@@ -212,6 +213,7 @@ pub mod Agent {
         pub twitter_message_id: u64,
         pub amount: u256,
         pub creator_fee: u256,
+        pub protocol_fee: u256,
     }
 
     #[storage]
@@ -280,22 +282,25 @@ pub mod Agent {
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let prompt_price = self.prompt_price.read();
 
-            // Calculate fee split
+            // Calculate fee splits
             let creator_fee = (prompt_price * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
-            let agent_amount = prompt_price - creator_fee;
+            let protocol_fee = (prompt_price * PROTOCOL_FEE_BPS.into()) / BPS_DENOMINATOR.into();
+            let agent_amount = prompt_price - creator_fee - protocol_fee;
 
             // Transfer tokens
             token.transfer_from(caller, get_contract_address(), agent_amount);
             token.transfer_from(caller, self.creator.read(), creator_fee);
+            token.transfer_from(caller, self.registry.read(), protocol_fee);
 
-            self
-                .emit(
-                    Event::PromptPaid(
-                        PromptPaid {
-                            user: caller, twitter_message_id, amount: agent_amount, creator_fee,
-                        },
-                    ),
-                );
+            self.emit(Event::PromptPaid(
+                PromptPaid {
+                    user: caller,
+                    twitter_message_id,
+                    amount: agent_amount,
+                    creator_fee,
+                    protocol_fee,
+                },
+            ));
         }
     }
 }
