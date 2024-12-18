@@ -10,6 +10,8 @@ pub trait IAgentRegistry<TContractState> {
     fn get_agents(self: @TContractState) -> Array<ContractAddress>;
     fn get_registration_price(self: @TContractState) -> u256;
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
+    fn pause(ref self: TContractState);
+    fn unpause(ref self: TContractState);
 }
 
 #[starknet::interface]
@@ -31,12 +33,30 @@ pub mod AgentRegistry {
         StoragePointerWriteAccess, Vec, VecTrait, MutableVecTrait,
     };
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use openzeppelin::access::ownable::OwnableComponent;
+    use openzeppelin::security::pausable::PausableComponent;
 
     use super::{IAgentDispatcher, IAgentDispatcherTrait};
+
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    component!(path: PausableComponent, storage: pausable, event: PausableEvent);
+
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl PausableImpl = PausableComponent::PausableImpl<ContractState>;
+    impl PausableInternalImpl = PausableComponent::InternalImpl<ContractState>;
 
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
+        #[flat]
+        PausableEvent: PausableComponent::Event,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
+
         AgentRegistered: AgentRegistered,
     }
 
@@ -51,6 +71,11 @@ pub mod AgentRegistry {
 
     #[storage]
     struct Storage {
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        pausable: PausableComponent::Storage,
+
         agent_class_hash: ClassHash,
         agent_registered: Map::<ContractAddress, bool>,
         agents: Vec::<ContractAddress>,
@@ -66,7 +91,9 @@ pub mod AgentRegistry {
         agent_class_hash: ClassHash,
         token: ContractAddress,
         registration_price: u256,
+        owner: ContractAddress,
     ) {
+        self.ownable.initializer(owner);
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
         self.token.write(token);
@@ -78,6 +105,8 @@ pub mod AgentRegistry {
         fn register_agent(
             ref self: ContractState, name: ByteArray, system_prompt: ByteArray, prompt_price: u256,
         ) -> ContractAddress {
+            self.pausable.assert_not_paused();
+
             let creator = get_caller_address();
 
             let token = IERC20Dispatcher { contract_address: self.token.read() };
@@ -131,8 +160,20 @@ pub mod AgentRegistry {
         }
 
         fn transfer(ref self: ContractState, agent: ContractAddress, recipient: ContractAddress) {
+            self.pausable.assert_not_paused();
+
             assert(get_caller_address() == self.tee.read(), 'Only tee can transfer');
             IAgentDispatcher { contract_address: agent }.transfer(recipient);
+        }
+
+        fn pause(ref self: ContractState) {
+            self.ownable.assert_only_owner();
+            self.pausable.pause();
+        }
+    
+        fn unpause(ref self: ContractState) {
+            self.ownable.assert_only_owner();
+            self.pausable.unpause();
         }
     }
 }
