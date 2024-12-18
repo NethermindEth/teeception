@@ -183,6 +183,7 @@ pub mod Agent {
     use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use core::starknet::{ContractAddress, get_caller_address, get_contract_address};
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use openzeppelin::security::{pausable::PausableComponent, interface::{IPausableDispatcher, IPausableDispatcherTrait}};
 
     use super::{IAgentRegistryDispatcher, IAgentRegistryDispatcherTrait};
 
@@ -270,6 +271,11 @@ pub mod Agent {
         }
 
         fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) {
+            let registry = self.registry.read();
+
+            let registry_pausable = IPausableDispatcher { contract_address: registry };
+            assert(!registry_pausable.is_paused(), PausableComponent::Errors::PAUSED);
+
             let caller = get_caller_address();
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let prompt_price = self.prompt_price.read();
