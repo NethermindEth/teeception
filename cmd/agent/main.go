@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"time"
 
@@ -12,6 +13,30 @@ import (
 	"github.com/NethermindEth/teeception/pkg/utils/logger"
 	"github.com/NethermindEth/teeception/pkg/utils/metrics"
 )
+
+func setupMonitoring(metricsCollector *metrics.MetricsCollector) {
+	// Metrics endpoint
+	http.HandleFunc("/metrics", metricsCollector.ServeHTTP)
+
+	// Health check endpoint
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	// Start server in a goroutine
+	go func() {
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			slog.Error("monitoring server failed",
+				"error", err,
+				"type", errors.TypeSetup,
+			)
+		}
+	}()
+
+	slog.Info("monitoring endpoints started", "port", 8080)
+}
 
 func main() {
 	ctx := context.Background()
@@ -25,6 +50,9 @@ func main() {
 
 	// Initialize metrics collector
 	metricsCollector := metrics.NewMetricsCollector()
+
+	// Set up monitoring endpoints
+	setupMonitoring(metricsCollector)
 
 	// Track setup process duration
 	setupStart := time.Now()
