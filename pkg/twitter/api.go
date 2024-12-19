@@ -1,6 +1,7 @@
 package twitter
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,8 +9,9 @@ import (
 	"strings"
 )
 
-var (
-	twitterAPIBaseURL = "https://api.twitter.com/2"
+const (
+	twitterAPIBaseURL      = "https://api.twitter.com/2"
+	onboardingTaskEndpoint = "https://api.twitter.com/1.1/onboarding/task.json"
 )
 
 // TweetField represents available fields for tweet objects
@@ -31,6 +33,13 @@ var defaultTweetFields = []TweetField{
 	TweetFieldConversationID,
 	TweetFieldInReplyToUserID,
 	TweetFieldPublicMetrics,
+}
+
+// tweetRequest represents the request body for creating a tweet using v1.1 API
+type tweetRequest struct {
+	Text     string   `json:"text"`
+	ReplyID  string   `json:"in_reply_to_status_id,omitempty"`
+	MediaIDs []string `json:"media_ids,omitempty"`
 }
 
 func (c *TwitterClient) GetTweet(ctx context.Context, id string) (*Tweet, error) {
@@ -80,39 +89,63 @@ func (c *TwitterClient) GetTweet(ctx context.Context, id string) (*Tweet, error)
 	return result.Data, nil
 }
 
-func (c *TwitterClient) ReplyToTweet(ctx context.Context, id string, text string) error {
-	url := fmt.Sprintf("%s/tweets/%s/reply", twitterAPIBaseURL, id)
+// createTweet sends a tweet creation request to the v1.1 API
+func (c *TwitterClient) createTweet(ctx context.Context, req *tweetRequest) (*Tweet, error) {
+	headers := make(http.Header)
+	headers.Set("Authorization", "Bearer "+c.auth.GetBearerToken())
+	headers.Set("Content-Type", "application/json")
 
-	payload := map[string]interface{}{
-		"text": text,
+	// Add CSRF token from cookies
+	cookies := c.auth.GetCookies(onboardingTaskEndpoint)
+	for _, cookie := range cookies {
+		if cookie.Name == "ct0" {
+			headers.Set("x-csrf-token", cookie.Value)
+			break
+		}
 	}
 
-	jsonPayload, err := json.Marshal(payload)
+	// Prepare request body
+	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("marshal request payload: %w", err)
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(string(jsonPayload)))
+	// Create request
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, onboardingTaskEndpoint, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.doRequest(ctx, req)
+	// Set headers
+	httpReq.Header = headers
+
+	// Send request with rate limiting
+	resp, err := c.doRequest(ctx, httpReq)
 	if err != nil {
-		return fmt.Errorf("do request: %w", err)
+		return nil, fmt.Errorf("do request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		var errResp ErrorResponse
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			return fmt.Errorf("decode error response: %w", err)
-		}
-		if len(errResp.Errors) > 0 {
-			return fmt.Errorf("twitter API error: %s", errResp.Errors[0].Message)
-		}
-		return fmt.Errorf("twitter API error: status code %d", resp.StatusCode)
+	// Parse response
+	var result struct {
+		Data *Tweet `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	return result.Data, nil
+}
+
+func (c *TwitterClient) ReplyToTweet(ctx context.Context, id string, text string) error {
+	req := &tweetRequest{
+		Text:    text,
+		ReplyID: id,
+	}
+
+	_, err := c.createTweet(ctx, req)
+	if err != nil {
+		return fmt.Errorf("create reply tweet: %w", err)
 	}
 
 	return nil

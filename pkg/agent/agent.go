@@ -43,7 +43,7 @@ type AgentConfig struct {
 type Agent struct {
 	config *AgentConfig
 
-	twitterClient     *twitter.TwitterClient
+	twitterClient     *twitter.GraphQLClient
 	openaiClient      *openai.Client
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
@@ -59,13 +59,12 @@ type Agent struct {
 func NewAgent(config *AgentConfig) (*Agent, error) {
 	slog.Info("initializing new agent", "twitter_username", config.TwitterConfig.Username)
 
-	twitterClient, err := twitter.NewTwitterClient(config.TwitterConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create twitter client: %w", err)
-	}
+	// Initialize Twitter GraphQL client with auth
+	auth := twitter.NewAuthClient(http.DefaultClient, config.TwitterConfig.BearerToken)
+	twitterClient := twitter.NewGraphQLClient(http.DefaultClient, auth)
 
+	// Initialize other clients
 	openaiClient := openai.NewClient(config.OpenAIKey)
-
 	dstackTappdClient := tappd.NewTappdClient(config.DstackTappdEndpoint, slog.Default())
 
 	slog.Info("connecting to starknet", "rpc_url", config.StarknetRpcUrl)
@@ -415,7 +414,10 @@ func (a *Agent) replyToTweet(tweetID uint64, reply string) error {
 	}
 
 	ctx := context.Background()
-	err := a.twitterClient.ReplyToTweet(ctx, fmt.Sprintf("%d", tweetID), reply)
+	op := twitter.NewCreateTweetOperation(a.twitterClient)
+	_, err := op.Execute(ctx, reply, &twitter.CreateTweetVariables{
+		InReplyToTweetId: fmt.Sprintf("%d", tweetID),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to reply to tweet: %w", err)
 	}
@@ -425,12 +427,13 @@ func (a *Agent) replyToTweet(tweetID uint64, reply string) error {
 
 func (a *Agent) getTweetText(tweetID uint64) (string, error) {
 	ctx := context.Background()
-	tweet, err := a.twitterClient.GetTweet(ctx, fmt.Sprintf("%d", tweetID))
+	op := twitter.NewTweetDetailOperation(a.twitterClient)
+	resp, err := op.Execute(ctx, fmt.Sprintf("%d", tweetID))
 	if err != nil {
 		return "", fmt.Errorf("failed to get tweet by id: %w", err)
 	}
 
-	return tweet.Text, nil
+	return resp.Data.TweetResult.Result.Legacy.FullText, nil
 }
 
 func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
