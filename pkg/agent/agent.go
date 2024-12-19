@@ -14,10 +14,10 @@ import (
 	"github.com/NethermindEth/starknet.go/rpc"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/alitto/pond/v2"
-	"github.com/dghubble/oauth1"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/jsonschema"
 
+	"github.com/NethermindEth/teeception/pkg/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
 )
 
@@ -29,25 +29,21 @@ var (
 )
 
 type AgentConfig struct {
-	TwitterUsername          string
-	TwitterConsumerKey       string
-	TwitterConsumerSecret    string
-	TwitterAccessToken       string
-	TwitterAccessTokenSecret string
-	OpenAIKey                string
-	DstackTappdEndpoint      string
-	StarknetRpcUrl           string
-	StarknetPrivateKeySeed   []byte
-	AgentRegistryAddress     *felt.Felt
-	TaskConcurrency          int
-	TickRate                 time.Duration
-	SafeBlockDelta           uint64
+	TwitterConfig           *twitter.TwitterConfig
+	OpenAIKey              string
+	DstackTappdEndpoint    string
+	StarknetRpcUrl         string
+	StarknetPrivateKeySeed []byte
+	AgentRegistryAddress   *felt.Felt
+	TaskConcurrency        int
+	TickRate               time.Duration
+	SafeBlockDelta         uint64
 }
 
 type Agent struct {
 	config *AgentConfig
 
-	twitterClient     *http.Client
+	twitterClient     *twitter.TwitterClient
 	openaiClient      *openai.Client
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
@@ -61,10 +57,12 @@ type Agent struct {
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
-	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
+	slog.Info("initializing new agent", "twitter_username", config.TwitterConfig.Username)
 
-	twitterClient := oauth1.NewConfig(config.TwitterConsumerKey, config.TwitterConsumerSecret).
-		Client(oauth1.NoContext, oauth1.NewToken(config.TwitterAccessToken, config.TwitterAccessTokenSecret))
+	twitterClient, err := twitter.NewTwitterClient(config.TwitterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create twitter client: %w", err)
+	}
 
 	openaiClient := openai.NewClient(config.OpenAIKey)
 
@@ -416,43 +414,23 @@ func (a *Agent) replyToTweet(tweetID uint64, reply string) error {
 		reply = reply[:280]
 	}
 
-	resp, err := a.twitterClient.Post(fmt.Sprintf("https://api.twitter.com/2/tweets/%d/reply", tweetID), "application/json", strings.NewReader(reply))
+	ctx := context.Background()
+	err := a.twitterClient.ReplyToTweet(ctx, fmt.Sprintf("%d", tweetID), reply)
 	if err != nil {
-		return fmt.Errorf("failed to reply to tweet: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to reply to tweet: %v", resp.Status)
+		return fmt.Errorf("failed to reply to tweet: %w", err)
 	}
 
 	return nil
 }
 
 func (a *Agent) getTweetText(tweetID uint64) (string, error) {
-	resp, err := a.twitterClient.Get(fmt.Sprintf("https://api.x.com/2/tweets/%d?tweet.fields=text", tweetID))
+	ctx := context.Background()
+	tweet, err := a.twitterClient.GetTweet(ctx, fmt.Sprintf("%d", tweetID))
 	if err != nil {
-		return "", fmt.Errorf("failed to get tweet by id: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get tweet by id: %v", resp.Status)
+		return "", fmt.Errorf("failed to get tweet by id: %w", err)
 	}
 
-	type tweet struct {
-		Data struct {
-			Text string `json:"text"`
-		} `json:"data"`
-	}
-
-	var data tweet
-	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode tweet: %v", err)
-	}
-
-	return data.Data.Text, nil
+	return tweet.Text, nil
 }
 
 func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
