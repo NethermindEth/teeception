@@ -10,6 +10,7 @@ import (
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/NethermindEth/teeception/pkg/encumber/proton"
 	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
+	"github.com/NethermindEth/teeception/pkg/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
 )
 
@@ -29,19 +30,13 @@ type SetupManager struct {
 }
 
 type SetupOutput struct {
-	TwitterUsername          string     `json:"twitter_username"`
-	TwitterPassword          string     `json:"twitter_password"`
-	ProtonPassword           string     `json:"proton_password"`
-	TwitterConsumerKey       string     `json:"twitter_consumer_key"`
-	TwitterConsumerSecret    string     `json:"twitter_consumer_secret"`
-	TwitterAuthTokens        string     `json:"twitter_auth_tokens"`
-	TwitterAccessToken       string     `json:"twitter_access_token"`
-	TwitterAccessTokenSecret string     `json:"twitter_access_token_secret"`
-	StarknetPrivateKeySeed   []byte     `json:"starknet_private_key_seed"`
-	StarknetRpcUrl           string     `json:"starknet_rpc_url"`
-	AgentRegistryAddress     *felt.Felt `json:"agent_registry_address"`
-	OpenAIKey                string     `json:"openai_key"`
-	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
+	TwitterConfig           *twitter.TwitterConfig `json:"twitter_config"`
+	ProtonPassword         string                `json:"proton_password"`
+	StarknetPrivateKeySeed []byte                `json:"starknet_private_key_seed"`
+	StarknetRpcUrl         string                `json:"starknet_rpc_url"`
+	AgentRegistryAddress   *felt.Felt            `json:"agent_registry_address"`
+	OpenAIKey              string                `json:"openai_key"`
+	DstackTappdEndpoint    string                `json:"dstack_tappd_endpoint"`
 }
 
 func getEnv(key string) string {
@@ -125,19 +120,19 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 	}
 
 	output := &SetupOutput{
-		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
-		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
-		TwitterAccessTokenSecret: twitterEncumbererOutput.OAuthTokenPair.TokenSecret,
-		TwitterConsumerKey:       m.twitterAppKey,
-		TwitterConsumerSecret:    m.twitterAppSecret,
-		TwitterUsername:          m.twitterAccount,
-		TwitterPassword:          twitterEncumbererOutput.NewPassword,
-		ProtonPassword:           protonEncumbererOutput.NewPassword,
-		StarknetPrivateKeySeed:   starknetPrivateKeySeed[:],
-		StarknetRpcUrl:           m.starknetRpcUrl,
-		AgentRegistryAddress:     agentRegistryAddress,
-		OpenAIKey:                m.openAiKey,
-		DstackTappdEndpoint:      m.dstackTappdEndpoint,
+		TwitterConfig: &twitter.TwitterConfig{
+			Username:          m.twitterAccount,
+			ConsumerKey:       m.twitterAppKey,
+			ConsumerSecret:    m.twitterAppSecret,
+			AccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
+			AccessTokenSecret: twitterEncumbererOutput.OAuthTokenPair.TokenSecret,
+		},
+		ProtonPassword:         protonEncumbererOutput.NewPassword,
+		StarknetPrivateKeySeed: starknetPrivateKeySeed[:],
+		StarknetRpcUrl:         m.starknetRpcUrl,
+		AgentRegistryAddress:   agentRegistryAddress,
+		OpenAIKey:              m.openAiKey,
+		DstackTappdEndpoint:    m.dstackTappdEndpoint,
 	}
 
 	if debug {

@@ -15,6 +15,7 @@ require (
 	github.com/sethvargo/go-password v0.3.1
 	github.com/tebeka/selenium v0.9.9
 	github.com/tmc/langchaingo v0.1.12
+	golang.org/x/time v0.5.0
 )
 
 require (
@@ -31,6 +32,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
 	github.com/ethereum/go-ethereum v1.14.8 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
+	github.com/g8rswimmer/go-twitter/v2 v2.1.5 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
