@@ -12,15 +12,16 @@ import (
 	"os"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
+
+	"github.com/NethermindEth/teeception/pkg/debug"
 )
 
 const (
 	SECURE_FILE_KEY           = "SECURE_FILE"
 	DSTACK_TAPPD_ENDPOINT_KEY = "DSTACK_TAPPD_ENDPOINT"
-	DEBUG_PLAIN_OUTPUT_KEY    = "DEBUG_PLAIN_OUTPUT"
 )
 
-func Setup(ctx context.Context, debug bool) (*SetupOutput, error) {
+func Setup(ctx context.Context) (*SetupOutput, error) {
 	secureFilePath, ok := os.LookupEnv(SECURE_FILE_KEY)
 	if !ok {
 		return nil, fmt.Errorf("%s environment variable not set", SECURE_FILE_KEY)
@@ -38,54 +39,54 @@ func Setup(ctx context.Context, debug bool) (*SetupOutput, error) {
 		return nil, fmt.Errorf("failed to convert sealing key to bytes: %v", err)
 	}
 
-	setupOutput, err := loadSetup(ctx, secureFilePath, sealingKey, debug)
+	setupOutput, err := loadSetup(ctx, secureFilePath, sealingKey)
 	if err != nil {
 		slog.Warn("failed to load setup, initializing new setup", "error", err)
-		return initializeSetup(ctx, secureFilePath, sealingKey, debug)
+		return initializeSetup(ctx, secureFilePath, sealingKey)
 	}
 
 	return setupOutput, nil
 }
 
-func initializeSetup(ctx context.Context, secureFilePath string, sealingKey []byte, debug bool) (*SetupOutput, error) {
+func initializeSetup(ctx context.Context, secureFilePath string, sealingKey []byte) (*SetupOutput, error) {
 	setupManager, err := NewSetupManagerFromEnv()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create setup manager: %v", err)
 	}
 
-	setupOutput, err := setupManager.Setup(ctx, debug)
+	setupOutput, err := setupManager.Setup(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup: %v", err)
 	}
 
-	if err := writeSetupOutput(setupOutput, secureFilePath, sealingKey, debug); err != nil {
+	if err := writeSetupOutput(setupOutput, secureFilePath, sealingKey); err != nil {
 		return nil, fmt.Errorf("failed to write setup output: %v", err)
 	}
 
 	slog.Info("wrote encrypted setup output")
-	if debug {
+	if debug.IsDebugShowSetup() {
 		slog.Info("setup output", "setupOutput", setupOutput)
 	}
 
 	return setupOutput, nil
 }
 
-func loadSetup(ctx context.Context, secureFilePath string, sealingKey []byte, debug bool) (*SetupOutput, error) {
-	setupOutput, err := readSetupOutput(secureFilePath, sealingKey, debug)
+func loadSetup(ctx context.Context, secureFilePath string, sealingKey []byte) (*SetupOutput, error) {
+	setupOutput, err := readSetupOutput(secureFilePath, sealingKey)
 	if err != nil {
 		return nil, err
 	}
 
 	slog.Info("loaded decrypted setup output")
-	if debug {
+	if debug.IsDebugShowSetup() {
 		slog.Info("setup output", "setupOutput", setupOutput)
 	}
 
 	return setupOutput, nil
 }
 
-func writeSetupOutput(setupOutput *SetupOutput, filePath string, key []byte, debug bool) error {
-	if debug && os.Getenv(DEBUG_PLAIN_OUTPUT_KEY) == "true" {
+func writeSetupOutput(setupOutput *SetupOutput, filePath string, key []byte) error {
+	if debug.IsDebugPlainSetup() {
 		slog.Info("writing plaintext setup output")
 
 		plaintext, err := json.Marshal(setupOutput)
@@ -129,8 +130,8 @@ func writeSetupOutput(setupOutput *SetupOutput, filePath string, key []byte, deb
 	return nil
 }
 
-func readSetupOutput(filePath string, key []byte, debug bool) (*SetupOutput, error) {
-	if debug && os.Getenv(DEBUG_PLAIN_OUTPUT_KEY) == "true" {
+func readSetupOutput(filePath string, key []byte) (*SetupOutput, error) {
+	if debug.IsDebugPlainSetup() {
 		slog.Info("reading plaintext setup output")
 
 		file, err := os.Open(filePath)

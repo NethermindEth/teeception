@@ -10,7 +10,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	_, err := setup.Setup(ctx, true)
+	_, err := setup.Setup(ctx)
 	if err != nil {
 		slog.Error("failed to setup", "error", err)
 		os.Exit(1)

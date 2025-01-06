@@ -22,3 +22,5 @@ services:
       - X_LOGIN_SERVER_IP="your_twitter_login_server_ip"
       - X_LOGIN_SERVER_PORT="your_twitter_login_server_port"
       - SECURE_FILE="/tmp/tapp-ramdisk/secure.json"
+      - DEBUG_SHOW_SETUP="true"
+      - DEBUG_SHOW_PASSWORD="true"

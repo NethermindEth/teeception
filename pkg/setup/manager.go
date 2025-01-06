@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
+	"github.com/NethermindEth/teeception/pkg/debug"
 	"github.com/NethermindEth/teeception/pkg/encumber/proton"
 	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
@@ -91,7 +92,7 @@ func (m *SetupManager) Validate() error {
 	return nil
 }
 
-func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, error) {
+func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 	agentRegistryAddress, err := starknetgoutils.HexToFelt(m.agentRegistryAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse agent registry address: %v", err)
@@ -102,7 +103,7 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 	protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{
 		ProtonUsername: m.protonEmail,
 		ProtonPassword: m.protonPassword,
-	}, debug)
+	})
 
 	twitterEncumberer := twitter.NewTwitterEncumberer(twitter.TwitterEncumbererCredentials{
 		TwitterUsername:  m.twitterAccount,
@@ -112,7 +113,7 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 		TwitterAppSecret: m.twitterAppSecret,
 	}, m.loginServerIp, m.loginServerPort, func(ctx context.Context) (string, error) {
 		return protonEncumberer.GetTwitterVerificationCode(ctx)
-	}, debug)
+	})
 
 	twitterEncumbererOutput, err := twitterEncumberer.Encumber(ctx)
 	if err != nil {
@@ -140,7 +141,7 @@ func (m *SetupManager) Setup(ctx context.Context, debug bool) (*SetupOutput, err
 		DstackTappdEndpoint:      m.dstackTappdEndpoint,
 	}
 
-	if debug {
+	if debug.IsDebugShowSetup() {
 		slog.Info("setup output", "output", fmt.Sprintf("%+v\n", output))
 	}
 

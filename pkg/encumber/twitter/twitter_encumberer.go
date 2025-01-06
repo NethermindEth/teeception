@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/teeception/pkg/debug"
 	"github.com/NethermindEth/teeception/pkg/utils/password"
 	"github.com/NethermindEth/teeception/pkg/utils/selenium_utils"
 	"github.com/dghubble/oauth1"
@@ -44,7 +45,6 @@ type TwitterEncumberer struct {
 	loginServerIp       string
 	loginServerPort     string
 	getVerificationCode func(ctx context.Context) (string, error)
-	debug               bool
 }
 
 type TwitterEncumbererOutput struct {
@@ -66,13 +66,12 @@ type TwitterEncumbererCredentials struct {
 	TwitterAppSecret string
 }
 
-func NewTwitterEncumberer(credentials TwitterEncumbererCredentials, loginServerIp, loginServerPort string, getVerificationCode func(ctx context.Context) (string, error), debug bool) *TwitterEncumberer {
+func NewTwitterEncumberer(credentials TwitterEncumbererCredentials, loginServerIp, loginServerPort string, getVerificationCode func(ctx context.Context) (string, error)) *TwitterEncumberer {
 	return &TwitterEncumberer{
 		credentials:         credentials,
 		loginServerIp:       loginServerIp,
 		loginServerPort:     loginServerPort,
 		getVerificationCode: getVerificationCode,
-		debug:               debug,
 	}
 }
 
@@ -105,7 +104,9 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 	}, twitterSelectionTimeout); err != nil {
 		return fmt.Errorf("failed to find or interact with password field: %v", err)
 	}
-	slog.Info("password entered", "password", t.credentials.TwitterPassword)
+	if debug.IsDebugShowPassword() {
+		slog.Info("password entered", "password", t.credentials.TwitterPassword)
+	}
 
 	if err := driver.InteractWithElement(ctx, selenium.ByCSSSelector, twitterEmailSelector, func(el selenium.WebElement) error {
 		return el.SendKeys(t.credentials.TwitterEmail + selenium.EnterKey)
@@ -132,7 +133,10 @@ func (t *TwitterEncumberer) Login(ctx context.Context, driver *selenium_utils.Se
 		}, twitterSelectionTimeout); err != nil {
 			return fmt.Errorf("failed to find or interact with verification code field: %v", err)
 		}
-		slog.Info("verification code entered", "code", verificationCode)
+
+		if debug.IsDebugShowPassword() {
+			slog.Info("verification code entered", "code", verificationCode)
+		}
 	}
 
 	slog.Info("waiting for login to complete", "delay", twitterLoginDelay)
@@ -220,7 +224,7 @@ func (t *TwitterEncumberer) GetCookies(ctx context.Context, driver *selenium_uti
 
 func (t *TwitterEncumberer) GetAccessKeys(ctx context.Context, driver *selenium_utils.SeleniumDriver) (*oauth1.Token, error) {
 	slog.Info("starting twitter login server", "ip", t.loginServerIp, "port", t.loginServerPort)
-	twitterLoginServer := NewTwitterLoginServer(t.loginServerIp, t.loginServerPort, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret, t.debug)
+	twitterLoginServer := NewTwitterLoginServer(t.loginServerIp, t.loginServerPort, t.credentials.TwitterAppKey, t.credentials.TwitterAppSecret)
 	twitterLoginServer.Start()
 
 	slog.Info("navigating to login", "url", twitterLoginServer.GetLoginRoute())
@@ -268,7 +272,7 @@ func (t *TwitterEncumberer) Encumber(ctx context.Context) (*TwitterEncumbererOut
 		return nil, fmt.Errorf("failed to generate new password: %v", err)
 	}
 
-	if t.debug {
+	if debug.IsDebugShowPassword() {
 		slog.Info("generated new twitter password", "password", newPassword)
 	}
 

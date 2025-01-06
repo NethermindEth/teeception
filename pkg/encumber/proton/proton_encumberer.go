@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NethermindEth/teeception/pkg/debug"
 	"github.com/NethermindEth/teeception/pkg/utils/password"
 	"github.com/NethermindEth/teeception/pkg/utils/selenium_utils"
 	"github.com/tebeka/selenium"
@@ -38,7 +39,6 @@ const (
 )
 
 type ProtonEncumberer struct {
-	debug       bool
 	credentials ProtonEncumbererCredentials
 }
 
@@ -51,8 +51,8 @@ type ProtonEncumbererOutput struct {
 	NewPassword string
 }
 
-func NewProtonEncumberer(credentials ProtonEncumbererCredentials, debug bool) *ProtonEncumberer {
-	return &ProtonEncumberer{credentials: credentials, debug: debug}
+func NewProtonEncumberer(credentials ProtonEncumbererCredentials) *ProtonEncumberer {
+	return &ProtonEncumberer{credentials: credentials}
 }
 
 func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.SeleniumDriver) error {
@@ -159,7 +159,7 @@ func (p *ProtonEncumberer) Encumber(ctx context.Context) (*ProtonEncumbererOutpu
 		return nil, fmt.Errorf("failed to generate new password: %v", err)
 	}
 
-	if p.debug {
+	if debug.IsDebugShowPassword() {
 		slog.Info("generated new proton password", "password", newPassword)
 	}
 
@@ -203,7 +203,10 @@ func (p *ProtonEncumberer) GetTwitterVerificationCode(ctx context.Context) (stri
 		driver.Debug()
 		return "", fmt.Errorf("failed to find verification code: %v", err)
 	}
-	slog.Info("found verification code", "code", verificationCode)
+
+	if debug.IsDebugShowPassword() {
+		slog.Info("found verification code", "code", verificationCode)
+	}
 
 	return verificationCode, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/NethermindEth/teeception/pkg/debug"
 	"github.com/dghubble/oauth1"
 	twauth "github.com/dghubble/oauth1/twitter"
 	"github.com/gin-gonic/gin"
@@ -39,18 +40,15 @@ type TwitterLoginServer struct {
 
 	tokenPairMutex sync.Mutex
 	tokenPair      *oauth1.Token
-
-	debug bool
 }
 
-func NewTwitterLoginServer(ip, port string, twitterAppKey, twitterAppSecret string, debug bool) *TwitterLoginServer {
+func NewTwitterLoginServer(ip, port string, twitterAppKey, twitterAppSecret string) *TwitterLoginServer {
 	return &TwitterLoginServer{
 		ip:               ip,
 		port:             port,
 		shutdownCh:       make(chan struct{}),
 		twitterAppKey:    twitterAppKey,
 		twitterAppSecret: twitterAppSecret,
-		debug:            debug,
 	}
 }
 
@@ -114,7 +112,7 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 		return
 	}
 
-	if s.debug {
+	if debug.IsDebugShowPassword() {
 		slog.Info("requested OAuth token", "token", requestTokenPair.Token, "secret", requestTokenPair.TokenSecret)
 	}
 
@@ -136,7 +134,7 @@ func (s *TwitterLoginServer) handleLogin(c *gin.Context) {
 		return
 	}
 
-	if s.debug {
+	if debug.IsDebugShowPassword() {
 		slog.Info("got authorization URL", "url", authorizationURL.String())
 	}
 
@@ -179,7 +177,7 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 		return
 	}
 
-	if s.debug {
+	if debug.IsDebugShowPassword() {
 		slog.Info("authorized token", "token", tokenPair.Token, "secret", tokenPair.TokenSecret)
 	}
 
@@ -234,7 +232,7 @@ func (s *TwitterLoginServer) authorizeToken(appKey, appSecret, oauthVerifier str
 		return nil, err
 	}
 
-	if s.debug {
+	if debug.IsDebugShowPassword() {
 		slog.Info("got access token", "token", accessToken, "secret", accessSecret)
 	}
 
