@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
@@ -14,10 +12,10 @@ import (
 	"github.com/NethermindEth/starknet.go/rpc"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/alitto/pond/v2"
-	"github.com/dghubble/oauth1"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/jsonschema"
 
+	"github.com/NethermindEth/teeception/pkg/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
 )
 
@@ -47,7 +45,7 @@ type AgentConfig struct {
 type Agent struct {
 	config *AgentConfig
 
-	twitterClient     *http.Client
+	twitterClient     *twitter.TwitterClient
 	openaiClient      *openai.Client
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
@@ -63,8 +61,7 @@ type Agent struct {
 func NewAgent(config *AgentConfig) (*Agent, error) {
 	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
 
-	twitterClient := oauth1.NewConfig(config.TwitterConsumerKey, config.TwitterConsumerSecret).
-		Client(oauth1.NoContext, oauth1.NewToken(config.TwitterAccessToken, config.TwitterAccessTokenSecret))
+	twitterClient := twitter.NewTwitterClient(config.TwitterConsumerKey, config.TwitterConsumerSecret, config.TwitterAccessToken, config.TwitterAccessTokenSecret)
 
 	openaiClient := openai.NewClient(config.OpenAIKey)
 
@@ -235,7 +232,7 @@ func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*Prompt
 
 func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *PromptPaidEvent) error {
 	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
-	tweetText, err := a.getTweetText(promptPaidEvent.TweetID)
+	tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 	if err != nil {
 		return fmt.Errorf("failed to get tweet text: %v", err)
 	}
@@ -298,7 +295,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 	}
 
 	slog.Info("replying to tweet", "tweet_id", tweetID)
-	a.replyToTweet(tweetID, resp.Choices[0].Message.Content)
+	a.twitterClient.ReplyToTweet(tweetID, resp.Choices[0].Message.Content)
 
 	for _, toolCall := range resp.Choices[0].Message.ToolCalls {
 		if toolCall.Function.Name == "drain" {
@@ -391,7 +388,7 @@ func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addr
 		return fmt.Errorf("failed to drain: %v", err)
 	}
 
-	return a.replyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
+	return a.twitterClient.ReplyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
 }
 
 func (a *Agent) getSystemPrompt(agentAddress *felt.Felt) (string, error) {
@@ -407,52 +404,6 @@ func (a *Agent) getSystemPrompt(agentAddress *felt.Felt) (string, error) {
 	}
 
 	return starknetgoutils.ByteArrFeltToString(systemPromptByteArrFelt)
-}
-
-func (a *Agent) replyToTweet(tweetID uint64, reply string) error {
-	slog.Info("replying to tweet", "tweet_id", tweetID, "reply", reply)
-
-	if len(reply) > 280 {
-		reply = reply[:280]
-	}
-
-	resp, err := a.twitterClient.Post(fmt.Sprintf("https://api.twitter.com/2/tweets/%d/reply", tweetID), "application/json", strings.NewReader(reply))
-	if err != nil {
-		return fmt.Errorf("failed to reply to tweet: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to reply to tweet: %v", resp.Status)
-	}
-
-	return nil
-}
-
-func (a *Agent) getTweetText(tweetID uint64) (string, error) {
-	resp, err := a.twitterClient.Get(fmt.Sprintf("https://api.x.com/2/tweets/%d?tweet.fields=text", tweetID))
-	if err != nil {
-		return "", fmt.Errorf("failed to get tweet by id: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get tweet by id: %v", resp.Status)
-	}
-
-	type tweet struct {
-		Data struct {
-			Text string `json:"text"`
-		} `json:"data"`
-	}
-
-	var data tweet
-	err = json.NewDecoder(resp.Body).Decode(&data)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode tweet: %v", err)
-	}
-
-	return data.Data.Text, nil
 }
 
 func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
