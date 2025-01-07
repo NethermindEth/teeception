@@ -5,29 +5,111 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/dghubble/oauth1"
 )
 
 const (
-	GET_TWEET_URL   = "https://api.x.com/2/tweets/%d?tweet.fields=text"
-	REPLY_TWEET_URL = "https://api.twitter.com/2/tweets/%d/reply"
+	getTweetURL   = "https://api.x.com/2/tweets/%d?tweet.fields=text"
+	replyTweetURL = "https://api.twitter.com/2/tweets/%d/reply"
+
+	backoffMaxElapsedTime  = 15 * time.Minute
+	backoffInitialInterval = 1 * time.Second
+	backoffMaxInterval     = 5 * time.Minute
+
+	replyMaxSize = 280
 )
 
 type TwitterClient struct {
 	client *http.Client
+	mu     sync.RWMutex
+	reset  time.Time
 }
 
 func NewTwitterClient(consumerKey, consumerSecret, accessToken, accessTokenSecret string) *TwitterClient {
 	config := oauth1.NewConfig(consumerKey, consumerSecret)
 	token := oauth1.NewToken(accessToken, accessTokenSecret)
 	client := config.Client(oauth1.NoContext, token)
-	return &TwitterClient{client: client}
+	return &TwitterClient{
+		client: client,
+		reset:  time.Now(),
+	}
+}
+
+func (c *TwitterClient) waitForRateLimit() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if time.Now().Before(c.reset) {
+		time.Sleep(time.Until(c.reset))
+	}
+}
+
+func (c *TwitterClient) updateRateLimits(resp *http.Response) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	slog.Info(
+		"x api rate limits",
+		"limit", resp.Header.Get("x-rate-limit-limit"),
+		"remaining", resp.Header.Get("x-rate-limit-remaining"),
+		"reset", resp.Header.Get("x-rate-limit-reset"),
+	)
+
+	if resetStr := resp.Header.Get("x-rate-limit-reset"); resetStr != "" {
+		if resetTime, err := strconv.ParseInt(resetStr, 10, 64); err == nil {
+			c.reset = time.Unix(resetTime, 0)
+		}
+	}
+}
+
+func (c *TwitterClient) doWithRetry(req *http.Request) (*http.Response, error) {
+	b := backoff.NewExponentialBackOff()
+	b.MaxElapsedTime = backoffMaxElapsedTime
+	b.InitialInterval = backoffInitialInterval
+	b.MaxInterval = backoffMaxInterval
+
+	var resp *http.Response
+	var err error
+
+	operation := func() error {
+		c.waitForRateLimit()
+
+		resp, err = c.client.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+
+		c.updateRateLimits(resp)
+
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return fmt.Errorf("rate limit exceeded")
+		}
+
+		return nil
+	}
+
+	err = backoff.Retry(operation, b)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (c *TwitterClient) GetTweetText(tweetID uint64) (string, error) {
-	resp, err := c.client.Get(fmt.Sprintf(GET_TWEET_URL, tweetID))
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(getTweetURL, tweetID), nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	resp, err := c.doWithRetry(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to get tweet by id: %v", err)
 	}
@@ -55,11 +137,17 @@ func (c *TwitterClient) GetTweetText(tweetID uint64) (string, error) {
 func (c *TwitterClient) ReplyToTweet(tweetID uint64, reply string) error {
 	slog.Info("replying to tweet", "tweet_id", tweetID, "reply", reply)
 
-	if len(reply) > 280 {
-		reply = reply[:280]
+	if len(reply) > replyMaxSize {
+		reply = reply[:replyMaxSize]
 	}
 
-	resp, err := c.client.Post(fmt.Sprintf(REPLY_TWEET_URL, tweetID), "application/json", strings.NewReader(reply))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf(replyTweetURL, tweetID), strings.NewReader(reply))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doWithRetry(req)
 	if err != nil {
 		return fmt.Errorf("failed to reply to tweet: %v", err)
 	}

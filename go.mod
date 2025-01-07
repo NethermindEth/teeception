@@ -9,6 +9,7 @@ require (
 	github.com/NethermindEth/juno v0.12.2
 	github.com/NethermindEth/starknet.go v0.7.2
 	github.com/alitto/pond/v2 v2.1.5
+	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/dghubble/oauth1 v0.7.3
 	github.com/gin-gonic/gin v1.10.0
 	github.com/sashabaranov/go-openai v1.35.7
