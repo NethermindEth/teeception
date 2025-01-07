@@ -19,3 +19,7 @@ func IsDebugShowSetup() bool {
 func IsDebugShowPassword() bool {
 	return Debug && isDebugShowPasswordSet()
 }
+
+func IsDebugDisableReplies() bool {
+	return Debug && isDebugDisableRepliesSet()
+}

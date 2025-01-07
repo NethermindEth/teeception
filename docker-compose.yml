@@ -24,3 +24,4 @@ services:
       - SECURE_FILE="/tmp/tapp-ramdisk/secure.json"
       - DEBUG_SHOW_SETUP="true"
       - DEBUG_SHOW_PASSWORD="true"
+      - DEBUG_DISABLE_REPLIES="true"

@@ -15,6 +15,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/jsonschema"
 
+	"github.com/NethermindEth/teeception/pkg/debug"
 	"github.com/NethermindEth/teeception/pkg/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
 )
@@ -386,6 +387,12 @@ func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addr
 	txHash, err := a.drain(ctx, agentAddress, addressStr)
 	if err != nil {
 		return fmt.Errorf("failed to drain: %v", err)
+	}
+
+	slog.Info("draining successful", "tx_hash", txHash, "tweet_id", tweetID)
+
+	if debug.IsDebugDisableReplies() {
+		return nil
 	}
 
 	return a.twitterClient.ReplyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
