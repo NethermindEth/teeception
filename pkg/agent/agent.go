@@ -296,7 +296,10 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 	}
 
 	slog.Info("replying to tweet", "tweet_id", tweetID)
-	a.twitterClient.ReplyToTweet(tweetID, resp.Choices[0].Message.Content)
+
+	if !debug.IsDebugDisableReplies() {
+		a.twitterClient.ReplyToTweet(tweetID, resp.Choices[0].Message.Content)
+	}
 
 	for _, toolCall := range resp.Choices[0].Message.ToolCalls {
 		if toolCall.Function.Name == "drain" {
