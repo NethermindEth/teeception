@@ -14,7 +14,7 @@ export default function Home() {
   }
 
   return (
-    <div>
+    <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <div className="min-h-screen bg-[url('/img/hero.png')] bg-cover bg-center bg-no-repeat text-white flex items-center justify-center px-4">
         <header className="fixed left-0 right-0 top-0 backdrop-blur-lg bg-[#12121266] min-h-[76px] z-10">
           <div className="max-w-[1632px] mx-auto flex items-center p-4 justify-between">
