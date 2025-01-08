@@ -82,13 +82,14 @@ func (c *TwitterClient) doWithRetry(req *http.Request) (*http.Response, error) {
 
 		resp, err = c.client.Do(req)
 		if err != nil {
+			resp.Body.Close()
 			return err
 		}
-		defer resp.Body.Close()
 
 		c.updateRateLimits(resp)
 
 		if resp.StatusCode == http.StatusTooManyRequests {
+			resp.Body.Close()
 			return fmt.Errorf("rate limit exceeded")
 		}
 
