@@ -388,7 +388,7 @@ pub mod Agent {
             assert(get_caller_address() == registry, 'Only registry can consume');
 
             let pending = self.pending_prompts.read(prompt_id);
-            assert(pending.amount > 0, 'No pending prompt');
+            assert(pending.reclaimer != contract_address_const::<0>(), 'No pending prompt');
 
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let amount = pending.amount;
