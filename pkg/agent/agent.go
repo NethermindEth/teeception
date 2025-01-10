@@ -80,7 +80,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 			return nil, fmt.Errorf("AGENT_TWITTER_CLIENT_PORT is not set")
 		}
 
-		twitterClient = twitter.NewTwitterProxy(port, http.DefaultClient)
+		twitterClient = twitter.NewTwitterProxy("http://localhost:"+port, http.DefaultClient)
 	} else {
 		return nil, fmt.Errorf("invalid twitter client mode: %s", config.TwitterClientMode)
 	}
