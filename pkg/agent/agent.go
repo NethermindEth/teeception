@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"os"
 	"time"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
@@ -27,7 +29,13 @@ var (
 	transferSelector        = starknetgoutils.GetSelectorFromNameFelt("transfer")
 )
 
+const (
+	TwitterClientModeApi   = "api"
+	TwitterClientModeProxy = "proxy"
+)
+
 type AgentConfig struct {
+	TwitterClientMode        string
 	TwitterUsername          string
 	TwitterPassword          string
 	TwitterConsumerKey       string
@@ -63,7 +71,19 @@ type Agent struct {
 func NewAgent(config *AgentConfig) (*Agent, error) {
 	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
 
-	twitterClient := twitter.NewTwitterApiClient()
+	var twitterClient twitter.TwitterClient
+	if config.TwitterClientMode == TwitterClientModeApi {
+		twitterClient = twitter.NewTwitterApiClient()
+	} else if config.TwitterClientMode == TwitterClientModeProxy {
+		port := os.Getenv("AGENT_TWITTER_CLIENT_PORT")
+		if port == "" {
+			return nil, fmt.Errorf("AGENT_TWITTER_CLIENT_PORT is not set")
+		}
+
+		twitterClient = twitter.NewTwitterProxy(port, http.DefaultClient)
+	} else {
+		return nil, fmt.Errorf("invalid twitter client mode: %s", config.TwitterClientMode)
+	}
 
 	openaiClient := openai.NewClient(config.OpenAIKey)
 

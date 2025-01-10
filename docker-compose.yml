@@ -14,6 +14,7 @@ services:
       X_PASSWORD: "your_twitter_password"
       X_CONSUMER_KEY: "your_twitter_app_key"
       X_CONSUMER_SECRET: "your_twitter_app_secret"
+      X_CLIENT_MODE: "api"
       AGENT_TWITTER_CLIENT_PORT: "3000"
       PROTONMAIL_EMAIL: "your_proton_email"
       PROTONMAIL_PASSWORD: "your_proton_password"
