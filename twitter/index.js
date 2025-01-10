@@ -2,8 +2,8 @@
 /**
  * Twitter client API wrapper around agent-twitter-client
  */
-import express from 'express'
-import { Scraper } from 'agent-twitter-client'
+const express = require('express')
+const { Scraper } = require('agent-twitter-client')
 
 class TwitterClientApi {
     constructor() {
