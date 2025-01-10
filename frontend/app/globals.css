@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --foreground: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --foreground: #ffffff;
+  }
+}
+
+@layer base {
+  body,
+  p,
+  button {
+    font-family: var(--font-dm-sans);
+  }
+
+  pre,
+  code,
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-ibm-plex-mono);
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.white-gradient-border {
+  border-image: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 100%)
+    1;
+  border-width: 1px;
+  border-style: solid;
+  padding: 0px;
+  width: 50%;
+}
