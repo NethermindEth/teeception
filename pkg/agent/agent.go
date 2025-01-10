@@ -29,6 +29,7 @@ var (
 
 type AgentConfig struct {
 	TwitterUsername          string
+	TwitterPassword          string
 	TwitterConsumerKey       string
 	TwitterConsumerSecret    string
 	TwitterAccessToken       string
@@ -46,7 +47,7 @@ type AgentConfig struct {
 type Agent struct {
 	config *AgentConfig
 
-	twitterClient     *twitter.TwitterClient
+	twitterClient     twitter.TwitterClient
 	openaiClient      *openai.Client
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
@@ -62,7 +63,7 @@ type Agent struct {
 func NewAgent(config *AgentConfig) (*Agent, error) {
 	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
 
-	twitterClient := twitter.NewTwitterClient(config.TwitterConsumerKey, config.TwitterConsumerSecret, config.TwitterAccessToken, config.TwitterAccessTokenSecret)
+	twitterClient := twitter.NewTwitterApiClient()
 
 	openaiClient := openai.NewClient(config.OpenAIKey)
 
@@ -108,6 +109,18 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 func (a *Agent) Run(ctx context.Context) error {
 	slog.Info("starting agent")
+
+	err := a.twitterClient.Initialize(twitter.TwitterClientConfig{
+		Username:          a.config.TwitterUsername,
+		Password:          a.config.TwitterPassword,
+		ConsumerKey:       a.config.TwitterConsumerKey,
+		ConsumerSecret:    a.config.TwitterConsumerSecret,
+		AccessToken:       a.config.TwitterAccessToken,
+		AccessTokenSecret: a.config.TwitterAccessTokenSecret,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize twitter client: %v", err)
+	}
 
 	blockNumber, err := a.starknetClient.BlockNumber(ctx)
 	if err != nil {
