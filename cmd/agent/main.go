@@ -45,5 +45,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	agent.Run(ctx)
+	err = agent.Run(ctx)
+	if err != nil {
+		slog.Error("failed to run agent", "error", err)
+		os.Exit(1)
+	}
 }
