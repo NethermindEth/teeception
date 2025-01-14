@@ -17,6 +17,7 @@ import (
 	"github.com/tmc/langchaingo/jsonschema"
 
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
+	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
@@ -60,8 +61,7 @@ type Agent struct {
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
 
-	lastBlockNumber uint64
-
+	indexer *indexer.Indexer
 	account *snaccount.StarknetAccount
 	txQueue *snaccount.TxQueue
 
@@ -98,6 +98,12 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		return nil, err
 	}
 
+	indexer := indexer.NewIndexer(indexer.IndexerConfig{
+		Client:         starknetClient,
+		SafeBlockDelta: config.SafeBlockDelta,
+		TickRate:       config.TickRate,
+	})
+
 	privateKey := snaccount.NewPrivateKey(config.StarknetPrivateKeySeed)
 	account, err := snaccount.NewStarknetAccount(privateKey)
 	if err != nil {
@@ -118,8 +124,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		starknetClient:    starknetClient,
 		dStackTappdClient: dstackTappdClient,
 
-		lastBlockNumber: 0,
-
+		indexer: indexer,
 		account: account,
 		txQueue: snaccount.NewTxQueue(account, starknetClient, &snaccount.TxQueueConfig{
 			MaxBatchSize:       10,
@@ -145,14 +150,10 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize twitter client: %v", err)
 	}
 
-	blockNumber, err := a.starknetClient.BlockNumber(ctx)
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get latest block number: %v", err)
+	promptPaidEventChan := make(chan indexer.PromptPaidEvent, 1000)
+	if err := a.indexer.Start(ctx, promptPaidEventChan); err != nil {
+		return fmt.Errorf("failed to start indexer: %v", err)
 	}
-
-	a.lastBlockNumber = blockNumber
-	slog.Info("initialized last block number", "block_number", blockNumber)
 
 	if err := a.StartServer(ctx); err != nil {
 		return fmt.Errorf("failed to start server: %v", err)
@@ -164,7 +165,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(a.config.TickRate):
-			err := a.Tick(ctx)
+			err := a.Tick(ctx, promptPaidEventChan)
 			if err != nil {
 				slog.Warn("failed to tick", "error", err)
 			}
@@ -172,102 +173,30 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 }
 
-func (a *Agent) Tick(ctx context.Context) error {
-	blockNumber, err := a.starknetClient.BlockNumber(ctx)
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get latest block number: %v", err)
-	}
+func (a *Agent) Tick(ctx context.Context, promptPaidEventChan <-chan indexer.PromptPaidEvent) error {
+	go func() {
+		for event := range promptPaidEventChan {
+			err := a.pool.Go(func() {
+				slog.Info("processing prompt paid event",
+					"agent_address", event.AgentAddress,
+					"from_address", event.FromAddress,
+					"tweet_id", event.TweetID)
 
-	blockNumber = blockNumber - a.config.SafeBlockDelta
-
-	if blockNumber <= a.lastBlockNumber {
-		return nil
-	}
-
-	slog.Info("processing new blocks", "from_block", a.lastBlockNumber, "to_block", blockNumber)
-
-	eventChunk, err := a.starknetClient.Events(ctx, rpc.EventsInput{
-		EventFilter: rpc.EventFilter{
-			FromBlock: rpc.WithBlockNumber(a.lastBlockNumber + 1),
-			ToBlock:   rpc.WithBlockNumber(blockNumber),
-			Keys: [][]*felt.Felt{
-				{promptPaidSelector},
-			},
-		},
-		ResultPageRequest: rpc.ResultPageRequest{
-			ChunkSize: 1000,
-		},
-	})
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get block receipts: %v", err)
-	}
-
-	slog.Info("found events", "count", len(eventChunk.Events))
-
-	for _, event := range eventChunk.Events {
-		err := a.pool.Go(func() {
-			promptPaidEvent, success, err := a.parseEvent(ctx, event)
+				err := a.processPromptPaidEvent(ctx, &event)
+				if err != nil {
+					slog.Warn("failed to process prompt paid event", "error", err)
+				}
+			})
 			if err != nil {
-				slog.Warn("failed to parse event", "error", err)
-				return
+				slog.Warn("failed to submit task to pool", "error", err)
 			}
-			if !success {
-				slog.Warn("event not handled", "event", event)
-				return
-			}
-
-			slog.Info("processing prompt paid event",
-				"agent_address", promptPaidEvent.AgentAddress,
-				"from_address", promptPaidEvent.FromAddress,
-				"tweet_id", promptPaidEvent.TweetID)
-
-			err = a.processPromptPaidEvent(ctx, promptPaidEvent)
-			if err != nil {
-				slog.Warn("failed to process prompt paid event", "error", err)
-			}
-		})
-		if err != nil {
-			slog.Warn("failed to submit task to pool", "error", err)
 		}
-	}
-
-	a.lastBlockNumber = blockNumber
+	}()
 
 	return nil
 }
 
-type PromptPaidEvent struct {
-	AgentAddress *felt.Felt
-	FromAddress  *felt.Felt
-	TweetID      uint64
-}
-
-func (a *Agent) parseEvent(ctx context.Context, event rpc.EmittedEvent) (*PromptPaidEvent, bool, error) {
-	if event.Keys[0].Cmp(promptPaidSelector) != 0 {
-		return nil, false, nil
-	}
-
-	agentAddress := event.FromAddress
-	fromAddress := event.Keys[1]
-	tweetIDKey := event.Keys[3]
-	tweetID := tweetIDKey.Uint64()
-
-	if tweetIDKey.Cmp(new(felt.Felt).SetUint64(tweetID)) != 0 {
-		return nil, false, fmt.Errorf("twitter message ID overflow")
-	}
-
-	promptPaidEvent := &PromptPaidEvent{
-		FromAddress:  fromAddress,
-		AgentAddress: agentAddress,
-		TweetID:      tweetID,
-	}
-
-	return promptPaidEvent, true, nil
-}
-
-func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *PromptPaidEvent) error {
+func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *indexer.PromptPaidEvent) error {
 	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
 	tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 	if err != nil {
