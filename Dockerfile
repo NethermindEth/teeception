@@ -1,4 +1,3 @@
-
 # Build
 # ----------
 
@@ -37,15 +36,28 @@ RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -
     libxss1 \
     shared-mime-info \
     libxshmfence1 \
-    libasound2 && \
+    libasound2 \
+    curl && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs
 
 # Install chromium
 COPY --from=builder /deps/chromium.deb /deps/chromium.deb
 RUN apt-get install -y /deps/chromium.deb && rm -rf /deps/chromium.deb
 
+# Copy twitter package and install dependencies
+COPY twitter/ /app/twitter/
+WORKDIR /app/twitter
+RUN npm install
+
 # Copy agent binary
 COPY --from=builder /app/agent /app/agent
 
-# Execute agent
-ENTRYPOINT ["/app/agent"]
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Execute entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]

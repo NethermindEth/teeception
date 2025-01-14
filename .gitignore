@@ -33,3 +33,6 @@ go.work
 # Forge
 cache
 out
+
+# Node.js
+node_modules

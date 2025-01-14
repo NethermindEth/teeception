@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"os"
 	"time"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
@@ -27,8 +29,15 @@ var (
 	transferSelector        = starknetgoutils.GetSelectorFromNameFelt("transfer")
 )
 
+const (
+	TwitterClientModeApi   = "api"
+	TwitterClientModeProxy = "proxy"
+)
+
 type AgentConfig struct {
+	TwitterClientMode        string
 	TwitterUsername          string
+	TwitterPassword          string
 	TwitterConsumerKey       string
 	TwitterConsumerSecret    string
 	TwitterAccessToken       string
@@ -46,7 +55,7 @@ type AgentConfig struct {
 type Agent struct {
 	config *AgentConfig
 
-	twitterClient     *twitter.TwitterClient
+	twitterClient     twitter.TwitterClient
 	openaiClient      *openai.Client
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
@@ -62,7 +71,19 @@ type Agent struct {
 func NewAgent(config *AgentConfig) (*Agent, error) {
 	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
 
-	twitterClient := twitter.NewTwitterClient(config.TwitterConsumerKey, config.TwitterConsumerSecret, config.TwitterAccessToken, config.TwitterAccessTokenSecret)
+	var twitterClient twitter.TwitterClient
+	if config.TwitterClientMode == TwitterClientModeApi {
+		twitterClient = twitter.NewTwitterApiClient()
+	} else if config.TwitterClientMode == TwitterClientModeProxy {
+		port := os.Getenv("AGENT_TWITTER_CLIENT_PORT")
+		if port == "" {
+			return nil, fmt.Errorf("AGENT_TWITTER_CLIENT_PORT is not set")
+		}
+
+		twitterClient = twitter.NewTwitterProxy("http://localhost:"+port, http.DefaultClient)
+	} else {
+		return nil, fmt.Errorf("invalid twitter client mode: %s", config.TwitterClientMode)
+	}
 
 	openaiClient := openai.NewClient(config.OpenAIKey)
 
@@ -108,6 +129,18 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 func (a *Agent) Run(ctx context.Context) error {
 	slog.Info("starting agent")
+
+	err := a.twitterClient.Initialize(twitter.TwitterClientConfig{
+		Username:          a.config.TwitterUsername,
+		Password:          a.config.TwitterPassword,
+		ConsumerKey:       a.config.TwitterConsumerKey,
+		ConsumerSecret:    a.config.TwitterConsumerSecret,
+		AccessToken:       a.config.TwitterAccessToken,
+		AccessTokenSecret: a.config.TwitterAccessTokenSecret,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize twitter client: %v", err)
+	}
 
 	blockNumber, err := a.starknetClient.BlockNumber(ctx)
 	if err != nil {

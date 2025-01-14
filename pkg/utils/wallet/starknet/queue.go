@@ -117,7 +117,13 @@ func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *
 	for i, c := range calls {
 		_, err := q.provider.Call(ctx, c, rpc.WithBlockTag("latest"))
 		if err != nil {
-			return nil, fmt.Errorf("function call index %d failed simulation: %w", i, err)
+			var data any = err.Error()
+			rpcErr, ok := err.(*rpc.RPCError)
+			if ok {
+				data = rpcErr.Data
+			}
+
+			return nil, fmt.Errorf("function call index %d failed simulation: %v", i, data)
 		}
 	}
 

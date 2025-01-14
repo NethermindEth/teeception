@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "teeception-twitter",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "NethermindEth",
+  "license": "MIT",
+  "dependencies": {
+    "agent-twitter-client": "^0.0.18",
+    "express": "^4.21.2"
+  }
+}

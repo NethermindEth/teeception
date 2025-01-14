@@ -18,8 +18,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	twitterClientMode := os.Getenv("X_CLIENT_MODE")
+	if twitterClientMode == "" {
+		twitterClientMode = agent.TwitterClientModeApi
+	}
+
 	agent, err := agent.NewAgent(&agent.AgentConfig{
+		TwitterClientMode:        twitterClientMode,
 		TwitterUsername:          output.TwitterUsername,
+		TwitterPassword:          output.TwitterPassword,
 		TwitterConsumerKey:       output.TwitterConsumerKey,
 		TwitterConsumerSecret:    output.TwitterConsumerSecret,
 		TwitterAccessToken:       output.TwitterAccessToken,
@@ -38,5 +45,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	agent.Run(ctx)
+	err = agent.Run(ctx)
+	if err != nil {
+		slog.Error("failed to run agent", "error", err)
+		os.Exit(1)
+	}
 }
