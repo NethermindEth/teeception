@@ -42,6 +42,7 @@ export default function Home() {
               <button
                 onClick={handleInstallExtension}
                 className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70"
+                disabled
               >
                 Install extension
               </button>
@@ -64,7 +65,10 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <button className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70 border border-transparent">
+            <button
+              className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70 border border-transparent"
+              disabled
+            >
               Install extension
             </button>
 
