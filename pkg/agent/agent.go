@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
@@ -17,9 +16,9 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/tmc/langchaingo/jsonschema"
 
-	"github.com/NethermindEth/teeception/pkg/debug"
+	"github.com/NethermindEth/teeception/pkg/agent/debug"
 	"github.com/NethermindEth/teeception/pkg/twitter"
-	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
+	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
 var (
@@ -30,6 +29,7 @@ var (
 )
 
 const (
+	TwitterClientModeEnv   = "env"
 	TwitterClientModeApi   = "api"
 	TwitterClientModeProxy = "proxy"
 )
@@ -72,14 +72,17 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
 
 	var twitterClient twitter.TwitterClient
+	if config.TwitterClientMode == "" || config.TwitterClientMode == TwitterClientModeEnv {
+		config.TwitterClientMode = envGetAgentTwitterClientMode()
+	}
+
 	if config.TwitterClientMode == TwitterClientModeApi {
 		twitterClient = twitter.NewTwitterApiClient()
 	} else if config.TwitterClientMode == TwitterClientModeProxy {
-		port := os.Getenv("AGENT_TWITTER_CLIENT_PORT")
-		if port == "" {
-			return nil, fmt.Errorf("AGENT_TWITTER_CLIENT_PORT is not set")
+		port, err := envLookupAgentTwitterClientPort()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get twitter client port: %v", err)
 		}
-
 		twitterClient = twitter.NewTwitterProxy("http://localhost:"+port, http.DefaultClient)
 	} else {
 		return nil, fmt.Errorf("invalid twitter client mode: %s", config.TwitterClientMode)

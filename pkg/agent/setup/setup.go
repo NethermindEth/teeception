@@ -13,21 +13,17 @@ import (
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
 
-	"github.com/NethermindEth/teeception/pkg/debug"
-)
-
-const (
-	SECURE_FILE_KEY           = "SECURE_FILE"
-	DSTACK_TAPPD_ENDPOINT_KEY = "DSTACK_TAPPD_ENDPOINT"
+	"github.com/NethermindEth/teeception/pkg/agent/debug"
 )
 
 func Setup(ctx context.Context) (*SetupOutput, error) {
-	secureFilePath, ok := os.LookupEnv(SECURE_FILE_KEY)
-	if !ok {
-		return nil, fmt.Errorf("%s environment variable not set", SECURE_FILE_KEY)
+	secureFilePath, err := envLookupSecureFile()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secure file: %v", err)
 	}
 
-	dstackTappdClient := tappd.NewTappdClient(os.Getenv(DSTACK_TAPPD_ENDPOINT_KEY), slog.Default())
+	dstackTappdEndpoint := envGetDstackTappdEndpoint()
+	dstackTappdClient := tappd.NewTappdClient(dstackTappdEndpoint, slog.Default())
 
 	sealingKeyResp, err := dstackTappdClient.DeriveKey(ctx, "/agent/sealing", "teeception", nil)
 	if err != nil {

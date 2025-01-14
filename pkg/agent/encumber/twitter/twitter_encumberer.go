@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/NethermindEth/teeception/pkg/debug"
-	"github.com/NethermindEth/teeception/pkg/utils/password"
-	"github.com/NethermindEth/teeception/pkg/utils/selenium_utils"
+	"github.com/NethermindEth/teeception/pkg/agent/debug"
+	"github.com/NethermindEth/teeception/pkg/agent/password"
+	"github.com/NethermindEth/teeception/pkg/selenium_utils"
 	"github.com/dghubble/oauth1"
 	"github.com/tebeka/selenium"
 )

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/NethermindEth/teeception/pkg/debug"
+	"github.com/NethermindEth/teeception/pkg/agent/debug"
 	"github.com/dghubble/oauth1"
 	twauth "github.com/dghubble/oauth1/twitter"
 	"github.com/gin-gonic/gin"

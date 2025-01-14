@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 
 	"github.com/NethermindEth/juno/core/felt"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
-	"github.com/NethermindEth/teeception/pkg/debug"
-	"github.com/NethermindEth/teeception/pkg/encumber/proton"
-	"github.com/NethermindEth/teeception/pkg/encumber/twitter"
-	snaccount "github.com/NethermindEth/teeception/pkg/utils/wallet/starknet"
+	"github.com/NethermindEth/teeception/pkg/agent/debug"
+	"github.com/NethermindEth/teeception/pkg/agent/encumber/proton"
+	"github.com/NethermindEth/teeception/pkg/agent/encumber/twitter"
+	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
 type SetupManager struct {
@@ -45,28 +44,20 @@ type SetupOutput struct {
 	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
 }
 
-func getEnv(key string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		slog.Warn("environment variable not found", "key", key)
-	}
-	return value
-}
-
 func NewSetupManagerFromEnv() (*SetupManager, error) {
 	setupManager := &SetupManager{
-		twitterAccount:       getEnv("X_USERNAME"),
-		twitterPassword:      getEnv("X_PASSWORD"),
-		protonEmail:          getEnv("PROTONMAIL_EMAIL"),
-		protonPassword:       getEnv("PROTONMAIL_PASSWORD"),
-		twitterAppKey:        getEnv("X_CONSUMER_KEY"),
-		twitterAppSecret:     getEnv("X_CONSUMER_SECRET"),
-		starknetRpcUrl:       getEnv("STARKNET_RPC_URL"),
-		agentRegistryAddress: getEnv("CONTRACT_ADDRESS"),
-		openAiKey:            getEnv("OPENAI_API_KEY"),
-		loginServerIp:        getEnv("X_LOGIN_SERVER_IP"),
-		loginServerPort:      getEnv("X_LOGIN_SERVER_PORT"),
-		dstackTappdEndpoint:  getEnv("DSTACK_TAPPD_ENDPOINT"),
+		twitterAccount:       envGetTwitterAccount(),
+		twitterPassword:      envGetTwitterPassword(),
+		protonEmail:          envGetProtonEmail(),
+		protonPassword:       envGetProtonPassword(),
+		twitterAppKey:        envGetTwitterAppKey(),
+		twitterAppSecret:     envGetTwitterAppSecret(),
+		starknetRpcUrl:       envGetStarknetRpcUrl(),
+		agentRegistryAddress: envGetAgentRegistryAddress(),
+		openAiKey:            envGetOpenAiKey(),
+		loginServerIp:        envGetLoginServerIp(),
+		loginServerPort:      envGetLoginServerPort(),
+		dstackTappdEndpoint:  envGetDstackTappdEndpoint(),
 	}
 
 	if err := setupManager.Validate(); err != nil {
@@ -88,6 +79,24 @@ func (m *SetupManager) Validate() error {
 	if m.twitterAppKey == "" || m.twitterAppSecret == "" {
 		return fmt.Errorf("invalid twitter app credentials")
 	}
+
+	if m.starknetRpcUrl == "" {
+		return fmt.Errorf("invalid starknet rpc url")
+	}
+
+	if m.agentRegistryAddress == "" {
+		return fmt.Errorf("invalid agent registry address")
+	}
+
+	if m.openAiKey == "" {
+		return fmt.Errorf("invalid openai key")
+	}
+
+	if m.loginServerIp == "" || m.loginServerPort == "" {
+		return fmt.Errorf("invalid login server credentials")
+	}
+
+	// dstack endpoint can be empty, so not checking
 
 	return nil
 }
