@@ -1,5 +1,6 @@
 'use client'
 
+import { Tooltip } from '@/components/Tooltip'
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -39,13 +40,15 @@ export default function Home() {
             </div>
 
             <div>
-              <button
-                onClick={handleInstallExtension}
-                className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70"
-                disabled
-              >
-                Install extension
-              </button>
+              <Tooltip text="Coming Soon" position="bottom">
+                <button
+                  onClick={handleInstallExtension}
+                  className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70"
+                  disabled
+                >
+                  Install extension
+                </button>
+              </Tooltip>
             </div>
           </div>
         </header>
@@ -65,12 +68,14 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <button
-              className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70 border border-transparent"
-              disabled
-            >
-              Install extension
-            </button>
+            <Tooltip text="Coming Soon" position="top">
+              <button
+                className="w-full bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70 border border-transparent"
+                disabled
+              >
+                Install extension
+              </button>
+            </Tooltip>
 
             <button
               className="bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4  text-sm md:text-base hover:bg-white hover:text-black"
