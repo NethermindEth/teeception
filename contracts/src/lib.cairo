@@ -100,12 +100,28 @@ pub mod AgentRegistry {
         self.registration_price.write(registration_price);
     }
 
+    fn validate_agent_name(name: @ByteArray) {
+        let mut i = 0;
+        loop {
+            if i >= name.len() {
+                break;
+            }
+
+            let c = name[i];
+            assert((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_', 'Invalid name');
+
+            i += 1;
+        }
+    }
+
     #[abi(embed_v0)]
     impl AgentRegistryImpl of super::IAgentRegistry<ContractState> {
         fn register_agent(
             ref self: ContractState, name: ByteArray, system_prompt: ByteArray, prompt_price: u256,
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
+
+            validate_agent_name(@name);
 
             let creator = get_caller_address();
 
