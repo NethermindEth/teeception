@@ -2,8 +2,12 @@ package setup
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"fmt"
 	"log/slog"
+	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
@@ -42,6 +46,9 @@ type SetupOutput struct {
 	AgentRegistryAddress     *felt.Felt `json:"agent_registry_address"`
 	OpenAIKey                string     `json:"openai_key"`
 	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
+	RsaPrivateKey           []byte     `json:"rsa_private_key"`      // Stored encrypted
+	RsaPublicKeyN           *felt.Felt `json:"rsa_public_key_n"`     // For contract
+	RsaPublicKeyE           *felt.Felt `json:"rsa_public_key_e"`     // For contract
 }
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
@@ -134,6 +141,19 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		return nil, fmt.Errorf("failed to encumber proton: %v", err)
 	}
 
+	// Generate RSA key pair for system prompt encryption
+	rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate RSA key pair: %v", err)
+	}
+
+	// Convert RSA private key to DER format for storage
+	rsaPrivateKeyBytes := x509.MarshalPKCS1PrivateKey(rsaPrivateKey)
+
+	// Convert public key components to felt252 for contract
+	rsaPublicKeyN := new(felt.Felt).SetBytes(rsaPrivateKey.PublicKey.N.Bytes())
+	rsaPublicKeyE := new(felt.Felt).SetBigInt(big.NewInt(int64(rsaPrivateKey.PublicKey.E)))
+
 	output := &SetupOutput{
 		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
 		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
@@ -148,6 +168,9 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		AgentRegistryAddress:     agentRegistryAddress,
 		OpenAIKey:                m.openAiKey,
 		DstackTappdEndpoint:      m.dstackTappdEndpoint,
+		RsaPrivateKey:           rsaPrivateKeyBytes,
+		RsaPublicKeyN:           rsaPublicKeyN,
+		RsaPublicKeyE:           rsaPublicKeyE,
 	}
 
 	if debug.IsDebugShowSetup() {

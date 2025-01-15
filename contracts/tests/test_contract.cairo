@@ -59,12 +59,20 @@ fn test_register_agent() {
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     let name = "Test Agent";
-    let system_prompt = "I am a test agent";
+    let system_prompt_uri = "ipfs://encrypted_prompt_123";
+    let rsa_public_key_n = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+    let rsa_public_key_e = 0x10001; // Standard RSA public exponent (65537)
 
     let mut spy = spy_events();
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), prompt_price);
+    let agent_address = registry.register_agent(
+        name.clone(),
+        system_prompt_uri.clone(),
+        rsa_public_key_n,
+        rsa_public_key_e,
+        prompt_price
+    );
     stop_cheat_caller_address(registry.contract_address);
 
     assert(registry.is_agent_registered(agent_address), 'Agent should be registered');
@@ -75,7 +83,12 @@ fn test_register_agent() {
 
     let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
     assert(agent_dispatcher.get_name() == name.clone(), 'Wrong agent name');
-    assert(agent_dispatcher.get_system_prompt() == system_prompt.clone(), 'Wrong system prompt');
+    assert(agent_dispatcher.get_system_prompt_uri() == system_prompt_uri.clone(), 'Wrong system prompt URI');
+    
+    let (stored_n, stored_e) = agent_dispatcher.get_rsa_public_key();
+    assert(stored_n == rsa_public_key_n, 'Wrong RSA public key N');
+    assert(stored_e == rsa_public_key_e, 'Wrong RSA public key E');
+    
     assert(agent_dispatcher.get_creator() == creator, 'Wrong creator');
 
     // Verify event was emitted
@@ -105,7 +118,13 @@ fn test_pay_for_prompt() {
 
     // Register agent
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent(
+        "Test Agent",
+        "ipfs://encrypted_prompt_pay",
+        0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
+        0x10001,
+        prompt_price
+    );
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -161,9 +180,21 @@ fn test_register_multiple_agents() {
 
     start_cheat_caller_address(registry.contract_address, creator);
 
-    let agent1_address = registry.register_agent("Agent 1", "Prompt 1", prompt_price);
+    let agent1_address = registry.register_agent(
+        "Agent 1",
+        "ipfs://encrypted_prompt_1",
+        0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
+        0x10001,
+        prompt_price
+    );
 
-    let agent2_address = registry.register_agent("Agent 2", "Prompt 2", prompt_price);
+    let agent2_address = registry.register_agent(
+        "Agent 2",
+        "ipfs://encrypted_prompt_2",
+        0x2234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
+        0x10001,
+        prompt_price
+    );
 
     stop_cheat_caller_address(registry.contract_address);
 
@@ -219,16 +250,28 @@ fn test_get_agent_details() {
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     let name = "Complex Agent";
-    let system_prompt = "Complex system prompt with multiple words";
+    let system_prompt_uri = "ipfs://encrypted_prompt_complex_123";
+    let rsa_public_key_n = 0x3234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
+    let rsa_public_key_e = 0x10001;
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), prompt_price);
+    let agent_address = registry.register_agent(
+        name.clone(),
+        system_prompt_uri.clone(),
+        rsa_public_key_n,
+        rsa_public_key_e,
+        prompt_price
+    );
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
 
     assert(agent.get_name() == name, 'Wrong agent name');
-    assert(agent.get_system_prompt() == system_prompt, 'Wrong system prompt');
+    assert(agent.get_system_prompt_uri() == system_prompt_uri, 'Wrong system prompt URI');
+    
+    let (stored_n, stored_e) = agent.get_rsa_public_key();
+    assert(stored_n == rsa_public_key_n, 'Wrong RSA public key N');
+    assert(stored_e == rsa_public_key_e, 'Wrong RSA public key E');
 }
 
 #[test]
@@ -304,6 +347,26 @@ fn test_pay_for_prompt_without_approval() {
     // Try to pay for prompt without approval
     start_cheat_caller_address(token_dispatcher.contract_address, creator);
     agent.pay_for_prompt(12345);
+}
+
+#[test]
+#[should_panic(expected: ('Invalid RSA public key',))]
+fn test_invalid_rsa_key() {
+    let tee = starknet::contract_address_const::<0x1>();
+    let creator = starknet::contract_address_const::<0x123>();
+    let prompt_price: u256 = 100;
+    let (registry_address, _) = deploy_registry(tee, creator);
+    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
+
+    start_cheat_caller_address(registry.contract_address, creator);
+    // Try to register with invalid RSA exponent (must be 65537)
+    registry.register_agent(
+        "Test Agent",
+        "ipfs://encrypted_prompt",
+        0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef,
+        0x4, // Invalid exponent
+        prompt_price
+    );
 }
 
 #[test]
