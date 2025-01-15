@@ -55,8 +55,9 @@ type Indexer struct {
 	tickRate        time.Duration
 	registryAddress *felt.Felt
 
-	agents   map[[32]byte]AgentInfo
-	agentsMu sync.RWMutex
+	agents         map[[32]byte]AgentInfo
+	agentAddresses []*felt.Felt
+	agentsMu       sync.RWMutex
 
 	initializeAgentInfoGroup   singleflight.Group
 	initializeAgentInfoLimiter *rate.Limiter
@@ -84,6 +85,24 @@ func (i *Indexer) GetAgentInfo(ctx context.Context, address *felt.Felt) (AgentIn
 	return i.initializeAgentInfo(ctx, address)
 }
 
+func (i *Indexer) GetAgentAddress(idx uint64) *felt.Felt {
+	i.agentsMu.RLock()
+	defer i.agentsMu.RUnlock()
+
+	return i.agentAddresses[idx]
+}
+
+func (i *Indexer) GetAgentCount() uint64 {
+	i.agentsMu.RLock()
+	defer i.agentsMu.RUnlock()
+
+	return uint64(len(i.agentAddresses))
+}
+
+func (i *Indexer) GetLastBlockNumber() uint64 {
+	return i.lastBlockNumber
+}
+
 func (i *Indexer) pushAgentInfo(address *felt.Felt, name *felt.Felt, creator *felt.Felt) {
 	i.agentsMu.Lock()
 	i.agents[address.Bytes()] = AgentInfo{
@@ -93,6 +112,7 @@ func (i *Indexer) pushAgentInfo(address *felt.Felt, name *felt.Felt, creator *fe
 
 		Initialized: false,
 	}
+	i.agentAddresses = append(i.agentAddresses, address)
 	i.agentsMu.Unlock()
 }
 
