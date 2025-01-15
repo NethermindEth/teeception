@@ -98,10 +98,11 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		return nil, err
 	}
 
-	indexer := indexer.NewIndexer(indexer.IndexerConfig{
-		Client:         starknetClient,
-		SafeBlockDelta: config.SafeBlockDelta,
-		TickRate:       config.TickRate,
+	indexer := indexer.NewIndexer(&indexer.IndexerConfig{
+		Client:          starknetClient,
+		SafeBlockDelta:  config.SafeBlockDelta,
+		TickRate:        config.TickRate,
+		RegistryAddress: config.AgentRegistryAddress,
 	})
 
 	privateKey := snaccount.NewPrivateKey(config.StarknetPrivateKeySeed)
@@ -203,13 +204,12 @@ func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *ind
 		return fmt.Errorf("failed to get tweet text: %v", err)
 	}
 
-	slog.Info("fetching system prompt", "agent_address", promptPaidEvent.AgentAddress)
-	systemPrompt, err := a.getSystemPrompt(promptPaidEvent.AgentAddress)
+	agentInfo, err := a.indexer.GetAgentInfo(ctx, promptPaidEvent.AgentAddress)
 	if err != nil {
-		return fmt.Errorf("failed to get system prompt: %v", err)
+		return fmt.Errorf("failed to get agent info: %v", err)
 	}
 
-	return a.reactToTweet(ctx, promptPaidEvent.AgentAddress, promptPaidEvent.TweetID, tweetText, systemPrompt)
+	return a.reactToTweet(ctx, agentInfo.Address, promptPaidEvent.TweetID, tweetText, agentInfo.SystemPrompt)
 }
 
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {
@@ -364,21 +364,6 @@ func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addr
 	}
 
 	return a.twitterClient.ReplyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
-}
-
-func (a *Agent) getSystemPrompt(agentAddress *felt.Felt) (string, error) {
-	tx := rpc.FunctionCall{
-		ContractAddress:    agentAddress,
-		EntryPointSelector: getSystemPromptSelector,
-	}
-
-	systemPromptByteArrFelt, err := a.starknetClient.Call(context.Background(), tx, rpc.BlockID{Tag: "latest"})
-	if err != nil {
-		snaccount.LogRpcError(err)
-		return "", fmt.Errorf("failed to get system prompt: %v", err)
-	}
-
-	return starknetgoutils.ByteArrFeltToString(systemPromptByteArrFelt)
 }
 
 func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
