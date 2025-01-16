@@ -46,9 +46,8 @@ type SetupOutput struct {
 	AgentRegistryAddress     *felt.Felt `json:"agent_registry_address"`
 	OpenAIKey                string     `json:"openai_key"`
 	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
-	RsaPrivateKey           []byte     `json:"rsa_private_key"`      // Stored encrypted
-	RsaPublicKeyN           *felt.Felt `json:"rsa_public_key_n"`     // For contract
-	RsaPublicKeyE           *felt.Felt `json:"rsa_public_key_e"`     // For contract
+	// RSA private key is managed securely through the DStack TEE environment
+	// and should not be stored in this structure
 }
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
@@ -150,10 +149,6 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 	// Convert RSA private key to DER format for storage
 	rsaPrivateKeyBytes := x509.MarshalPKCS1PrivateKey(rsaPrivateKey)
 
-	// Convert public key components to felt252 for contract
-	rsaPublicKeyN := new(felt.Felt).SetBytes(rsaPrivateKey.PublicKey.N.Bytes())
-	rsaPublicKeyE := new(felt.Felt).SetBigInt(big.NewInt(int64(rsaPrivateKey.PublicKey.E)))
-
 	output := &SetupOutput{
 		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
 		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
@@ -169,8 +164,6 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		OpenAIKey:                m.openAiKey,
 		DstackTappdEndpoint:      m.dstackTappdEndpoint,
 		RsaPrivateKey:           rsaPrivateKeyBytes,
-		RsaPublicKeyN:           rsaPublicKeyN,
-		RsaPublicKeyE:           rsaPublicKeyE,
 	}
 
 	if debug.IsDebugShowSetup() {

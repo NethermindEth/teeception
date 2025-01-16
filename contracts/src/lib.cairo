@@ -6,8 +6,6 @@ pub trait IAgentRegistry<TContractState> {
         ref self: TContractState,
         name: ByteArray,
         system_prompt_uri: ByteArray,
-        rsa_public_key_n: felt252,
-        rsa_public_key_e: felt252,
         prompt_price: u256,
     ) -> ContractAddress;
     fn get_token(self: @TContractState) -> ContractAddress;
@@ -23,7 +21,6 @@ pub trait IAgentRegistry<TContractState> {
 #[starknet::interface]
 pub trait IAgent<TContractState> {
     fn get_system_prompt_uri(self: @TContractState) -> ByteArray;
-    fn get_rsa_public_key(self: @TContractState) -> (felt252, felt252);
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
@@ -126,8 +123,6 @@ pub mod AgentRegistry {
             ref self: ContractState,
             name: ByteArray,
             system_prompt_uri: ByteArray,
-            rsa_public_key_n: felt252,
-            rsa_public_key_e: felt252,
             prompt_price: u256,
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
@@ -144,8 +139,6 @@ pub mod AgentRegistry {
             let mut constructor_calldata = ArrayTrait::<felt252>::new();
             name.serialize(ref constructor_calldata);
             system_prompt_uri.serialize(ref constructor_calldata);
-            rsa_public_key_n.serialize(ref constructor_calldata);
-            rsa_public_key_e.serialize(ref constructor_calldata);
             self.token.read().serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
             creator.serialize(ref constructor_calldata);
@@ -289,9 +282,7 @@ pub mod Agent {
     #[storage]
     struct Storage {
         registry: ContractAddress,
-        system_prompt_uri: ByteArray,  // Changed to store URI of encrypted prompt
-        rsa_public_key_n: felt252,     // RSA public key modulus
-        rsa_public_key_e: felt252,     // RSA public key exponent
+        system_prompt_uri: ByteArray,  // URI of encrypted prompt
         name: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
@@ -305,8 +296,6 @@ pub mod Agent {
         ref self: ContractState,
         name: ByteArray,
         system_prompt_uri: ByteArray,
-        rsa_public_key_n: felt252,
-        rsa_public_key_e: felt252,
         token: ContractAddress,
         prompt_price: u256,
         creator: ContractAddress,
@@ -314,8 +303,6 @@ pub mod Agent {
         self.registry.write(get_caller_address());
         self.name.write(name);
         self.system_prompt_uri.write(system_prompt_uri);
-        self.rsa_public_key_n.write(rsa_public_key_n);
-        self.rsa_public_key_e.write(rsa_public_key_e);
         self.token.write(token);
         self.prompt_price.write(prompt_price);
         self.creator.write(creator);
@@ -330,10 +317,6 @@ pub mod Agent {
 
         fn get_system_prompt_uri(self: @ContractState) -> ByteArray {
             self.system_prompt_uri.read()
-        }
-
-        fn get_rsa_public_key(self: @ContractState) -> (felt252, felt252) {
-            (self.rsa_public_key_n.read(), self.rsa_public_key_e.read())
         }
 
         fn get_prompt_price(self: @ContractState) -> u256 {
