@@ -59,32 +59,34 @@ type AgentInfo struct {
 }
 
 type Indexer struct {
-	client            *rpc.Provider
-	lastBlockNumber   uint64
-	safeBlockDelta    uint64
-	tickRate          time.Duration
-	balanceUpdateRate time.Duration
-	registryAddress   *felt.Felt
+	client          *rpc.Provider
+	lastBlockNumber uint64
+	safeBlockDelta  uint64
+	tickRate        time.Duration
+	registryAddress *felt.Felt
 
 	agents         map[[32]byte]AgentInfo
 	agentAddresses []*felt.Felt
 	tokenFromAgent map[[32]byte]map[[32]byte]bool
 	agentsMu       sync.RWMutex
 
-	balanceUpdateSet     map[string]struct{}
-	balanceUpdateSetMu   sync.Mutex
-	balanceUpdateLimiter *rate.Limiter
+	disableBalanceUpdates bool
+	balanceUpdateRate     time.Duration
+	balanceUpdateSet      map[string]struct{}
+	balanceUpdateSetMu    sync.Mutex
+	balanceUpdateLimiter  *rate.Limiter
 
 	initializeAgentInfoGroup   singleflight.Group
 	initializeAgentInfoLimiter *rate.Limiter
 }
 
 type IndexerConfig struct {
-	Client            *rpc.Provider
-	SafeBlockDelta    uint64
-	TickRate          time.Duration
-	BalanceUpdateRate time.Duration
-	RegistryAddress   *felt.Felt
+	Client                *rpc.Provider
+	SafeBlockDelta        uint64
+	TickRate              time.Duration
+	BalanceUpdateRate     time.Duration
+	RegistryAddress       *felt.Felt
+	DisableBalanceUpdates bool
 }
 
 func NewIndexer(config *IndexerConfig) *Indexer {
@@ -92,10 +94,11 @@ func NewIndexer(config *IndexerConfig) *Indexer {
 		client:                     config.Client,
 		safeBlockDelta:             config.SafeBlockDelta,
 		tickRate:                   config.TickRate,
-		balanceUpdateRate:          config.BalanceUpdateRate,
 		registryAddress:            config.RegistryAddress,
 		agents:                     make(map[[32]byte]AgentInfo),
 		tokenFromAgent:             make(map[[32]byte]map[[32]byte]bool),
+		disableBalanceUpdates:      config.DisableBalanceUpdates,
+		balanceUpdateRate:          config.BalanceUpdateRate,
 		balanceUpdateSet:           make(map[string]struct{}),
 		balanceUpdateLimiter:       rate.NewLimiter(rate.Limit(balanceUpdateLimit), balanceUpdateBurst),
 		initializeAgentInfoLimiter: rate.NewLimiter(rate.Limit(initializeAgentInfoLimit), initializeAgentInfoBurst),
@@ -231,8 +234,9 @@ func (i *Indexer) Start(ctx context.Context, promptPaidEventChan chan<- PromptPa
 		return fmt.Errorf("failed to initialize existing agents: %v", err)
 	}
 
-	// Start balance update worker
-	go i.balanceUpdateTask(ctx)
+	if !i.disableBalanceUpdates {
+		go i.balanceUpdateTask(ctx)
+	}
 
 	go func() {
 		for {
@@ -384,7 +388,7 @@ func (i *Indexer) indexEvents(ctx context.Context, promptPaidEventChan chan<- Pr
 						slog.Error("failed to fetch agent info", "error", err, "agent", addr)
 					}
 				}(agentAddress)
-			} else if isTransferEvent {
+			} else if isTransferEvent && !i.disableBalanceUpdates {
 				tokenAddress := event.FromAddress
 				fromAddress := event.Keys[1]
 				toAddress := event.Keys[2]
