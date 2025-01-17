@@ -23,6 +23,8 @@ const (
 	EventAgentRegistered EventType = iota
 	EventPromptPaid
 	EventTransfer
+	EventTokenAdded
+	EventTokenRemoved
 )
 
 type Event struct {
@@ -120,6 +122,44 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 		From:   from,
 		To:     to,
 		Amount: amount,
+	}, true
+}
+
+type TokenAddedEvent struct {
+	Token          *felt.Felt
+	MinPromptPrice *big.Int
+}
+
+func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
+	if e.Type != EventTokenAdded {
+		return nil, false
+	}
+
+	token := e.Raw.Keys[0]
+
+	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
+	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
+	minPromptPrice := amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+
+	return &TokenAddedEvent{
+		Token:          token,
+		MinPromptPrice: minPromptPrice,
+	}, true
+}
+
+type TokenRemovedEvent struct {
+	Token *felt.Felt
+}
+
+func (e *Event) ToTokenRemovedEvent() (*TokenRemovedEvent, bool) {
+	if e.Type != EventTokenRemoved {
+		return nil, false
+	}
+
+	token := e.Raw.Keys[0]
+
+	return &TokenRemovedEvent{
+		Token: token,
 	}, true
 }
 
@@ -290,6 +330,8 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 					{agentRegisteredSelector},
 					{promptPaidSelector},
 					{transferSelector},
+					{tokenAddedSelector},
+					{tokenRemovedSelector},
 				},
 			},
 			ResultPageRequest: rpc.ResultPageRequest{
@@ -340,6 +382,12 @@ func (w *EventWatcher) parseEvent(raw rpc.EmittedEvent) (Event, bool) {
 		return ev, true
 	case selector.Cmp(promptPaidSelector) == 0:
 		ev.Type = EventPromptPaid
+		return ev, true
+	case selector.Cmp(tokenAddedSelector) == 0:
+		ev.Type = EventTokenAdded
+		return ev, true
+	case selector.Cmp(tokenRemovedSelector) == 0:
+		ev.Type = EventTokenRemoved
 		return ev, true
 	default:
 		return Event{}, false
