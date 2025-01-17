@@ -61,7 +61,9 @@ type Agent struct {
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
 
-	indexer *indexer.Indexer
+	agentIndexer *indexer.AgentIndexer
+	eventWatcher *indexer.EventWatcher
+
 	account *snaccount.StarknetAccount
 	txQueue *snaccount.TxQueue
 
@@ -98,10 +100,16 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		return nil, err
 	}
 
-	indexer := indexer.NewIndexer(&indexer.IndexerConfig{
+	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          starknetClient,
 		SafeBlockDelta:  config.SafeBlockDelta,
-		TickRate:        config.TickRate,
+		TickRate:        1 * time.Second,
+		IndexChunkSize:  1000,
+		RegistryAddress: config.AgentRegistryAddress,
+	})
+
+	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
+		Client:          starknetClient,
 		RegistryAddress: config.AgentRegistryAddress,
 	})
 
@@ -125,8 +133,9 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		starknetClient:    starknetClient,
 		dStackTappdClient: dstackTappdClient,
 
-		indexer: indexer,
-		account: account,
+		agentIndexer: agentIndexer,
+		eventWatcher: eventWatcher,
+		account:      account,
 		txQueue: snaccount.NewTxQueue(account, starknetClient, &snaccount.TxQueueConfig{
 			MaxBatchSize:       10,
 			SubmissionInterval: 20 * time.Second,
@@ -151,14 +160,25 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize twitter client: %v", err)
 	}
 
-	promptPaidEventChan := make(chan indexer.PromptPaidEvent, 1000)
-	if err := a.indexer.Start(ctx, promptPaidEventChan); err != nil {
-		return fmt.Errorf("failed to start indexer: %v", err)
-	}
+	go func() {
+		if err := a.eventWatcher.Run(ctx); err != nil {
+			slog.Error("event watcher execution failed: %v", err)
+		}
+	}()
+
+	go func() {
+		if err := a.agentIndexer.Run(ctx, a.eventWatcher); err != nil {
+			slog.Error("agent indexer execution failed: %v", err)
+		}
+	}()
 
 	if err := a.StartServer(ctx); err != nil {
 		return fmt.Errorf("failed to start server: %v", err)
 	}
+
+	promptPaidCh := make(chan *indexer.EventSubscriptionData, 1000)
+	subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, promptPaidCh)
+	defer a.eventWatcher.Unsubscribe(subID)
 
 	slog.Info("entering main loop")
 	for {
@@ -166,7 +186,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(a.config.TickRate):
-			err := a.Tick(ctx, promptPaidEventChan)
+			err := a.Tick(ctx, promptPaidCh)
 			if err != nil {
 				slog.Warn("failed to tick", "error", err)
 			}
@@ -174,22 +194,30 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 }
 
-func (a *Agent) Tick(ctx context.Context, promptPaidEventChan <-chan indexer.PromptPaidEvent) error {
+func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData) error {
 	go func() {
-		for event := range promptPaidEventChan {
-			err := a.pool.Go(func() {
-				slog.Info("processing prompt paid event",
-					"agent_address", event.AgentAddress,
-					"from_address", event.FromAddress,
-					"tweet_id", event.TweetID)
-
-				err := a.processPromptPaidEvent(ctx, &event)
-				if err != nil {
-					slog.Warn("failed to process prompt paid event", "error", err)
+		for data := range promptPaidCh {
+			for _, ev := range data.Events {
+				promptPaidEvent, ok := ev.ToPromptPaidEvent()
+				if !ok {
+					slog.Warn("failed to convert event to prompt paid event", "event", ev)
+					continue
 				}
-			})
-			if err != nil {
-				slog.Warn("failed to submit task to pool", "error", err)
+
+				err := a.pool.Go(func() {
+					slog.Info("processing prompt paid event",
+						"agent_address", ev.Raw.FromAddress,
+						"from_address", promptPaidEvent.User,
+						"tweet_id", promptPaidEvent.TweetID)
+
+					err := a.processPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
+					if err != nil {
+						slog.Warn("failed to process prompt paid event", "error", err)
+					}
+				})
+				if err != nil {
+					slog.Warn("failed to submit task to pool", "error", err)
+				}
 			}
 		}
 	}()
@@ -197,14 +225,14 @@ func (a *Agent) Tick(ctx context.Context, promptPaidEventChan <-chan indexer.Pro
 	return nil
 }
 
-func (a *Agent) processPromptPaidEvent(ctx context.Context, promptPaidEvent *indexer.PromptPaidEvent) error {
+func (a *Agent) processPromptPaidEvent(ctx context.Context, agentAddress *felt.Felt, promptPaidEvent *indexer.PromptPaidEvent, block uint64) error {
 	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
 	tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 	if err != nil {
 		return fmt.Errorf("failed to get tweet text: %v", err)
 	}
 
-	agentInfo, err := a.indexer.GetAgentInfo(ctx, promptPaidEvent.AgentAddress)
+	agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, agentAddress, block)
 	if err != nil {
 		return fmt.Errorf("failed to get agent info: %v", err)
 	}
