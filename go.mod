@@ -16,6 +16,8 @@ require (
 	github.com/sethvargo/go-password v0.3.1
 	github.com/tebeka/selenium v0.9.9
 	github.com/tmc/langchaingo v0.1.12
+	golang.org/x/sync v0.10.0
+	golang.org/x/time v0.5.0
 )
 
 require (

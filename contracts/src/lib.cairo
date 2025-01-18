@@ -3,7 +3,7 @@ use core::starknet::ContractAddress;
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
     fn register_agent(
-        ref self: TContractState, name: ByteArray, system_prompt: ByteArray, prompt_price: u256,
+        ref self: TContractState, name: ByteArray, system_prompt: ByteArray, token: ContractAddress, prompt_price: u256,
     ) -> ContractAddress;
     fn get_token(self: @TContractState) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
@@ -13,6 +13,10 @@ pub trait IAgentRegistry<TContractState> {
     fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
     fn pause(ref self: TContractState);
     fn unpause(ref self: TContractState);
+    fn add_supported_token(ref self: TContractState, token: ContractAddress, min_prompt_price: u256);
+    fn remove_supported_token(ref self: TContractState, token: ContractAddress);
+    fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
+    fn get_min_prompt_price(self: @TContractState, token: ContractAddress) -> u256;
 }
 
 #[starknet::interface]
@@ -21,6 +25,7 @@ pub trait IAgent<TContractState> {
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
+    fn get_token(self: @TContractState) -> ContractAddress;
     fn transfer(ref self: TContractState, recipient: ContractAddress);
     fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
     fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
@@ -60,15 +65,31 @@ pub mod AgentRegistry {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         AgentRegistered: AgentRegistered,
+        TokenAdded: TokenAdded,
+        TokenRemoved: TokenRemoved,
     }
 
     #[derive(Drop, starknet::Event)]
     pub struct AgentRegistered {
+        #[key]
         pub agent: ContractAddress,
         #[key]
-        pub name: ByteArray,
-        #[key]
         pub creator: ContractAddress,
+        pub name: ByteArray,
+        pub system_prompt: ByteArray,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct TokenAdded {
+        #[key]
+        pub token: ContractAddress,
+        pub min_prompt_price: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct TokenRemoved {
+        #[key]
+        pub token: ContractAddress,
     }
 
     #[storage]
@@ -83,6 +104,7 @@ pub mod AgentRegistry {
         tee: ContractAddress,
         token: ContractAddress,
         registration_price: u256,
+        min_prompt_prices: Map::<ContractAddress, u256>,
     }
 
     #[constructor]
@@ -100,12 +122,32 @@ pub mod AgentRegistry {
         self.registration_price.write(registration_price);
     }
 
+    fn validate_agent_name(name: @ByteArray) {
+        let mut i = 0;
+        loop {
+            if i >= name.len() {
+                break;
+            }
+
+            let c = name[i];
+            assert((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_', 'Invalid name');
+
+            i += 1;
+        }
+    }
+
     #[abi(embed_v0)]
     impl AgentRegistryImpl of super::IAgentRegistry<ContractState> {
         fn register_agent(
-            ref self: ContractState, name: ByteArray, system_prompt: ByteArray, prompt_price: u256,
+            ref self: ContractState, name: ByteArray, system_prompt: ByteArray, token: ContractAddress, prompt_price: u256,
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
+
+            validate_agent_name(@name);
+
+            let min_prompt_price = self.min_prompt_prices.read(token);
+            assert(min_prompt_price != 0, 'Token not supported');
+            assert(prompt_price >= min_prompt_price, 'Prompt price too low');
 
             let creator = get_caller_address();
 
@@ -117,7 +159,7 @@ pub mod AgentRegistry {
             let mut constructor_calldata = ArrayTrait::<felt252>::new();
             name.serialize(ref constructor_calldata);
             system_prompt.serialize(ref constructor_calldata);
-            self.token.read().serialize(ref constructor_calldata);
+            token.serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
             creator.serialize(ref constructor_calldata);
 
@@ -132,7 +174,7 @@ pub mod AgentRegistry {
             self
                 .emit(
                     Event::AgentRegistered(
-                        AgentRegistered { agent: deployed_address, creator, name },
+                        AgentRegistered { agent: deployed_address, creator, name, system_prompt },
                     ),
                 );
 
@@ -180,6 +222,26 @@ pub mod AgentRegistry {
         fn unpause(ref self: ContractState) {
             self.ownable.assert_only_owner();
             self.pausable.unpause();
+        }
+
+        fn add_supported_token(ref self: ContractState, token: ContractAddress, min_prompt_price: u256) {
+            self.ownable.assert_only_owner();
+            self.min_prompt_prices.write(token, min_prompt_price);
+            self.emit(Event::TokenAdded(TokenAdded { token, min_prompt_price }));
+        }
+
+        fn remove_supported_token(ref self: ContractState, token: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.min_prompt_prices.write(token, 0);
+            self.emit(Event::TokenRemoved(TokenRemoved { token }));
+        }
+
+        fn is_token_supported(self: @ContractState, token: ContractAddress) -> bool {
+            self.min_prompt_prices.read(token) != 0
+        }
+
+        fn get_min_prompt_price(self: @ContractState, token: ContractAddress) -> u256 {
+            self.min_prompt_prices.read(token)
         }
     }
 }
@@ -303,6 +365,10 @@ pub mod Agent {
 
         fn get_creator(self: @ContractState) -> ContractAddress {
             self.creator.read()
+        }
+
+        fn get_token(self: @ContractState) -> ContractAddress {
+            self.token.read()
         }
 
         fn transfer(ref self: ContractState, recipient: ContractAddress) {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/teeception/pkg/agent"
-	"github.com/NethermindEth/teeception/pkg/setup"
+	"github.com/NethermindEth/teeception/pkg/agent/setup"
 )
 
 func main() {

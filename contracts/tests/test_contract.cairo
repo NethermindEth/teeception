@@ -55,16 +55,16 @@ fn test_register_agent() {
     let tee = starknet::contract_address_const::<0x1>();
     let creator = starknet::contract_address_const::<0x123>();
     let prompt_price: u256 = 100;
-    let (registry_address, _) = deploy_registry(tee, creator);
+    let (registry_address, token) = deploy_registry(tee, creator);
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
-    let name = "Test Agent";
+    let name = "test_agent";
     let system_prompt = "I am a test agent";
 
     let mut spy = spy_events();
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), prompt_price);
+    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     assert(registry.is_agent_registered(agent_address), 'Agent should be registered');
@@ -86,7 +86,10 @@ fn test_register_agent() {
                     registry.contract_address,
                     AgentRegistry::Event::AgentRegistered(
                         AgentRegistry::AgentRegistered {
-                            agent: agent_address, creator, name: name.clone(),
+                            agent: agent_address,
+                            creator,
+                            name: name.clone(),
+                            system_prompt: system_prompt.clone(),
                         },
                     ),
                 ),
@@ -105,7 +108,7 @@ fn test_pay_for_prompt() {
 
     // Register agent
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent("test_agent", "Test Prompt", token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -156,14 +159,14 @@ fn test_register_multiple_agents() {
     let tee = starknet::contract_address_const::<0x1>();
     let creator = starknet::contract_address_const::<0x123>();
     let prompt_price: u256 = 100;
-    let (registry_address, _) = deploy_registry(tee, creator);
+    let (registry_address, token) = deploy_registry(tee, creator);
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     start_cheat_caller_address(registry.contract_address, creator);
 
-    let agent1_address = registry.register_agent("Agent 1", "Prompt 1", prompt_price);
+    let agent1_address = registry.register_agent("agent_1", "Prompt 1", token, prompt_price);
 
-    let agent2_address = registry.register_agent("Agent 2", "Prompt 2", prompt_price);
+    let agent2_address = registry.register_agent("agent_2", "Prompt 2", token, prompt_price);
 
     stop_cheat_caller_address(registry.contract_address);
 
@@ -180,11 +183,11 @@ fn test_unauthorized_transfer() {
     let tee = starknet::contract_address_const::<0x1>();
     let creator = starknet::contract_address_const::<0x123>();
     let prompt_price: u256 = 100;
-    let (registry_address, _) = deploy_registry(tee, creator);
+    let (registry_address, token) = deploy_registry(tee, creator);
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent("test_agent", "Test Prompt", token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     // Should fail as we're not the TEE
@@ -197,11 +200,11 @@ fn test_direct_agent_transfer_unauthorized() {
     let tee = starknet::contract_address_const::<0x1>();
     let creator = starknet::contract_address_const::<0x123>();
     let prompt_price: u256 = 100;
-    let (registry_address, _) = deploy_registry(tee, creator);
+    let (registry_address, token) = deploy_registry(tee, creator);
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent("test_agent", "Test Prompt", token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -215,14 +218,14 @@ fn test_get_agent_details() {
     let tee = starknet::contract_address_const::<0x1>();
     let prompt_price: u256 = 100;
     let creator = starknet::contract_address_const::<0x123>();
-    let (registry_address, _) = deploy_registry(tee, creator);
+    let (registry_address, token) = deploy_registry(tee, creator);
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
-    let name = "Complex Agent";
+    let name = "complex_agent";
     let system_prompt = "Complex system prompt with multiple words";
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), prompt_price);
+    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -241,7 +244,7 @@ fn test_authorized_token_transfer() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent("test_agent", "Test Prompt", token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let amount: u256 = 100;
@@ -271,7 +274,7 @@ fn test_unauthorized_token_transfer() {
     let token_dispatcher = IERC20Dispatcher { contract_address: token };
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent("test_agent", "Test Prompt", token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let amount: u256 = 100;
@@ -297,7 +300,7 @@ fn test_pay_for_prompt_without_approval() {
 
     // Register agent
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent("test_agent", "Test Prompt", token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
     let agent = IAgentDispatcher { contract_address: agent_address };
 
@@ -312,13 +315,13 @@ fn test_is_agent_registered() {
     let creator = starknet::contract_address_const::<0x123>();
     let random_address = starknet::contract_address_const::<0x456>();
     let prompt_price: u256 = 100;
-    let (registry_address, _) = deploy_registry(tee, creator);
+    let (registry_address, token) = deploy_registry(tee, creator);
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     assert(!registry.is_agent_registered(random_address), 'Should not be registered');
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent("Test Agent", "Test Prompt", prompt_price);
+    let agent_address = registry.register_agent("test_agent", "Test Prompt", token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     assert(registry.is_agent_registered(agent_address), 'Should be registered');
