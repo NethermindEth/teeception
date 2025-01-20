@@ -1,0 +1,60 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"log/slog"
+	"os"
+
+	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/starknet.go/rpc"
+	uiservice "github.com/NethermindEth/teeception/pkg/ui_service"
+)
+
+func main() {
+	providerURL := flag.String("provider-url", "", "Starknet provider URL")
+	pageSize := flag.Int("page-size", 10, "Page size for pagination")
+	serverAddr := flag.String("server-addr", ":8000", "Server address to listen on")
+	registryAddr := flag.String("registry-addr", "", "Agent registry contract address")
+	deploymentBlock := flag.Uint64("deployment-block", 0, "Block number of registry deployment")
+	flag.Parse()
+
+	if *providerURL == "" {
+		slog.Error("provider URL is required")
+		os.Exit(1)
+	}
+
+	if *registryAddr == "" {
+		slog.Error("registry address is required")
+		os.Exit(1)
+	}
+
+	registryAddress, err := new(felt.Felt).SetString(*registryAddr)
+	if err != nil {
+		slog.Error("invalid registry address", "error", err)
+		os.Exit(1)
+	}
+
+	client, err := rpc.NewProvider(*providerURL)
+	if err != nil {
+		slog.Error("failed to create RPC client", "error", err)
+		os.Exit(1)
+	}
+
+	uiService, err := uiservice.NewUIService(&uiservice.UIServiceConfig{
+		Client:          client,
+		PageSize:        *pageSize,
+		ServerAddr:      *serverAddr,
+		RegistryAddress: registryAddress,
+		StartingBlock:   *deploymentBlock,
+	})
+	if err != nil {
+		slog.Error("failed to create UI service", "error", err)
+		os.Exit(1)
+	}
+
+	if err := uiService.Run(context.Background()); err != nil {
+		slog.Error("failed to run UI service", "error", err)
+		os.Exit(1)
+	}
+}
