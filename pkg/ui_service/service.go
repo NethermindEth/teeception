@@ -40,6 +40,8 @@ type UIService struct {
 }
 
 func NewUIService(config *UIServiceConfig) (*UIService, error) {
+	lastIndexedBlock := config.StartingBlock - 1
+
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          config.Client,
 		SafeBlockDelta:  0,
@@ -47,7 +49,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		IndexChunkSize:  1000,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.EventWatcherInitialState{
-			LastIndexedBlock: config.StartingBlock,
+			LastIndexedBlock: lastIndexedBlock,
 		},
 	})
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
@@ -55,7 +57,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.AgentIndexerInitialState{
 			Agents:           make(map[[32]byte]indexer.AgentInfo),
-			LastIndexedBlock: config.StartingBlock,
+			LastIndexedBlock: lastIndexedBlock,
 		},
 	})
 	agentMetadataIndexer := indexer.NewAgentMetadataIndexer(&indexer.AgentMetadataIndexerConfig{
@@ -63,7 +65,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.AgentMetadataIndexerInitialState{
 			Metadata:         make(map[[32]byte]indexer.AgentMetadata),
-			LastIndexedBlock: config.StartingBlock,
+			LastIndexedBlock: config.StartingBlock - 1,
 		},
 	})
 	priceFeed := &price.StaticPriceFeed{}
@@ -74,7 +76,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.TokenIndexerInitialState{
 			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
-			LastIndexedBlock: config.StartingBlock,
+			LastIndexedBlock: lastIndexedBlock,
 		},
 	})
 	agentBalanceIndexer := indexer.NewAgentBalanceIndexer(&indexer.AgentBalanceIndexerConfig{
@@ -87,7 +89,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		PriceCache:      tokenIndexer,
 		InitialState: &indexer.AgentBalanceIndexerInitialState{
 			Balances:         make(map[[32]byte]*indexer.AgentBalance),
-			LastIndexedBlock: config.StartingBlock,
+			LastIndexedBlock: lastIndexedBlock,
 		},
 	})
 
