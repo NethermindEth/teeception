@@ -181,6 +181,11 @@ type EventSubscriber struct {
 	ch  chan<- *EventSubscriptionData
 }
 
+// EventWatcherInitialState holds the initial state of the EventWatcher.
+type EventWatcherInitialState struct {
+	LastIndexedBlock uint64
+}
+
 // EventWatcherConfig holds the necessary settings for constructing an EventWatcher.
 type EventWatcherConfig struct {
 	Client          *rpc.Provider
@@ -189,6 +194,7 @@ type EventWatcherConfig struct {
 	IndexChunkSize  uint
 	RegistryAddress *felt.Felt
 	RateLimiter     *rate.Limiter
+	InitialState    *EventWatcherInitialState
 }
 
 // EventWatcher fetches events from Starknet in block ranges, parses them, and
@@ -210,20 +216,15 @@ type EventWatcher struct {
 
 // NewEventWatcher initializes a new EventWatcher.
 func NewEventWatcher(cfg *EventWatcherConfig) *EventWatcher {
-	return &EventWatcher{
-		client:         cfg.Client,
-		safeBlockDelta: cfg.SafeBlockDelta,
-		tickRate:       cfg.TickRate,
-		indexChunkSize: cfg.IndexChunkSize,
-		subs:           make(map[EventType][]*EventSubscriber),
+	if cfg.InitialState == nil {
+		cfg.InitialState = &EventWatcherInitialState{
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewEventWatcherWithInitialState initializes a new EventWatcher with the given state.
-func NewEventWatcherWithInitialState(cfg *EventWatcherConfig, lastIndexedBlock uint64) *EventWatcher {
 	return &EventWatcher{
 		client:           cfg.Client,
-		lastIndexedBlock: lastIndexedBlock,
+		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
 		safeBlockDelta:   cfg.SafeBlockDelta,
 		tickRate:         cfg.TickRate,
 		indexChunkSize:   cfg.IndexChunkSize,

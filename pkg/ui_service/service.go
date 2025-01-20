@@ -46,6 +46,9 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		TickRate:        2 * time.Second,
 		IndexChunkSize:  1000,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.EventWatcherInitialState{
+			LastIndexedBlock: config.StartingBlock,
+		},
 	})
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          config.Client,
