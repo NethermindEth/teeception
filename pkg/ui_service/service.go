@@ -11,19 +11,21 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/NethermindEth/teeception/pkg/indexer"
+	"github.com/NethermindEth/teeception/pkg/indexer/price"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 )
 
-type AgentServiceConfig struct {
+type UIServiceConfig struct {
 	Client          *rpc.Provider
 	AdminToken      string
 	PageSize        int
 	ServerAddr      string
 	RegistryAddress *felt.Felt
+	StartingBlock   uint64
 }
 
-type AgentService struct {
+type UIService struct {
 	eventWatcher         *indexer.EventWatcher
 	agentIndexer         *indexer.AgentIndexer
 	agentMetadataIndexer *indexer.AgentMetadataIndexer
@@ -39,7 +41,7 @@ type AgentService struct {
 	serverAddr string
 }
 
-func NewAgentService(config *AgentServiceConfig) (*AgentService, error) {
+func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          config.Client,
 		SafeBlockDelta:  0,
@@ -50,18 +52,29 @@ func NewAgentService(config *AgentServiceConfig) (*AgentService, error) {
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.AgentIndexerInitialState{
+			Agents:           make(map[[32]byte]indexer.AgentInfo),
+			LastIndexedBlock: config.StartingBlock,
+		},
 	})
 	agentMetadataIndexer := indexer.NewAgentMetadataIndexer(&indexer.AgentMetadataIndexerConfig{
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.AgentMetadataIndexerInitialState{
+			Metadata:         make(map[[32]byte]indexer.AgentMetadata),
+			LastIndexedBlock: config.StartingBlock,
+		},
 	})
-	// TODO: implement price feed
-	priceFeed := &PriceService{}
+	priceFeed := &price.StaticPriceFeed{}
 	tokenIndexer := indexer.NewTokenIndexer(&indexer.TokenIndexerConfig{
 		Client:          config.Client,
 		PriceFeed:       priceFeed,
 		PriceTickRate:   1 * time.Minute,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.TokenIndexerInitialState{
+			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
+			LastIndexedBlock: config.StartingBlock,
+		},
 	})
 	agentBalanceIndexer := indexer.NewAgentBalanceIndexer(&indexer.AgentBalanceIndexerConfig{
 		Client:          config.Client,
@@ -71,9 +84,13 @@ func NewAgentService(config *AgentServiceConfig) (*AgentService, error) {
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
+		InitialState: &indexer.AgentBalanceIndexerInitialState{
+			Balances:         make(map[[32]byte]*indexer.AgentBalance),
+			LastIndexedBlock: config.StartingBlock,
+		},
 	})
 
-	return &AgentService{
+	return &UIService{
 		eventWatcher:         eventWatcher,
 		agentIndexer:         agentIndexer,
 		agentMetadataIndexer: agentMetadataIndexer,
@@ -89,7 +106,7 @@ func NewAgentService(config *AgentServiceConfig) (*AgentService, error) {
 	}, nil
 }
 
-func (s *AgentService) Run(ctx context.Context) error {
+func (s *UIService) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return s.eventWatcher.Run(ctx)
@@ -112,7 +129,7 @@ func (s *AgentService) Run(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (s *AgentService) startServer(ctx context.Context) error {
+func (s *UIService) startServer(ctx context.Context) error {
 	router := gin.Default()
 
 	router.GET("/agents", s.HandleGetAgents)
@@ -151,7 +168,7 @@ type AgentLeaderboardResponse struct {
 	LastBlock int          `json:"last_block"`
 }
 
-func (s *AgentService) HandleGetAgents(c *gin.Context) {
+func (s *UIService) HandleGetAgents(c *gin.Context) {
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
 		page = 1
@@ -197,7 +214,7 @@ func (s *AgentService) HandleGetAgents(c *gin.Context) {
 	})
 }
 
-func (s *AgentService) HandleGetAgent(c *gin.Context) {
+func (s *UIService) HandleGetAgent(c *gin.Context) {
 	agentAddrStr := c.Param("address")
 	agentAddr, err := new(felt.Felt).SetString(agentAddrStr)
 	if err != nil {

@@ -12,19 +12,16 @@ import (
 	"github.com/NethermindEth/starknet.go/rpc"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
-)
 
-// TokenPriceFeed provides USD rates for tokens
-type TokenPriceFeed interface {
-	GetUsdRate(ctx context.Context, token *felt.Felt) (*big.Int, error)
-}
+	"github.com/NethermindEth/teeception/pkg/indexer/price"
+)
 
 // TokenPriceUpdate is a struct that contains the token price and its update block
 type TokenInfo struct {
 	MinPromptPrice *big.Int
 
-	UsdRate     *big.Int
-	UsdRateTime time.Time
+	Rate     *big.Int
+	RateTime time.Time
 }
 
 // TokenIndexer processes token events and tracks token prices.
@@ -35,41 +32,43 @@ type TokenIndexer struct {
 	rateLimiter      *rate.Limiter
 	client           *rpc.Provider
 	registryAddress  *felt.Felt
-	priceFeed        TokenPriceFeed
+	priceFeed        price.PriceFeed
 	priceTickRate    time.Duration
+}
+
+// TokenIndexerInitialState is the initial state for a TokenIndexer.
+type TokenIndexerInitialState struct {
+	Tokens           map[[32]byte]*TokenInfo
+	LastIndexedBlock uint64
 }
 
 // TokenIndexerConfig is the configuration for a TokenIndexer.
 type TokenIndexerConfig struct {
 	RateLimiter     *rate.Limiter
 	Client          *rpc.Provider
-	PriceFeed       TokenPriceFeed
+	PriceFeed       price.PriceFeed
 	PriceTickRate   time.Duration
 	RegistryAddress *felt.Felt
+	InitialState    *TokenIndexerInitialState
 }
 
 // NewTokenIndexer instantiates a TokenIndexer.
 func NewTokenIndexer(cfg *TokenIndexerConfig) *TokenIndexer {
-	return &TokenIndexer{
-		tokens:          make(map[[32]byte]*TokenInfo),
-		rateLimiter:     cfg.RateLimiter,
-		client:          cfg.Client,
-		priceFeed:       cfg.PriceFeed,
-		priceTickRate:   cfg.PriceTickRate,
-		registryAddress: cfg.RegistryAddress,
+	if cfg.InitialState == nil {
+		cfg.InitialState = &TokenIndexerInitialState{
+			Tokens:           make(map[[32]byte]*TokenInfo),
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewTokenIndexerWithInitialState creates a new TokenIndexer with an initial state.
-func NewTokenIndexerWithInitialState(cfg TokenIndexerConfig, initialState map[[32]byte]*TokenInfo, lastIndexedBlock uint64) *TokenIndexer {
 	return &TokenIndexer{
-		tokens:           initialState,
-		lastIndexedBlock: lastIndexedBlock,
+		tokens:           cfg.InitialState.Tokens,
+		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
 		rateLimiter:      cfg.RateLimiter,
 		client:           cfg.Client,
-		registryAddress:  cfg.RegistryAddress,
 		priceFeed:        cfg.PriceFeed,
 		priceTickRate:    cfg.PriceTickRate,
+		registryAddress:  cfg.RegistryAddress,
 	}
 }
 
@@ -141,13 +140,13 @@ func (i *TokenIndexer) updatePricesTask(ctx context.Context) error {
 				}
 
 				token.SetBytes(tokenBytes[:])
-				price, err := i.priceFeed.GetUsdRate(ctx, token)
+				price, err := i.priceFeed.GetRate(ctx, token)
 				if err != nil {
 					slog.Error("failed to get token price", "token", token.String(), "error", err)
 					continue
 				}
-				tokens[tokenBytes].UsdRate = price
-				tokens[tokenBytes].UsdRateTime = time.Now()
+				tokens[tokenBytes].Rate = price
+				tokens[tokenBytes].RateTime = time.Now()
 			}
 
 			i.tokensMu.Lock()
@@ -205,8 +204,8 @@ func (i *TokenIndexer) GetTokenMinPromptPrice(token *felt.Felt) (*big.Int, bool)
 	return tokenInfo.MinPromptPrice, true
 }
 
-// GetTokenUsdPrice returns a token's USD price, if it exists.
-func (i *TokenIndexer) GetTokenUsdPrice(token *felt.Felt) (*big.Int, bool) {
+// GetTokenRate returns a token's rate, if it exists.
+func (i *TokenIndexer) GetTokenRate(token *felt.Felt) (*big.Int, bool) {
 	i.tokensMu.RLock()
 	defer i.tokensMu.RUnlock()
 
@@ -215,11 +214,11 @@ func (i *TokenIndexer) GetTokenUsdPrice(token *felt.Felt) (*big.Int, bool) {
 		return nil, false
 	}
 
-	if tokenInfo.UsdRateTime.IsZero() {
+	if tokenInfo.RateTime.IsZero() {
 		return nil, false
 	}
 
-	return tokenInfo.UsdRate, true
+	return tokenInfo.Rate, true
 }
 
 // GetLastIndexedBlock returns the last indexed block.

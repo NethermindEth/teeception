@@ -31,29 +31,33 @@ type AgentIndexer struct {
 	client           *rpc.Provider
 }
 
+// AgentIndexerInitialState is the initial state for an AgentIndexer.
+type AgentIndexerInitialState struct {
+	Agents           map[[32]byte]AgentInfo
+	LastIndexedBlock uint64
+}
+
 // AgentIndexerConfig is the configuration for an AgentIndexer.
 type AgentIndexerConfig struct {
 	RegistryAddress *felt.Felt
 	RateLimiter     *rate.Limiter
 	Client          *rpc.Provider
+	InitialState    *AgentIndexerInitialState
 }
 
 // NewAgentIndexer instantiates an AgentIndexer.
 func NewAgentIndexer(cfg *AgentIndexerConfig) *AgentIndexer {
-	return &AgentIndexer{
-		agents:          make(map[[32]byte]AgentInfo),
-		registryAddress: cfg.RegistryAddress,
-		rateLimiter:     cfg.RateLimiter,
-		client:          cfg.Client,
+	if cfg.InitialState == nil {
+		cfg.InitialState = &AgentIndexerInitialState{
+			Agents:           make(map[[32]byte]AgentInfo),
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewAgentIndexerWithInitialState creates a new AgentIndexer with an initial state.
-func NewAgentIndexerWithInitialState(cfg AgentIndexerConfig, initialState map[[32]byte]AgentInfo, lastIndexedBlock uint64) *AgentIndexer {
 	return &AgentIndexer{
-		agents:           initialState,
+		agents:           cfg.InitialState.Agents,
+		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
 		registryAddress:  cfg.RegistryAddress,
-		lastIndexedBlock: lastIndexedBlock,
 		rateLimiter:      cfg.RateLimiter,
 		client:           cfg.Client,
 	}

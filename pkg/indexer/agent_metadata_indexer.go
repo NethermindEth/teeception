@@ -35,31 +35,33 @@ type AgentMetadataIndexer struct {
 	initQueue chan *felt.Felt
 }
 
+// AgentMetadataIndexerInitialState is the initial state for an AgentMetadataIndexer.
+type AgentMetadataIndexerInitialState struct {
+	Metadata         map[[32]byte]AgentMetadata
+	LastIndexedBlock uint64
+}
+
 // AgentMetadataIndexerConfig is the configuration for an AgentMetadataIndexer.
 type AgentMetadataIndexerConfig struct {
 	Client          *rpc.Provider
 	RegistryAddress *felt.Felt
 	RateLimiter     *rate.Limiter
+	InitialState    *AgentMetadataIndexerInitialState
 }
 
 // NewAgentMetadataIndexer creates a new instance.
 func NewAgentMetadataIndexer(config *AgentMetadataIndexerConfig) *AgentMetadataIndexer {
-	return &AgentMetadataIndexer{
-		client: config.Client,
-
-		metadata:        make(map[[32]byte]AgentMetadata),
-		registryAddress: config.RegistryAddress,
-		rateLimiter:     config.RateLimiter,
-		initQueue:       make(chan *felt.Felt, 1000),
+	if config.InitialState == nil {
+		config.InitialState = &AgentMetadataIndexerInitialState{
+			Metadata:         make(map[[32]byte]AgentMetadata),
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewAgentMetadataIndexerWithInitialState creates a new AgentMetadataIndexer with an initial state.
-func NewAgentMetadataIndexerWithInitialState(config *AgentMetadataIndexerConfig, initialState map[[32]byte]AgentMetadata, lastIndexedBlock uint64) *AgentMetadataIndexer {
 	return &AgentMetadataIndexer{
 		client:           config.Client,
-		metadata:         initialState,
-		lastIndexedBlock: lastIndexedBlock,
+		metadata:         config.InitialState.Metadata,
+		lastIndexedBlock: config.InitialState.LastIndexedBlock,
 		registryAddress:  config.RegistryAddress,
 		rateLimiter:      config.RateLimiter,
 		initQueue:        make(chan *felt.Felt, 1000),

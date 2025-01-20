@@ -26,7 +26,7 @@ type AgentBalance struct {
 }
 
 type AgentBalanceIndexerPriceCache interface {
-	GetTokenUsdPrice(token *felt.Felt) (*big.Int, bool)
+	GetTokenRate(token *felt.Felt) (*big.Int, bool)
 }
 
 // AgentBalanceIndexer responds to Transfer events for addresses known to be Agents, and updates their balances.
@@ -55,6 +55,13 @@ type AgentBalanceIndexer struct {
 	safeBlockDelta uint64
 }
 
+// AgentBalanceIndexerInitialState is the initial state for an AgentBalanceIndexer.
+type AgentBalanceIndexerInitialState struct {
+	Balances         map[[32]byte]*AgentBalance
+	LastIndexedBlock uint64
+}
+
+// AgentBalanceIndexerConfig is the configuration for an AgentBalanceIndexer.
 type AgentBalanceIndexerConfig struct {
 	Client          *rpc.Provider
 	AgentIdx        *AgentIndexer
@@ -64,38 +71,28 @@ type AgentBalanceIndexerConfig struct {
 	SafeBlockDelta  uint64
 	RegistryAddress *felt.Felt
 	PriceCache      AgentBalanceIndexerPriceCache
+	InitialState    *AgentBalanceIndexerInitialState
 }
 
-// NewAgentBalanceIndexer sets up the indexer with concurrency control and a background update interval.
+// NewAgentBalanceIndexer creates a new AgentBalanceIndexer.
 func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceIndexer {
-	return &AgentBalanceIndexer{
-		client:          config.Client,
-		agentIdx:        config.AgentIdx,
-		metaIdx:         config.MetaIdx,
-		registryAddress: config.RegistryAddress,
-		sortedAgents:    make([][32]byte, 0),
-		sortedAgentsLen: 0,
-		priceCache:      config.PriceCache,
-		balances:        make(map[[32]byte]*AgentBalance),
-		balanceLimiter:  config.RateLimiter,
-		toUpdate:        make(map[[32]byte]struct{}),
-		tickRate:        config.TickRate,
-		safeBlockDelta:  config.SafeBlockDelta,
+	if config.InitialState == nil {
+		config.InitialState = &AgentBalanceIndexerInitialState{
+			Balances:         make(map[[32]byte]*AgentBalance),
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewAgentBalanceIndexerWithInitialState creates a new AgentBalanceIndexer with an initial state.
-func NewAgentBalanceIndexerWithInitialState(config *AgentBalanceIndexerConfig, initialState map[[32]byte]*AgentBalance, lastIndexedBlock uint64) *AgentBalanceIndexer {
 	return &AgentBalanceIndexer{
 		client:           config.Client,
 		agentIdx:         config.AgentIdx,
 		metaIdx:          config.MetaIdx,
 		registryAddress:  config.RegistryAddress,
-		sortedAgents:     slices.Collect(maps.Keys(initialState)),
+		sortedAgents:     make([][32]byte, 0),
 		sortedAgentsLen:  0,
 		priceCache:       config.PriceCache,
-		balances:         initialState,
-		lastIndexedBlock: lastIndexedBlock,
+		balances:         config.InitialState.Balances,
+		lastIndexedBlock: config.InitialState.LastIndexedBlock,
 		balanceLimiter:   config.RateLimiter,
 		toUpdate:         make(map[[32]byte]struct{}),
 		tickRate:         config.TickRate,
@@ -252,19 +249,19 @@ func (i *AgentBalanceIndexer) sortAgents() {
 			return balA.Amount.Cmp(balB.Amount) > 0
 		}
 
-		usdRateA, ok := i.priceCache.GetTokenUsdPrice(balA.Token)
+		rateA, ok := i.priceCache.GetTokenRate(balA.Token)
 		if !ok {
 			slog.Error("failed to get USD rate for agent", "agent", balA.Token)
 			return false
 		}
 
-		usdRateB, ok := i.priceCache.GetTokenUsdPrice(balB.Token)
+		rateB, ok := i.priceCache.GetTokenRate(balB.Token)
 		if !ok {
 			slog.Error("failed to get USD rate for agent", "agent", balB.Token)
 			return false
 		}
 
-		return balA.Amount.Mul(balA.Amount, usdRateA).Cmp(balB.Amount.Mul(balB.Amount, usdRateB)) > 0
+		return balA.Amount.Mul(balA.Amount, rateA).Cmp(balB.Amount.Mul(balB.Amount, rateB)) > 0
 	})
 }
 
