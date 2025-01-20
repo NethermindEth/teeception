@@ -18,7 +18,6 @@ import (
 
 type UIServiceConfig struct {
 	Client          *rpc.Provider
-	AdminToken      string
 	PageSize        int
 	ServerAddr      string
 	RegistryAddress *felt.Felt
@@ -34,8 +33,7 @@ type UIService struct {
 
 	registryAddress *felt.Felt
 
-	client     *rpc.Provider
-	adminToken string
+	client *rpc.Provider
 
 	pageSize   int
 	serverAddr string
@@ -100,7 +98,6 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		registryAddress: config.RegistryAddress,
 
 		client:     config.Client,
-		adminToken: config.AdminToken,
 		pageSize:   config.PageSize,
 		serverAddr: config.ServerAddr,
 	}, nil
