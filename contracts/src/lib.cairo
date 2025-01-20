@@ -110,12 +110,13 @@ pub mod AgentRegistry {
     #[constructor]
     fn constructor(
         ref self: ContractState,
+        owner: ContractAddress,
         tee: ContractAddress,
         agent_class_hash: ClassHash,
         token: ContractAddress,
         registration_price: u256,
     ) {
-        self.ownable.initializer(get_caller_address());
+        self.ownable.initializer(owner);
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
         self.token.write(token);
@@ -156,8 +157,11 @@ pub mod AgentRegistry {
             // TODO: redirect to the owner
             token.transfer_from(creator, get_contract_address(), self.registration_price.read());
 
+            let registry = get_contract_address();
+
             let mut constructor_calldata = ArrayTrait::<felt252>::new();
             name.serialize(ref constructor_calldata);
+            registry.serialize(ref constructor_calldata);
             system_prompt.serialize(ref constructor_calldata);
             token.serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
@@ -335,12 +339,13 @@ pub mod Agent {
     fn constructor(
         ref self: ContractState,
         name: ByteArray,
+        registry: ContractAddress,
         system_prompt: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
         creator: ContractAddress,
     ) {
-        self.registry.write(get_caller_address());
+        self.registry.write(registry);
         self.name.write(name);
         self.system_prompt.write(system_prompt);
         self.token.write(token);
