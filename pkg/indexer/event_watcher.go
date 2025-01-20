@@ -27,6 +27,14 @@ const (
 	EventTokenRemoved
 )
 
+var EventTypeItems = []EventType{
+	EventAgentRegistered,
+	EventPromptPaid,
+	EventTransfer,
+	EventTokenAdded,
+	EventTokenRemoved,
+}
+
 type Event struct {
 	Type EventType
 	Raw  rpc.EmittedEvent
@@ -111,12 +119,45 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 		return nil, false
 	}
 
-	from := e.Raw.Keys[1]
-	to := e.Raw.Keys[2]
+	keyCount := len(e.Raw.Keys)
+	dataCount := len(e.Raw.Data)
 
-	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
-	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
-	amount := amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+	var from *felt.Felt
+	var to *felt.Felt
+	var amount *big.Int
+
+	if keyCount >= 3 {
+		from = e.Raw.Keys[1]
+		to = e.Raw.Keys[2]
+
+		if dataCount == 1 {
+			amount = e.Raw.Data[0].BigInt(new(big.Int))
+		} else if dataCount == 2 {
+			amountLow := e.Raw.Data[0].BigInt(new(big.Int))
+			amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
+			amount = amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+		} else if keyCount == 4 {
+			amount = e.Raw.Keys[3].BigInt(new(big.Int))
+		} else if keyCount == 5 {
+			amountLow := e.Raw.Keys[3].BigInt(new(big.Int))
+			amountHigh := e.Raw.Keys[4].BigInt(new(big.Int))
+			amount = amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+		}
+	} else if dataCount >= 3 {
+		from = e.Raw.Data[0]
+		to = e.Raw.Data[1]
+
+		if dataCount == 3 {
+			amount = e.Raw.Data[2].BigInt(new(big.Int))
+		} else if dataCount == 4 {
+			amountLow := e.Raw.Data[2].BigInt(new(big.Int))
+			amountHigh := e.Raw.Data[3].BigInt(new(big.Int))
+			amount = amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+		}
+	} else {
+		slog.Warn("invalid transfer event", "txHash", e.Raw.TransactionHash)
+		return nil, false
+	}
 
 	return &TransferEvent{
 		From:   from,
@@ -135,7 +176,17 @@ func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 		return nil, false
 	}
 
-	token := e.Raw.Keys[0]
+	if len(e.Raw.Keys) != 2 {
+		slog.Warn("invalid token added event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
+	if len(e.Raw.Data) != 2 {
+		slog.Warn("invalid token added event", "data", e.Raw.Data)
+		return nil, false
+	}
+
+	token := e.Raw.Keys[1]
 
 	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
 	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
@@ -156,7 +207,12 @@ func (e *Event) ToTokenRemovedEvent() (*TokenRemovedEvent, bool) {
 		return nil, false
 	}
 
-	token := e.Raw.Keys[0]
+	if len(e.Raw.Keys) != 2 {
+		slog.Warn("invalid token removed event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
+	token := e.Raw.Keys[1]
 
 	return &TokenRemovedEvent{
 		Token: token,
@@ -201,7 +257,6 @@ type EventWatcherConfig struct {
 // distributes them to subscribers (AgentRegistered, Transfer, PromptPaid, etc.).
 type EventWatcher struct {
 	client           *rpc.Provider
-	startBlock       uint64
 	lastIndexedBlock uint64
 	safeBlockDelta   uint64
 	tickRate         time.Duration
@@ -280,7 +335,7 @@ func (w *EventWatcher) Run(ctx context.Context) error {
 }
 
 func (w *EventWatcher) run(ctx context.Context) error {
-	slog.Info("starting EventWatcher", "startBlock", w.startBlock)
+	slog.Info("starting EventWatcher")
 	for {
 		select {
 		case <-ctx.Done():
@@ -328,11 +383,13 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 				ToBlock:   rpc.WithBlockNumber(toBlock),
 				// We'll fetch all possible keys of interest in a single request:
 				Keys: [][]*felt.Felt{
-					{agentRegisteredSelector},
-					{promptPaidSelector},
-					{transferSelector},
-					{tokenAddedSelector},
-					{tokenRemovedSelector},
+					{
+						agentRegisteredSelector,
+						promptPaidSelector,
+						transferSelector,
+						tokenAddedSelector,
+						tokenRemovedSelector,
+					},
 				},
 			},
 			ResultPageRequest: rpc.ResultPageRequest{
@@ -344,13 +401,13 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 			return fmt.Errorf("failed to get events from %v to %v: %v", from, toBlock, err)
 		}
 
-		evs := make([]*Event, 0, len(eventsResp.Events))
+		evs := make(map[EventType][]*Event, len(EventTypeItems))
 
 		// Parse each event into our local struct and broadcast.
 		for _, rawEvent := range eventsResp.Events {
 			parsedEvt, ok := w.parseEvent(rawEvent)
 			if ok {
-				evs = append(evs, &parsedEvt)
+				evs[parsedEvt.Type] = append(evs[parsedEvt.Type], &parsedEvt)
 			}
 		}
 
@@ -376,35 +433,43 @@ func (w *EventWatcher) parseEvent(raw rpc.EmittedEvent) (Event, bool) {
 	}
 	switch {
 	case selector.Cmp(agentRegisteredSelector) == 0:
+		slog.Debug("parsed agent registered event")
 		ev.Type = EventAgentRegistered
 		return ev, true
 	case selector.Cmp(transferSelector) == 0:
+		slog.Debug("parsed transfer event")
 		ev.Type = EventTransfer
 		return ev, true
 	case selector.Cmp(promptPaidSelector) == 0:
+		slog.Debug("parsed prompt paid event")
 		ev.Type = EventPromptPaid
 		return ev, true
 	case selector.Cmp(tokenAddedSelector) == 0:
+		slog.Debug("parsed token added event")
 		ev.Type = EventTokenAdded
 		return ev, true
 	case selector.Cmp(tokenRemovedSelector) == 0:
+		slog.Debug("parsed token removed event")
 		ev.Type = EventTokenRemoved
 		return ev, true
 	default:
+		slog.Debug("parsed unknown event")
 		return Event{}, false
 	}
 }
 
 // broadcast routes the parsed events to the correct set of subscribers.
-func (w *EventWatcher) broadcast(evs []*Event, fromBlock uint64, toBlock uint64) {
+func (w *EventWatcher) broadcast(evs map[EventType][]*Event, fromBlock uint64, toBlock uint64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	for _, sub := range w.subs[evs[0].Type] {
-		sub.ch <- &EventSubscriptionData{
-			Events:    evs,
-			FromBlock: fromBlock,
-			ToBlock:   toBlock,
+	for evType, evList := range evs {
+		for _, sub := range w.subs[evType] {
+			sub.ch <- &EventSubscriptionData{
+				Events:    evList,
+				FromBlock: fromBlock,
+				ToBlock:   toBlock,
+			}
 		}
 	}
 }
