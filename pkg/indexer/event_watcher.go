@@ -336,12 +336,14 @@ func (w *EventWatcher) Run(ctx context.Context) error {
 
 func (w *EventWatcher) run(ctx context.Context) error {
 	slog.Info("starting EventWatcher")
+
+	evs := w.allocEventLists()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(w.tickRate):
-			if err := w.indexBlocks(ctx); err != nil {
+			if err := w.indexBlocks(ctx, evs); err != nil {
 				slog.Error("indexBlocks failed", "error", err)
 				// continue attempting on next tick
 			}
@@ -349,8 +351,57 @@ func (w *EventWatcher) run(ctx context.Context) error {
 	}
 }
 
+// allocEventLists allocates event lists for each event type.
+func (w *EventWatcher) allocEventLists() map[EventType][]*Event {
+	evs := make(map[EventType][]*Event, len(EventTypeItems))
+	for _, typ := range EventTypeItems {
+		evs[typ] = make([]*Event, 0, w.indexChunkSize)
+	}
+	return evs
+}
+
+// fetchEvents fetches events from the Starknet node following a continuation token.
+func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) ([]rpc.EmittedEvent, error) {
+	var events []rpc.EmittedEvent
+
+	continuationToken := ""
+
+	for {
+		if w.rateLimiter != nil {
+			if err := w.rateLimiter.Wait(ctx); err != nil {
+				return nil, fmt.Errorf("rate limit exceeded: %v", err)
+			}
+		}
+
+		eventsResp, err := w.client.Events(ctx, rpc.EventsInput{
+			EventFilter: filter,
+			ResultPageRequest: rpc.ResultPageRequest{
+				ContinuationToken: continuationToken,
+				ChunkSize:         int(w.indexChunkSize),
+			},
+		})
+		if err != nil {
+			snaccount.LogRpcError(err)
+			return nil, fmt.Errorf("failed to get events from %v to %v: %v", filter.FromBlock, filter.ToBlock, err)
+		}
+
+		continuationToken = eventsResp.ContinuationToken
+		if len(events) == 0 {
+			events = eventsResp.Events
+		} else {
+			events = append(events, eventsResp.Events...)
+		}
+
+		if continuationToken == "" {
+			break
+		}
+	}
+
+	return events, nil
+}
+
 // indexBlocks fetches blocks ranging from (lastIndexedBlock+1) to safeBlock in chunks, then parses events.
-func (w *EventWatcher) indexBlocks(ctx context.Context) error {
+func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType][]*Event) error {
 	currentBlock, err := w.client.BlockNumber(ctx)
 	if err != nil {
 		snaccount.LogRpcError(err)
@@ -377,23 +428,18 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 		}
 
 		// Gather events for these blocks from the node
-		eventsResp, err := w.client.Events(ctx, rpc.EventsInput{
-			EventFilter: rpc.EventFilter{
-				FromBlock: rpc.WithBlockNumber(from),
-				ToBlock:   rpc.WithBlockNumber(toBlock),
-				// We'll fetch all possible keys of interest in a single request:
-				Keys: [][]*felt.Felt{
-					{
-						agentRegisteredSelector,
-						promptPaidSelector,
-						transferSelector,
-						tokenAddedSelector,
-						tokenRemovedSelector,
-					},
+		events, err := w.fetchEvents(ctx, rpc.EventFilter{
+			FromBlock: rpc.WithBlockNumber(from),
+			ToBlock:   rpc.WithBlockNumber(toBlock),
+			// We'll fetch all possible keys of interest in a single request:
+			Keys: [][]*felt.Felt{
+				{
+					agentRegisteredSelector,
+					promptPaidSelector,
+					transferSelector,
+					tokenAddedSelector,
+					tokenRemovedSelector,
 				},
-			},
-			ResultPageRequest: rpc.ResultPageRequest{
-				ChunkSize: int(w.indexChunkSize),
 			},
 		})
 		if err != nil {
@@ -401,17 +447,19 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 			return fmt.Errorf("failed to get events from %v to %v: %v", from, toBlock, err)
 		}
 
-		evs := make(map[EventType][]*Event, len(EventTypeItems))
-
 		// Parse each event into our local struct and broadcast.
-		for _, rawEvent := range eventsResp.Events {
-			parsedEvt, ok := w.parseEvent(rawEvent)
+		for _, rawEvent := range events {
+			parsedEvent, ok := w.parseEvent(rawEvent)
 			if ok {
-				evs[parsedEvt.Type] = append(evs[parsedEvt.Type], &parsedEvt)
+				eventLists[parsedEvent.Type] = append(eventLists[parsedEvent.Type], &parsedEvent)
 			}
 		}
 
-		w.broadcast(evs, from, toBlock)
+		w.broadcast(eventLists, from, toBlock)
+
+		for _, eventList := range eventLists {
+			eventList = eventList[:0]
+		}
 
 		w.mu.Lock()
 		w.lastIndexedBlock = toBlock
@@ -459,14 +507,14 @@ func (w *EventWatcher) parseEvent(raw rpc.EmittedEvent) (Event, bool) {
 }
 
 // broadcast routes the parsed events to the correct set of subscribers.
-func (w *EventWatcher) broadcast(evs map[EventType][]*Event, fromBlock uint64, toBlock uint64) {
+func (w *EventWatcher) broadcast(eventLists map[EventType][]*Event, fromBlock uint64, toBlock uint64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	for evType, evList := range evs {
-		for _, sub := range w.subs[evType] {
+	for eventType, eventList := range eventLists {
+		for _, sub := range w.subs[eventType] {
 			sub.ch <- &EventSubscriptionData{
-				Events:    evList,
+				Events:    eventList,
 				FromBlock: fromBlock,
 				ToBlock:   toBlock,
 			}
