@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 )
 
 // LazySortedList maintains a list that can be lazily sorted with a custom
@@ -29,13 +29,13 @@ func (l *LazySortedList[T]) Add(items ...T) {
 }
 
 // Sort sorts the list using the provided less function if needed
-func (l *LazySortedList[T]) Sort(less func(a, b int) bool) {
+func (l *LazySortedList[T]) Sort(less func(a, b T) int) {
 	if !l.needSort {
 		return
 	}
 
 	l.len = len(l.items)
-	sort.Slice(l.items, less)
+	slices.SortFunc(l.items, less)
 
 	l.needSort = false
 }

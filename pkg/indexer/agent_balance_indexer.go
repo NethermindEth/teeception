@@ -258,27 +258,27 @@ func (i *AgentBalanceIndexer) sortAgents() {
 		i.sortedAgents.Add(slices.Collect(maps.Keys(i.balances))...)
 	}
 
-	i.sortedAgents.Sort(func(a, b int) bool {
-		balA := i.balances[i.sortedAgents.MustGet(a)]
-		balB := i.balances[i.sortedAgents.MustGet(b)]
+	i.sortedAgents.Sort(func(a, b [32]byte) int {
+		balA := i.balances[a]
+		balB := i.balances[b]
 
 		if balA.Token == balB.Token {
-			return balA.Amount.Cmp(balB.Amount) > 0
+			return -balA.Amount.Cmp(balB.Amount)
 		}
 
 		rateA, ok := i.priceCache.GetTokenRate(balA.Token)
 		if !ok {
 			slog.Error("failed to get USD rate for agent", "agent", balA.Token)
-			return false
+			return 0
 		}
 
 		rateB, ok := i.priceCache.GetTokenRate(balB.Token)
 		if !ok {
 			slog.Error("failed to get USD rate for agent", "agent", balB.Token)
-			return false
+			return 0
 		}
 
-		return balA.Amount.Mul(balA.Amount, rateA).Cmp(balB.Amount.Mul(balB.Amount, rateB)) > 0
+		return -balA.Amount.Mul(balA.Amount, rateA).Cmp(balB.Amount.Mul(balB.Amount, rateB))
 	})
 }
 
