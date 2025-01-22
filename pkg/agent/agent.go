@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"crypto/rsa"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -17,6 +18,7 @@ import (
 	"github.com/tmc/langchaingo/jsonschema"
 
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
+	"github.com/NethermindEth/teeception/pkg/agent/prompts"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
@@ -52,6 +54,8 @@ type AgentConfig struct {
 	TaskConcurrency          int
 	TickRate                 time.Duration
 	SafeBlockDelta           uint64
+	HttpClient               *http.Client
+	RsaPrivateKey            *rsa.PrivateKey
 }
 
 type Agent struct {
@@ -62,8 +66,9 @@ type Agent struct {
 	starknetClient    *rpc.Provider
 	dStackTappdClient *tappd.TappdClient
 
-	agentIndexer *indexer.AgentIndexer
-	eventWatcher *indexer.EventWatcher
+	agentIndexer      *indexer.AgentIndexer
+	eventWatcher      *indexer.EventWatcher
+	systemPromptCache *prompts.SystemPromptCache
 
 	account *snaccount.StarknetAccount
 	txQueue *snaccount.TxQueue
@@ -124,6 +129,12 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		return nil, err
 	}
 
+	systemPromptCache := prompts.NewSystemPromptCache(&prompts.SystemPromptCacheConfig{
+		AgentIndexer: agentIndexer,
+		PrivateKey:   config.RsaPrivateKey,
+		HttpClient:   config.HttpClient,
+	})
+
 	slog.Info("agent initialized successfully", "account_address", account.Address())
 
 	return &Agent{
@@ -134,9 +145,10 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		starknetClient:    starknetClient,
 		dStackTappdClient: dstackTappdClient,
 
-		agentIndexer: agentIndexer,
-		eventWatcher: eventWatcher,
-		account:      account,
+		agentIndexer:      agentIndexer,
+		eventWatcher:      eventWatcher,
+		systemPromptCache: systemPromptCache,
+		account:           account,
 		txQueue: snaccount.NewTxQueue(account, starknetClient, &snaccount.TxQueueConfig{
 			MaxBatchSize:       10,
 			SubmissionInterval: 20 * time.Second,
@@ -238,7 +250,12 @@ func (a *Agent) processPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 		return fmt.Errorf("failed to get agent info: %v", err)
 	}
 
-	return a.reactToTweet(ctx, agentInfo.Address, promptPaidEvent.TweetID, tweetText, agentInfo.SystemPrompt)
+	systemPrompt, err := a.systemPromptCache.GetOrFetchSystemPrompt(ctx, agentInfo.Address)
+	if err != nil {
+		return fmt.Errorf("failed to get system prompt: %v", err)
+	}
+
+	return a.reactToTweet(ctx, agentInfo.Address, promptPaidEvent.TweetID, tweetText, systemPrompt)
 }
 
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {

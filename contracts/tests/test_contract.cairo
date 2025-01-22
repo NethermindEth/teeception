@@ -59,12 +59,13 @@ fn test_register_agent() {
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     let name = "test_agent";
-    let system_prompt = "I am a test agent";
+    let system_prompt_uri = "https://example.com/system_prompt.txt";
 
     let mut spy = spy_events();
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), token, prompt_price);
+    let agent_address = registry
+        .register_agent(name.clone(), system_prompt_uri.clone(), token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     assert(registry.is_agent_registered(agent_address), 'Agent should be registered');
@@ -75,7 +76,10 @@ fn test_register_agent() {
 
     let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
     assert(agent_dispatcher.get_name() == name.clone(), 'Wrong agent name');
-    assert(agent_dispatcher.get_system_prompt() == system_prompt.clone(), 'Wrong system prompt');
+    assert(
+        agent_dispatcher.get_system_prompt_uri() == system_prompt_uri.clone(),
+        'Wrong system prompt',
+    );
     assert(agent_dispatcher.get_creator() == creator, 'Wrong creator');
 
     // Verify event was emitted
@@ -89,7 +93,7 @@ fn test_register_agent() {
                             agent: agent_address,
                             creator,
                             name: name.clone(),
-                            system_prompt: system_prompt.clone(),
+                            system_prompt_uri: system_prompt_uri.clone(),
                         },
                     ),
                 ),
@@ -222,16 +226,17 @@ fn test_get_agent_details() {
     let registry = IAgentRegistryDispatcher { contract_address: registry_address };
 
     let name = "complex_agent";
-    let system_prompt = "Complex system prompt with multiple words";
+    let system_prompt_uri = "https://example.com/system_prompt.txt";
 
     start_cheat_caller_address(registry.contract_address, creator);
-    let agent_address = registry.register_agent(name.clone(), system_prompt.clone(), token, prompt_price);
+    let agent_address = registry
+        .register_agent(name.clone(), system_prompt_uri.clone(), token, prompt_price);
     stop_cheat_caller_address(registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
 
     assert(agent.get_name() == name, 'Wrong agent name');
-    assert(agent.get_system_prompt() == system_prompt, 'Wrong system prompt');
+    assert(agent.get_system_prompt_uri() == system_prompt_uri, 'Wrong system prompt');
 }
 
 #[test]

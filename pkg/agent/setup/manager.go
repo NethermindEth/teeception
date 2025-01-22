@@ -2,6 +2,8 @@ package setup
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"log/slog"
 
@@ -29,19 +31,20 @@ type SetupManager struct {
 }
 
 type SetupOutput struct {
-	TwitterUsername          string     `json:"twitter_username"`
-	TwitterPassword          string     `json:"twitter_password"`
-	ProtonPassword           string     `json:"proton_password"`
-	TwitterConsumerKey       string     `json:"twitter_consumer_key"`
-	TwitterConsumerSecret    string     `json:"twitter_consumer_secret"`
-	TwitterAuthTokens        string     `json:"twitter_auth_tokens"`
-	TwitterAccessToken       string     `json:"twitter_access_token"`
-	TwitterAccessTokenSecret string     `json:"twitter_access_token_secret"`
-	StarknetPrivateKeySeed   []byte     `json:"starknet_private_key_seed"`
-	StarknetRpcUrl           string     `json:"starknet_rpc_url"`
-	AgentRegistryAddress     *felt.Felt `json:"agent_registry_address"`
-	OpenAIKey                string     `json:"openai_key"`
-	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
+	TwitterUsername          string          `json:"twitter_username"`
+	TwitterPassword          string          `json:"twitter_password"`
+	ProtonPassword           string          `json:"proton_password"`
+	TwitterConsumerKey       string          `json:"twitter_consumer_key"`
+	TwitterConsumerSecret    string          `json:"twitter_consumer_secret"`
+	TwitterAuthTokens        string          `json:"twitter_auth_tokens"`
+	TwitterAccessToken       string          `json:"twitter_access_token"`
+	TwitterAccessTokenSecret string          `json:"twitter_access_token_secret"`
+	StarknetPrivateKeySeed   []byte          `json:"starknet_private_key_seed"`
+	StarknetRpcUrl           string          `json:"starknet_rpc_url"`
+	AgentRegistryAddress     *felt.Felt      `json:"agent_registry_address"`
+	OpenAIKey                string          `json:"openai_key"`
+	DstackTappdEndpoint      string          `json:"dstack_tappd_endpoint"`
+	RsaPrivateKey            *rsa.PrivateKey `json:"rsa_private_key"`
 }
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
@@ -134,6 +137,11 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		return nil, fmt.Errorf("failed to encumber proton: %v", err)
 	}
 
+	rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate rsa private key: %w", err)
+	}
+
 	output := &SetupOutput{
 		TwitterAuthTokens:        twitterEncumbererOutput.AuthTokens,
 		TwitterAccessToken:       twitterEncumbererOutput.OAuthTokenPair.Token,
@@ -148,6 +156,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		AgentRegistryAddress:     agentRegistryAddress,
 		OpenAIKey:                m.openAiKey,
 		DstackTappdEndpoint:      m.dstackTappdEndpoint,
+		RsaPrivateKey:            rsaPrivateKey,
 	}
 
 	if debug.IsDebugShowSetup() {

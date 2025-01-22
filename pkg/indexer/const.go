@@ -9,11 +9,11 @@ var (
 	tokenAddedSelector      = starknetgoutils.GetSelectorFromNameFelt("TokenAdded")
 	tokenRemovedSelector    = starknetgoutils.GetSelectorFromNameFelt("TokenRemoved")
 
-	isAgentRegisteredSelector = starknetgoutils.GetSelectorFromNameFelt("is_agent_registered")
-	getSystemPromptSelector   = starknetgoutils.GetSelectorFromNameFelt("get_system_prompt")
-	getPromptPriceSelector    = starknetgoutils.GetSelectorFromNameFelt("get_prompt_price")
-	getTokenSelector          = starknetgoutils.GetSelectorFromNameFelt("get_token")
-	getNameSelector           = starknetgoutils.GetSelectorFromNameFelt("get_name")
+	isAgentRegisteredSelector  = starknetgoutils.GetSelectorFromNameFelt("is_agent_registered")
+	getSystemPromptUriSelector = starknetgoutils.GetSelectorFromNameFelt("get_system_prompt_uri")
+	getPromptPriceSelector     = starknetgoutils.GetSelectorFromNameFelt("get_prompt_price")
+	getTokenSelector           = starknetgoutils.GetSelectorFromNameFelt("get_token")
+	getNameSelector            = starknetgoutils.GetSelectorFromNameFelt("get_name")
 
 	balanceOfSelector = starknetgoutils.GetSelectorFromNameFelt("balanceOf")
 )

@@ -15,9 +15,9 @@ import (
 )
 
 type AgentInfo struct {
-	Address      *felt.Felt
-	Name         string
-	SystemPrompt string
+	Address         *felt.Felt
+	Name            string
+	SystemPromptUri string
 }
 
 // AgentIndexer processes AgentRegistered events and tracks known agents.
@@ -103,9 +103,9 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 	}
 
 	info := AgentInfo{
-		Address:      agentRegisteredEv.Agent,
-		Name:         agentRegisteredEv.Name,
-		SystemPrompt: agentRegisteredEv.SystemPrompt,
+		Address:         agentRegisteredEv.Agent,
+		Name:            agentRegisteredEv.Name,
+		SystemPromptUri: agentRegisteredEv.SystemPromptUri,
 	}
 	i.agents[agentRegisteredEv.Agent.Bytes()] = info
 	i.addresses = append(i.addresses, agentRegisteredEv.Agent)
@@ -135,6 +135,13 @@ func (i *AgentIndexer) GetOrFetchAgentInfo(ctx context.Context, addr *felt.Felt,
 	if err != nil {
 		return AgentInfo{}, err
 	}
+
+	i.agentsMu.Lock()
+	if _, ok := i.agents[addr.Bytes()]; !ok {
+		i.agents[addr.Bytes()] = info
+		i.addresses = append(i.addresses, addr)
+	}
+	i.agentsMu.Unlock()
 
 	return info, nil
 }
@@ -177,28 +184,28 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		return AgentInfo{}, fmt.Errorf("parse get_name failed: %v", err)
 	}
 
-	var getSystemPromptResp []*felt.Felt
+	var getSystemPromptUriResp []*felt.Felt
 	if err := i.client.Do(func(provider *rpc.Provider) error {
-		getSystemPromptResp, err = provider.Call(ctx, rpc.FunctionCall{
+		getSystemPromptUriResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    addr,
-			EntryPointSelector: getSystemPromptSelector,
+			EntryPointSelector: getSystemPromptUriSelector,
 			Calldata:           []*felt.Felt{},
 		}, rpc.WithBlockTag("latest"))
 		return err
 	}); err != nil {
 		snaccount.LogRpcError(err)
-		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %v", err)
+		return AgentInfo{}, fmt.Errorf("get_system_prompt_uri call failed: %v", err)
 	}
 
-	systemPrompt, err := starknetgoutils.ByteArrFeltToString(getSystemPromptResp)
+	systemPromptUri, err := starknetgoutils.ByteArrFeltToString(getSystemPromptUriResp)
 	if err != nil {
-		return AgentInfo{}, fmt.Errorf("parse system_prompt failed: %v", err)
+		return AgentInfo{}, fmt.Errorf("parse get_system_prompt_uri failed: %v", err)
 	}
 
 	return AgentInfo{
-		Address:      addr,
-		Name:         name,
-		SystemPrompt: systemPrompt,
+		Address:         addr,
+		Name:            name,
+		SystemPromptUri: systemPromptUri,
 	}, nil
 }
 

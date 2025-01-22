@@ -41,10 +41,10 @@ type Event struct {
 }
 
 type AgentRegisteredEvent struct {
-	Agent        *felt.Felt
-	Creator      *felt.Felt
-	Name         string
-	SystemPrompt string
+	Agent           *felt.Felt
+	Creator         *felt.Felt
+	Name            string
+	SystemPromptUri string
 }
 
 func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
@@ -67,16 +67,16 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 		return nil, false
 	}
 
-	systemPrompt, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data[systemPromptPos : systemPromptPos+systemPromptSize])
+	systemPromptUri, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data[systemPromptPos : systemPromptPos+systemPromptSize])
 	if err != nil {
 		return nil, false
 	}
 
 	return &AgentRegisteredEvent{
-		Agent:        agent,
-		Creator:      creator,
-		Name:         name,
-		SystemPrompt: systemPrompt,
+		Agent:           agent,
+		Creator:         creator,
+		Name:            name,
+		SystemPromptUri: systemPromptUri,
 	}, true
 }
 

@@ -12,6 +12,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/dghubble/oauth1 v0.7.3
 	github.com/gin-gonic/gin v1.10.0
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/sashabaranov/go-openai v1.35.7
 	github.com/sethvargo/go-password v0.3.1
 	github.com/tebeka/selenium v0.9.9

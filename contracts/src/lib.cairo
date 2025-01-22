@@ -3,7 +3,11 @@ use core::starknet::ContractAddress;
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
     fn register_agent(
-        ref self: TContractState, name: ByteArray, system_prompt: ByteArray, token: ContractAddress, prompt_price: u256,
+        ref self: TContractState,
+        name: ByteArray,
+        system_prompt_uri: ByteArray,
+        token: ContractAddress,
+        prompt_price: u256,
     ) -> ContractAddress;
     fn get_token(self: @TContractState) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
@@ -13,7 +17,9 @@ pub trait IAgentRegistry<TContractState> {
     fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
     fn pause(ref self: TContractState);
     fn unpause(ref self: TContractState);
-    fn add_supported_token(ref self: TContractState, token: ContractAddress, min_prompt_price: u256);
+    fn add_supported_token(
+        ref self: TContractState, token: ContractAddress, min_prompt_price: u256,
+    );
     fn remove_supported_token(ref self: TContractState, token: ContractAddress);
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
     fn get_min_prompt_price(self: @TContractState, token: ContractAddress) -> u256;
@@ -21,7 +27,7 @@ pub trait IAgentRegistry<TContractState> {
 
 #[starknet::interface]
 pub trait IAgent<TContractState> {
-    fn get_system_prompt(self: @TContractState) -> ByteArray;
+    fn get_system_prompt_uri(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
@@ -76,7 +82,7 @@ pub mod AgentRegistry {
         #[key]
         pub creator: ContractAddress,
         pub name: ByteArray,
-        pub system_prompt: ByteArray,
+        pub system_prompt_uri: ByteArray,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -140,7 +146,11 @@ pub mod AgentRegistry {
     #[abi(embed_v0)]
     impl AgentRegistryImpl of super::IAgentRegistry<ContractState> {
         fn register_agent(
-            ref self: ContractState, name: ByteArray, system_prompt: ByteArray, token: ContractAddress, prompt_price: u256,
+            ref self: ContractState,
+            name: ByteArray,
+            system_prompt_uri: ByteArray,
+            token: ContractAddress,
+            prompt_price: u256,
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
 
@@ -162,7 +172,7 @@ pub mod AgentRegistry {
             let mut constructor_calldata = ArrayTrait::<felt252>::new();
             name.serialize(ref constructor_calldata);
             registry.serialize(ref constructor_calldata);
-            system_prompt.serialize(ref constructor_calldata);
+            system_prompt_uri.serialize(ref constructor_calldata);
             token.serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
             creator.serialize(ref constructor_calldata);
@@ -178,7 +188,9 @@ pub mod AgentRegistry {
             self
                 .emit(
                     Event::AgentRegistered(
-                        AgentRegistered { agent: deployed_address, creator, name, system_prompt },
+                        AgentRegistered {
+                            agent: deployed_address, creator, name, system_prompt_uri,
+                        },
                     ),
                 );
 
@@ -228,7 +240,9 @@ pub mod AgentRegistry {
             self.pausable.unpause();
         }
 
-        fn add_supported_token(ref self: ContractState, token: ContractAddress, min_prompt_price: u256) {
+        fn add_supported_token(
+            ref self: ContractState, token: ContractAddress, min_prompt_price: u256,
+        ) {
             self.ownable.assert_only_owner();
             self.min_prompt_prices.write(token, min_prompt_price);
             self.emit(Event::TokenAdded(TokenAdded { token, min_prompt_price }));
@@ -326,7 +340,7 @@ pub mod Agent {
     #[storage]
     struct Storage {
         registry: ContractAddress,
-        system_prompt: ByteArray,
+        system_prompt_uri: ByteArray,
         name: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
@@ -340,14 +354,14 @@ pub mod Agent {
         ref self: ContractState,
         name: ByteArray,
         registry: ContractAddress,
-        system_prompt: ByteArray,
+        system_prompt_uri: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
         creator: ContractAddress,
     ) {
         self.registry.write(registry);
         self.name.write(name);
-        self.system_prompt.write(system_prompt);
+        self.system_prompt_uri.write(system_prompt_uri);
         self.token.write(token);
         self.prompt_price.write(prompt_price);
         self.creator.write(creator);
@@ -360,8 +374,8 @@ pub mod Agent {
             self.name.read()
         }
 
-        fn get_system_prompt(self: @ContractState) -> ByteArray {
-            self.system_prompt.read()
+        fn get_system_prompt_uri(self: @ContractState) -> ByteArray {
+            self.system_prompt_uri.read()
         }
 
         fn get_prompt_price(self: @ContractState) -> u256 {
