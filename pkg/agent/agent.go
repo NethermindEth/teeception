@@ -19,6 +19,7 @@ import (
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -99,9 +100,9 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	rateLimitedClient := starknet.NewRateLimitedProviderWithNoLimiter(starknetClient)
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
-		Client:          starknetClient,
+		Client:          rateLimitedClient,
 		SafeBlockDelta:  config.SafeBlockDelta,
 		TickRate:        1 * time.Second,
 		IndexChunkSize:  1000,
@@ -109,7 +110,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	})
 
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
-		Client:          starknetClient,
+		Client:          rateLimitedClient,
 		RegistryAddress: config.AgentRegistryAddress,
 	})
 

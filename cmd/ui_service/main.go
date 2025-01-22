@@ -10,6 +10,7 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 	uiservice "github.com/NethermindEth/teeception/pkg/ui_service"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
 var (
@@ -46,11 +47,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	rateLimitedClient := starknet.NewRateLimitedProviderWithNoLimiter(client)
+
 	tokenRates := make(map[[32]byte]*big.Int)
 	tokenRates[strkAddress.Bytes()] = big.NewInt(1)
 
 	uiService, err := uiservice.NewUIService(&uiservice.UIServiceConfig{
-		Client:          client,
+		Client:          rateLimitedClient,
 		PageSize:        *pageSize,
 		ServerAddr:      *serverAddr,
 		RegistryAddress: registryAddress,

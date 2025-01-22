@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -243,24 +243,22 @@ type EventWatcherInitialState struct {
 
 // EventWatcherConfig holds the necessary settings for constructing an EventWatcher.
 type EventWatcherConfig struct {
-	Client          *rpc.Provider
+	Client          *starknet.RateLimitedProvider
 	SafeBlockDelta  uint64
 	TickRate        time.Duration
 	IndexChunkSize  uint
 	RegistryAddress *felt.Felt
-	RateLimiter     *rate.Limiter
 	InitialState    *EventWatcherInitialState
 }
 
 // EventWatcher fetches events from Starknet in block ranges, parses them, and
 // distributes them to subscribers (AgentRegistered, Transfer, PromptPaid, etc.).
 type EventWatcher struct {
-	client           *rpc.Provider
+	client           *starknet.RateLimitedProvider
 	lastIndexedBlock uint64
 	safeBlockDelta   uint64
 	tickRate         time.Duration
 	indexChunkSize   uint
-	rateLimiter      *rate.Limiter
 
 	// Subscribers for specific event types
 	mu        sync.RWMutex
@@ -366,20 +364,19 @@ func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) 
 	continuationToken := ""
 
 	for {
-		if w.rateLimiter != nil {
-			if err := w.rateLimiter.Wait(ctx); err != nil {
-				return nil, fmt.Errorf("rate limit exceeded: %v", err)
-			}
-		}
+		var eventsResp *rpc.EventChunk
+		var err error
 
-		eventsResp, err := w.client.Events(ctx, rpc.EventsInput{
-			EventFilter: filter,
-			ResultPageRequest: rpc.ResultPageRequest{
-				ContinuationToken: continuationToken,
-				ChunkSize:         int(w.indexChunkSize),
-			},
-		})
-		if err != nil {
+		if err := w.client.Do(func(provider *rpc.Provider) error {
+			eventsResp, err = provider.Events(ctx, rpc.EventsInput{
+				EventFilter: filter,
+				ResultPageRequest: rpc.ResultPageRequest{
+					ContinuationToken: continuationToken,
+					ChunkSize:         int(w.indexChunkSize),
+				},
+			})
+			return err
+		}); err != nil {
 			snaccount.LogRpcError(err)
 			return nil, fmt.Errorf("failed to get events from %v to %v: %v", filter.FromBlock, filter.ToBlock, err)
 		}
@@ -401,8 +398,13 @@ func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) 
 
 // indexBlocks fetches blocks ranging from (lastIndexedBlock+1) to safeBlock in chunks, then parses events.
 func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType][]*Event) error {
-	currentBlock, err := w.client.BlockNumber(ctx)
-	if err != nil {
+	var currentBlock uint64
+	var err error
+
+	if err := w.client.Do(func(provider *rpc.Provider) error {
+		currentBlock, err = provider.BlockNumber(ctx)
+		return err
+	}); err != nil {
 		snaccount.LogRpcError(err)
 		return fmt.Errorf("failed to get current block number: %v", err)
 	}
@@ -423,12 +425,6 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 		}
 
 		slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
-
-		if w.rateLimiter != nil {
-			if err := w.rateLimiter.Wait(ctx); err != nil {
-				return fmt.Errorf("rate limit exceeded: %v", err)
-			}
-		}
 
 		// Gather events for these blocks from the node
 		events, err := w.fetchEvents(ctx, rpc.EventFilter{

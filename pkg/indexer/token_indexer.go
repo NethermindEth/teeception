@@ -2,16 +2,13 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"math/big"
 	"sync"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/starknet.go/rpc"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 
 	"github.com/NethermindEth/teeception/pkg/indexer/price"
 )
@@ -29,8 +26,6 @@ type TokenIndexer struct {
 	tokensMu         sync.RWMutex
 	tokens           map[[32]byte]*TokenInfo
 	lastIndexedBlock uint64
-	rateLimiter      *rate.Limiter
-	client           *rpc.Provider
 	registryAddress  *felt.Felt
 	priceFeed        price.PriceFeed
 	priceTickRate    time.Duration
@@ -44,8 +39,6 @@ type TokenIndexerInitialState struct {
 
 // TokenIndexerConfig is the configuration for a TokenIndexer.
 type TokenIndexerConfig struct {
-	RateLimiter     *rate.Limiter
-	Client          *rpc.Provider
 	PriceFeed       price.PriceFeed
 	PriceTickRate   time.Duration
 	RegistryAddress *felt.Felt
@@ -64,8 +57,6 @@ func NewTokenIndexer(cfg *TokenIndexerConfig) *TokenIndexer {
 	return &TokenIndexer{
 		tokens:           cfg.InitialState.Tokens,
 		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
-		rateLimiter:      cfg.RateLimiter,
-		client:           cfg.Client,
 		priceFeed:        cfg.PriceFeed,
 		priceTickRate:    cfg.PriceTickRate,
 		registryAddress:  cfg.RegistryAddress,
@@ -133,12 +124,6 @@ func (i *TokenIndexer) updatePricesTask(ctx context.Context) error {
 
 			token := new(felt.Felt)
 			for tokenBytes := range tokens {
-				if i.rateLimiter != nil {
-					if err := i.rateLimiter.Wait(ctx); err != nil {
-						return fmt.Errorf("failed to wait for rate limiter: %w", err)
-					}
-				}
-
 				token.SetBytes(tokenBytes[:])
 				price, err := i.priceFeed.GetRate(ctx, token)
 				if err != nil {

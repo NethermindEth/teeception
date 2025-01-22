@@ -11,12 +11,12 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 
 	"github.com/NethermindEth/teeception/pkg/indexer/utils"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -32,7 +32,7 @@ type AgentBalanceIndexerPriceCache interface {
 
 // AgentBalanceIndexer responds to Transfer events for addresses known to be Agents, and updates their balances.
 type AgentBalanceIndexer struct {
-	client   *rpc.Provider
+	client   *starknet.RateLimitedProvider
 	agentIdx *AgentIndexer
 	metaIdx  *AgentMetadataIndexer
 
@@ -45,8 +45,6 @@ type AgentBalanceIndexer struct {
 	sortedAgentsMu sync.RWMutex
 	sortedAgents   *utils.LazySortedList[[32]byte]
 	priceCache     AgentBalanceIndexerPriceCache
-
-	balanceLimiter *rate.Limiter
 
 	toUpdate   map[[32]byte]struct{}
 	toUpdateMu sync.Mutex
@@ -63,10 +61,9 @@ type AgentBalanceIndexerInitialState struct {
 
 // AgentBalanceIndexerConfig is the configuration for an AgentBalanceIndexer.
 type AgentBalanceIndexerConfig struct {
-	Client          *rpc.Provider
+	Client          *starknet.RateLimitedProvider
 	AgentIdx        *AgentIndexer
 	MetaIdx         *AgentMetadataIndexer
-	RateLimiter     *rate.Limiter
 	TickRate        time.Duration
 	SafeBlockDelta  uint64
 	RegistryAddress *felt.Felt
@@ -92,7 +89,6 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 		priceCache:       config.PriceCache,
 		balances:         config.InitialState.Balances,
 		lastIndexedBlock: config.InitialState.LastIndexedBlock,
-		balanceLimiter:   config.RateLimiter,
 		toUpdate:         make(map[[32]byte]struct{}),
 		tickRate:         config.TickRate,
 		safeBlockDelta:   config.SafeBlockDelta,
@@ -206,11 +202,21 @@ func (i *AgentBalanceIndexer) balanceUpdateTask(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			currentBlock, err := i.client.BlockNumber(ctx)
-			if err != nil {
+			var currentBlock uint64
+			var err error
+
+			if err := i.client.Do(func(provider *rpc.Provider) error {
+				currentBlock, err = provider.BlockNumber(ctx)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}); err != nil {
 				slog.Error("failed to get current block for balance updates", "error", err)
 				continue
 			}
+
 			safeBlock := currentBlock - i.safeBlockDelta
 			i.processQueue(ctx, safeBlock)
 		}
@@ -284,12 +290,6 @@ func (i *AgentBalanceIndexer) sortAgents() {
 
 // updateBalance does the actual "balanceOf" call at a given blockNumber
 func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Felt, blockNum uint64) error {
-	if i.balanceLimiter != nil {
-		if err := i.balanceLimiter.Wait(ctx); err != nil {
-			return fmt.Errorf("rate limit wait failed: %v", err)
-		}
-	}
-
 	currentInfo, ok := i.GetBalance(agent)
 	if !ok {
 		currentInfo = &AgentBalance{
@@ -314,12 +314,18 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 		currentInfo.Token = meta.Token
 	}
 
-	balanceResp, err := i.client.Call(ctx, rpc.FunctionCall{
-		ContractAddress:    currentInfo.Token,
-		EntryPointSelector: balanceOfSelector,
-		Calldata:           []*felt.Felt{agent},
-	}, rpc.WithBlockNumber(blockNum))
-	if err != nil {
+	var balanceResp []*felt.Felt
+	var err error
+
+	if err := i.client.Do(func(provider *rpc.Provider) error {
+		balanceResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    currentInfo.Token,
+			EntryPointSelector: balanceOfSelector,
+			Calldata:           []*felt.Felt{agent},
+		}, rpc.WithBlockNumber(blockNum))
+
+		return err
+	}); err != nil {
 		snaccount.LogRpcError(err)
 		return fmt.Errorf("balanceOf call failed: %v", err)
 	}

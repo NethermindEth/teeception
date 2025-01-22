@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/indexer/price"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 )
 
 type UIServiceConfig struct {
-	Client          *rpc.Provider
+	Client          *starknet.RateLimitedProvider
 	PageSize        int
 	ServerAddr      string
 	RegistryAddress *felt.Felt
@@ -35,7 +35,7 @@ type UIService struct {
 
 	registryAddress *felt.Felt
 
-	client *rpc.Provider
+	client *starknet.RateLimitedProvider
 
 	pageSize   int
 	serverAddr string
@@ -72,7 +72,6 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	})
 	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
 	tokenIndexer := indexer.NewTokenIndexer(&indexer.TokenIndexerConfig{
-		Client:          config.Client,
 		PriceFeed:       priceFeed,
 		PriceTickRate:   5 * time.Second,
 		RegistryAddress: config.RegistryAddress,
