@@ -146,6 +146,13 @@ func (i *AgentBalanceIndexer) onTransferEvent(ctx context.Context, ev *Event) {
 		return
 	}
 
+	if _, ok := i.balances[transferEvent.From.Bytes()]; ok {
+		slog.Debug("enqueueing balance update for from", "address", transferEvent.From.String())
+	}
+	if _, ok := i.balances[transferEvent.To.Bytes()]; ok {
+		slog.Debug("enqueueing balance update for to", "address", transferEvent.To.String())
+	}
+
 	i.enqueueBalanceUpdate(transferEvent.From)
 	i.enqueueBalanceUpdate(transferEvent.To)
 }
@@ -162,6 +169,9 @@ func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Ev
 	}
 
 	i.pushAgent(agentRegisteredEvent.Agent)
+
+	slog.Debug("enqueueing balance update for agent registered", "address", agentRegisteredEvent.Agent.String())
+	i.enqueueBalanceUpdate(agentRegisteredEvent.Agent)
 }
 
 func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
@@ -179,6 +189,11 @@ func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
 func (i *AgentBalanceIndexer) enqueueBalanceUpdate(addr *felt.Felt) {
 	i.toUpdateMu.Lock()
 	defer i.toUpdateMu.Unlock()
+
+	if _, ok := i.balances[addr.Bytes()]; !ok {
+		slog.Debug("agent not found in balances", "address", addr.String())
+		return
+	}
 
 	i.toUpdate[addr.Bytes()] = struct{}{}
 }
@@ -205,6 +220,8 @@ func (i *AgentBalanceIndexer) balanceUpdateTask(ctx context.Context) error {
 
 // processQueue consumes the "toUpdate" set and tries to fetch new balances.
 func (i *AgentBalanceIndexer) processQueue(ctx context.Context, blockNumber uint64) {
+	slog.Info("processing balance update queue", "block", blockNumber)
+
 	i.toUpdateMu.Lock()
 	addresses := i.toUpdate
 	i.toUpdate = make(map[[32]byte]struct{})
@@ -214,8 +231,11 @@ func (i *AgentBalanceIndexer) processQueue(ctx context.Context, blockNumber uint
 	for addrBytes := range addresses {
 		addr.SetBytes(addrBytes[:])
 
+		slog.Debug("processing balance update", "address", addr.String())
+
 		// If not an agent, skip
 		if _, ok := i.agentIdx.GetAgentInfo(addr); !ok {
+			slog.Warn("agent not found in agent index", "address", addr.String())
 			continue
 		}
 
