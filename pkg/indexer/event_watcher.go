@@ -95,10 +95,7 @@ func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 	user := e.Raw.Keys[1]
 	promptID := e.Raw.Keys[2]
 	tweetID := e.Raw.Keys[3].Uint64()
-
-	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
-	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
-	amount := amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
 
 	return &PromptPaidEvent{
 		User:     user,
@@ -133,15 +130,11 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 		if dataCount == 1 {
 			amount = e.Raw.Data[0].BigInt(new(big.Int))
 		} else if dataCount == 2 {
-			amountLow := e.Raw.Data[0].BigInt(new(big.Int))
-			amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
-			amount = amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
 		} else if keyCount == 4 {
 			amount = e.Raw.Keys[3].BigInt(new(big.Int))
 		} else if keyCount == 5 {
-			amountLow := e.Raw.Keys[3].BigInt(new(big.Int))
-			amountHigh := e.Raw.Keys[4].BigInt(new(big.Int))
-			amount = amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Keys[3:5]))
 		}
 	} else if dataCount >= 3 {
 		from = e.Raw.Data[0]
@@ -150,9 +143,7 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 		if dataCount == 3 {
 			amount = e.Raw.Data[2].BigInt(new(big.Int))
 		} else if dataCount == 4 {
-			amountLow := e.Raw.Data[2].BigInt(new(big.Int))
-			amountHigh := e.Raw.Data[3].BigInt(new(big.Int))
-			amount = amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[2:4]))
 		}
 	} else {
 		slog.Warn("invalid transfer event", "txHash", e.Raw.TransactionHash)
@@ -188,9 +179,7 @@ func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 
 	token := e.Raw.Keys[1]
 
-	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
-	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
-	minPromptPrice := amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+	minPromptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
 
 	return &TokenAddedEvent{
 		Token:          token,
