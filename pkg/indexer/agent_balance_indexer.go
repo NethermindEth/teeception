@@ -317,28 +317,31 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 		currentInfo.Token = meta.Token
 	}
 
-	call := rpc.FunctionCall{
+	balanceResp, err := i.client.Call(ctx, rpc.FunctionCall{
 		ContractAddress:    currentInfo.Token,
 		EntryPointSelector: balanceOfSelector,
 		Calldata:           []*felt.Felt{agent},
-	}
-
-	balanceResp, err := i.client.Call(ctx, call, rpc.WithBlockNumber(blockNum))
+	}, rpc.WithBlockNumber(blockNum))
 	if err != nil {
 		snaccount.LogRpcError(err)
 		return fmt.Errorf("balanceOf call failed: %v", err)
 	}
-	if len(balanceResp) != 1 {
+
+	var amount *big.Int
+	if len(balanceResp) == 1 {
+		amount = balanceResp[0].BigInt(new(big.Int))
+	} else if len(balanceResp) == 2 {
+		amount = snaccount.Uint256ToBigInt([2]*felt.Felt(balanceResp[0:2]))
+	} else {
 		return fmt.Errorf("unexpected length in balanceOf response: %d", len(balanceResp))
 	}
-
-	newBalance := balanceResp[0].BigInt(nil)
 
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	currentInfo.Amount = newBalance
+	currentInfo.Amount = amount
 	currentInfo.AmountUpdatedAt = blockNum
+	i.balances[agent.Bytes()] = currentInfo
 
 	return nil
 }
