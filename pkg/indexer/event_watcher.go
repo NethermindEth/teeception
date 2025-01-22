@@ -52,8 +52,8 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 		return nil, false
 	}
 
-	agent := e.Raw.Keys[0]
-	creator := e.Raw.Keys[1]
+	agent := e.Raw.Keys[1]
+	creator := e.Raw.Keys[2]
 
 	namePos := uint64(0)
 	nameCount := e.Raw.Data[namePos].Uint64()
