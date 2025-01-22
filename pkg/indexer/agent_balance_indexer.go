@@ -351,6 +351,14 @@ func (i *AgentBalanceIndexer) GetAgentLeaderboard(start, end uint64) (*AgentLead
 	i.sortedAgentsMu.RLock()
 	defer i.sortedAgentsMu.RUnlock()
 
+	if i.sortedAgentsLen == 0 {
+		return &AgentLeaderboardResponse{
+			Agents:     make([][32]byte, 0),
+			AgentCount: 0,
+			LastBlock:  i.lastIndexedBlock,
+		}, nil
+	}
+
 	if start >= uint64(i.sortedAgentsLen) {
 		return nil, fmt.Errorf("start index out of bounds: %d", start)
 	}
