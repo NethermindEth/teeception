@@ -162,12 +162,6 @@ func (i *AgentMetadataIndexer) fetchMetadata(ctx context.Context, addr *felt.Fel
 			return AgentMetadata{}, fmt.Errorf("rate limit exceeded: %v", err)
 		}
 	}
-
-	if i.rateLimiter != nil {
-		if err := i.rateLimiter.Wait(ctx); err != nil {
-			return AgentMetadata{}, fmt.Errorf("rate limit exceeded: %v", err)
-		}
-	}
 	priceResp, err := i.client.Call(ctx, rpc.FunctionCall{
 		ContractAddress:    addr,
 		EntryPointSelector: getPromptPriceSelector,
