@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,6 +23,7 @@ type UIServiceConfig struct {
 	ServerAddr      string
 	RegistryAddress *felt.Felt
 	StartingBlock   uint64
+	TokenRates      map[[32]byte]*big.Int
 }
 
 type UIService struct {
@@ -68,11 +70,11 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 			LastIndexedBlock: config.StartingBlock - 1,
 		},
 	})
-	priceFeed := &price.StaticPriceFeed{}
+	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
 	tokenIndexer := indexer.NewTokenIndexer(&indexer.TokenIndexerConfig{
 		Client:          config.Client,
 		PriceFeed:       priceFeed,
-		PriceTickRate:   1 * time.Minute,
+		PriceTickRate:   5 * time.Second,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.TokenIndexerInitialState{
 			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
@@ -83,7 +85,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		Client:          config.Client,
 		AgentIdx:        agentIndexer,
 		MetaIdx:         agentMetadataIndexer,
-		TickRate:        1 * time.Minute,
+		TickRate:        5 * time.Second,
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
