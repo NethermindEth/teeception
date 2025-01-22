@@ -7,7 +7,6 @@ import (
 	"maps"
 	"math/big"
 	"slices"
-	"sort"
 	"sync"
 	"time"
 
@@ -16,6 +15,8 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
+
+	"github.com/NethermindEth/teeception/pkg/indexer/utils"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -41,10 +42,9 @@ type AgentBalanceIndexer struct {
 	lastIndexedBlock uint64
 	registryAddress  *felt.Felt
 
-	sortedAgentsMu  sync.RWMutex
-	sortedAgents    [][32]byte
-	sortedAgentsLen int
-	priceCache      AgentBalanceIndexerPriceCache
+	sortedAgentsMu sync.RWMutex
+	sortedAgents   *utils.LazySortedList[[32]byte]
+	priceCache     AgentBalanceIndexerPriceCache
 
 	balanceLimiter *rate.Limiter
 
@@ -88,8 +88,7 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 		agentIdx:         config.AgentIdx,
 		metaIdx:          config.MetaIdx,
 		registryAddress:  config.RegistryAddress,
-		sortedAgents:     make([][32]byte, 0),
-		sortedAgentsLen:  0,
+		sortedAgents:     utils.NewLazySortedList[[32]byte](),
 		priceCache:       config.PriceCache,
 		balances:         config.InitialState.Balances,
 		lastIndexedBlock: config.InitialState.LastIndexedBlock,
@@ -183,7 +182,7 @@ func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
 		Amount:          big.NewInt(0),
 		AmountUpdatedAt: 0,
 	}
-	i.sortedAgents = append(i.sortedAgents, addr.Bytes())
+	i.sortedAgents.Add(addr.Bytes())
 }
 
 func (i *AgentBalanceIndexer) enqueueBalanceUpdate(addr *felt.Felt) {
@@ -255,15 +254,13 @@ func (i *AgentBalanceIndexer) sortAgents() {
 	i.sortedAgentsMu.Lock()
 	defer i.sortedAgentsMu.Unlock()
 
-	i.sortedAgentsLen = len(i.balances)
-
-	if len(i.sortedAgents) != len(i.balances) {
-		i.sortedAgents = slices.Collect(maps.Keys(i.balances))
+	if i.sortedAgents.InnerLen() != len(i.balances) {
+		i.sortedAgents.Add(slices.Collect(maps.Keys(i.balances))...)
 	}
 
-	sort.Slice(i.sortedAgents, func(a, b int) bool {
-		balA := i.balances[i.sortedAgents[a]]
-		balB := i.balances[i.sortedAgents[b]]
+	i.sortedAgents.Sort(func(a, b int) bool {
+		balA := i.balances[i.sortedAgents.MustGet(a)]
+		balB := i.balances[i.sortedAgents.MustGet(b)]
 
 		if balA.Token == balB.Token {
 			return balA.Amount.Cmp(balB.Amount) > 0
@@ -374,7 +371,7 @@ func (i *AgentBalanceIndexer) GetAgentLeaderboard(start, end uint64) (*AgentLead
 	i.sortedAgentsMu.RLock()
 	defer i.sortedAgentsMu.RUnlock()
 
-	if i.sortedAgentsLen == 0 {
+	if i.sortedAgents.Len() == 0 {
 		return &AgentLeaderboardResponse{
 			Agents:     make([][32]byte, 0),
 			AgentCount: 0,
@@ -382,17 +379,22 @@ func (i *AgentBalanceIndexer) GetAgentLeaderboard(start, end uint64) (*AgentLead
 		}, nil
 	}
 
-	if start >= uint64(i.sortedAgentsLen) {
+	if start >= uint64(i.sortedAgents.Len()) {
 		return nil, fmt.Errorf("start index out of bounds: %d", start)
 	}
 
-	if end > uint64(i.sortedAgentsLen) {
-		end = uint64(i.sortedAgentsLen)
+	if end > uint64(i.sortedAgents.Len()) {
+		end = uint64(i.sortedAgents.Len())
+	}
+
+	agents, ok := i.sortedAgents.GetRange(int(start), int(end))
+	if !ok {
+		return nil, fmt.Errorf("failed to get range of agents")
 	}
 
 	return &AgentLeaderboardResponse{
-		Agents:     i.sortedAgents[start:end],
-		AgentCount: uint64(i.sortedAgentsLen),
+		Agents:     agents,
+		AgentCount: uint64(i.sortedAgents.Len()),
 		LastBlock:  i.lastIndexedBlock,
 	}, nil
 }
