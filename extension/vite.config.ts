@@ -25,10 +25,12 @@ export default defineConfig({
       input: {
         popup: 'index.html',
         content: 'src/content-script/index.tsx',
+        contentStyle: 'src/content-script/styles.css',
       },
       output: {
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name][extname]',
       },
     },
   },

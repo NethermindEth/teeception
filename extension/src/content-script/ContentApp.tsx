@@ -8,17 +8,15 @@ import { useTweetButton } from './hooks/useTweetButton'
 import { useModalContainer } from './hooks/useModalContainer'
 import { SELECTORS } from './constants/selectors'
 
-/**
- * Main content script application component
- * Manages the tweet button overlay and confirmation modal
- */
 const ContentApp = () => {
   const [showModal, setShowModal] = useState(false)
   const { originalButton, overlayButton } = useTweetButton()
   const modalContainer = useModalContainer(showModal)
 
   const handleTweetAttempt = useCallback(() => {
+    console.log('Handle Tweet attempt called')
     const text = getTweetText()
+    console.log('tweet text', text)
     if (text && text.includes(CONFIG.accountName)) {
       setShowModal(true)
     } else if (originalButton) {
@@ -32,20 +30,20 @@ const ContentApp = () => {
       console.log('🎹 Key pressed:', event.key, {
         metaKey: event.metaKey,
         ctrlKey: event.ctrlKey,
-        target: event.target
+        target: event.target,
       })
 
       // Check if we're in a tweet input
       const target = event.target as HTMLElement
-      const isTweetInput = target.matches(SELECTORS.TWEET_TEXTAREA) || 
-                          target.closest(SELECTORS.TWEET_TEXTBOX) !== null
+      const isTweetInput =
+        target.matches(SELECTORS.TWEET_TEXTAREA) || target.closest(SELECTORS.TWEET_TEXTBOX) !== null
 
       // Check for Cmd+Enter (Mac) or Ctrl+Enter (Windows/Linux)
       if (isTweetInput && event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
         // Always prevent default for Cmd+Enter
         event.preventDefault()
         event.stopPropagation()
-        
+
         handleTweetAttempt()
       }
     }
@@ -58,8 +56,24 @@ const ContentApp = () => {
     }
   }, [handleTweetAttempt])
 
+  useEffect(() => {
+    // console.log('Mounted')
+    // chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    //   console.log({ request, sender, sendResponse, starknet: window.starknet_braavos })
+    //   if (request.type === 'GET_STARKNET_WALLETS') {
+    //     sendResponse({
+    //       success: true,
+    //       starknet_braavos: window.starknet_braavos,
+    //       starknet_argentX: window.starknet_argentX,
+    //     })
+    //   }
+    // })
+    // injectScript(chrome.runtime.getURL('content.js'), 'body')
+  }, [])
+
   const handleConfirm = () => {
     setShowModal(false)
+    //TODO: Here we need to make the payment
     if (originalButton) {
       originalButton.click()
     }
@@ -68,16 +82,18 @@ const ContentApp = () => {
   return (
     <>
       <ConnectButton />
-      {modalContainer && showModal ? ReactDOM.createPortal(
-        <ConfirmationModal
-          open={true}
-          onConfirm={handleConfirm}
-          onCancel={() => {
-            setShowModal(false)
-          }}
-        />,
-        modalContainer
-      ) : null}
+      {modalContainer && showModal
+        ? ReactDOM.createPortal(
+            <ConfirmationModal
+              open={true}
+              onConfirm={handleConfirm}
+              onCancel={() => {
+                setShowModal(false)
+              }}
+            />,
+            modalContainer
+          )
+        : null}
     </>
   )
 }

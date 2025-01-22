@@ -5,19 +5,44 @@
     "description": "Pay-to-tweet mechanism for interacting with AI agents on Twitter/X",
     "permissions": [
         "activeTab",
-        "cookies"
+        "tabs",
+        "cookies",
+        "scripting",
+        "storage"
     ],
     "host_permissions": [
         "https://*.twitter.com/*"
     ],
     "content_scripts": [
         {
-            "matches": ["https://twitter.com/*", "https://x.com/*"],
-            "css": ["assets/contentStyle.css"],
-            "js": ["src/content-script/index.tsx"]
+            "matches": [
+                "https://twitter.com/*",
+                "https://x.com/*"
+            ],
+            "css": [
+                "assets/contentStyle.css"
+            ],
+            "js": [
+                "src/content-script/index.tsx"
+            ],
+            "run_at": "document_end",
+            "all_frames": true
         }
     ],
     "action": {
-      "default_popup": "index.html"
-    }
+        "default_popup": "index.html"
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "content.js"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
 }

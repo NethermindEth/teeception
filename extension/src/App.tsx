@@ -1,7 +1,12 @@
-import Popup from "./Popup";
+import Popup from './Popup'
+import { StarknetProvider } from './starknet-provider'
 
-const App: React.FC = () => {
-  return <Popup />;
-};
+const App = () => {
+  return (
+    <StarknetProvider>
+      <Popup />
+    </StarknetProvider>
+  )
+}
 
-export default App;
+export default App

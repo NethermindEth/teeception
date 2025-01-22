@@ -1,38 +1,51 @@
-import React, { useState } from 'react';
-import { Connector, useAccount, useConnect, useDisconnect } from "@starknet-react/core";
-import { Button } from '@/components/ui/button';
-import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit';
-import { X, Copy, ExternalLink } from 'lucide-react';
-import { useTokenBalance } from '../hooks/useTokenBalance';
-import { ACTIVE_NETWORK } from '../config/starknet';
-import { useAgentRegistry } from '../hooks/useAgentRegistry';
-import { AgentRegistryModal } from './AgentRegistryModal';
-import { AgentList } from './AgentList';
+import React, { useState } from 'react'
+import { Connector, useAccount, useConnect, useDisconnect } from '@starknet-react/core'
+import { Button } from '@/components/ui/button'
+import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
+import { X, Copy, ExternalLink } from 'lucide-react'
+import { useTokenBalance } from '../hooks/useTokenBalance'
+import { ACTIVE_NETWORK } from '../config/starknet'
+import { useAgentRegistry } from '../hooks/useAgentRegistry'
+import { AgentRegistryModal } from './AgentRegistryModal'
+import { AgentList } from './AgentList'
 
 export const ConnectButton = () => {
-  const { address, status } = useAccount();
-  const { balance, symbol, loading } = useTokenBalance(address);
-  const [copied, setCopied] = useState(false);
-  const { connectAsync, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
+  const { address, status } = useAccount()
+  const { balance, symbol, loading } = useTokenBalance(address)
+  const [copied, setCopied] = useState(false)
+  const { connectAsync, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: connectors as StarknetkitConnector[],
-  });
-  const { address: agentRegistryAddress, isModalOpen, error, updateAddress, setIsModalOpen } = useAgentRegistry();
+  })
+  const {
+    address: agentRegistryAddress,
+    isModalOpen,
+    error,
+    updateAddress,
+    setIsModalOpen,
+  } = useAgentRegistry()
 
   async function connectWalletWithModal() {
-    const { connector } = await starknetkitConnectModal();
-    if (!connector) return;
-    await connectAsync({ connector: connector as Connector });
+    const { connector } = await starknetkitConnectModal()
+    if (!connector) return
+    await connectAsync({ connector: connector as Connector })
+    chrome.runtime.sendMessage({
+      type: 'CONNECT_WALLET',
+      payload: {
+        address,
+        status,
+      },
+    })
   }
 
   const handleCopyAddress = async () => {
     if (address) {
-      await navigator.clipboard.writeText(address);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(address)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
-  };
+  }
 
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
@@ -42,7 +55,7 @@ export const ConnectButton = () => {
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
-  };
+  }
 
   const bannerStyle: React.CSSProperties = {
     display: 'flex',
@@ -53,22 +66,23 @@ export const ConnectButton = () => {
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     backdropFilter: 'blur(4px)',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  };
+  }
 
   const topUpBannerStyle: React.CSSProperties = {
     ...bannerStyle,
     backgroundColor: 'rgba(234, 179, 8, 0.9)',
     cursor: 'pointer',
-  };
+  }
 
-  const addressDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
-  const agentRegistryDisplay = agentRegistryAddress ? 
-    `${agentRegistryAddress.slice(0, 6)}...${agentRegistryAddress.slice(-4)}` : 'Not Set';
+  const addressDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
+  const agentRegistryDisplay = agentRegistryAddress
+    ? `${agentRegistryAddress.slice(0, 6)}...${agentRegistryAddress.slice(-4)}`
+    : 'Not Set'
 
   if (status !== 'connected') {
     return (
       <>
-        <Button 
+        <Button
           variant="default"
           size="sm"
           onClick={connectWalletWithModal}
@@ -83,30 +97,33 @@ export const ConnectButton = () => {
           onClose={() => setIsModalOpen(false)}
         />
       </>
-    );
+    )
   }
 
-  const showTopUpBanner = Number(balance) === 0 && !loading;
+  const showTopUpBanner = Number(balance) === 0 && !loading
 
   return (
     <>
       <div style={containerStyle}>
         <div style={bannerStyle}>
-          <span style={{ 
-            width: '8px', 
-            height: '8px', 
-            borderRadius: '50%', 
-            backgroundColor: '#4ade80',
-          }} />
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '4px',
-            cursor: 'pointer' 
-          }} onClick={handleCopyAddress}>
-            <span style={{ color: 'white', fontSize: '14px' }}>
-              {addressDisplay}
-            </span>
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#4ade80',
+            }}
+          />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+            }}
+            onClick={handleCopyAddress}
+          >
+            <span style={{ color: 'white', fontSize: '14px' }}>{addressDisplay}</span>
             <Copy size={12} style={{ color: copied ? '#4ade80' : 'white' }} />
           </div>
           <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
@@ -114,11 +131,9 @@ export const ConnectButton = () => {
             {loading ? '...' : `${balance} ${symbol}`}
           </span>
           <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
-          <span style={{ color: 'white', fontSize: '14px' }}>
-            {ACTIVE_NETWORK.name}
-          </span>
+          <span style={{ color: 'white', fontSize: '14px' }}>{ACTIVE_NETWORK.name}</span>
           <span style={{ color: 'rgba(255,255,255,0.6)' }}>|</span>
-          <span 
+          <span
             style={{ color: 'white', fontSize: '14px', cursor: 'pointer' }}
             onClick={() => setIsModalOpen(true)}
           >
@@ -150,9 +165,7 @@ export const ConnectButton = () => {
             style={topUpBannerStyle}
           >
             <ExternalLink size={14} style={{ color: 'white' }} />
-            <span style={{ color: 'white', fontSize: '14px' }}>
-              Get {symbol} on Starkgate
-            </span>
+            <span style={{ color: 'white', fontSize: '14px' }}>Get {symbol} on Starkgate</span>
           </a>
         )}
       </div>
@@ -164,5 +177,5 @@ export const ConnectButton = () => {
       />
       {status === 'connected' && <AgentList />}
     </>
-  );
-} 
+  )
+}
