@@ -135,6 +135,7 @@ func (s *UIService) startServer(ctx context.Context) error {
 	router := gin.Default()
 
 	router.GET("/agents", s.HandleGetAgents)
+	router.GET("/agent/:address", s.HandleGetAgent)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
