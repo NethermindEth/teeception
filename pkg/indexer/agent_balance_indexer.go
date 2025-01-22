@@ -329,6 +329,10 @@ func (i *AgentBalanceIndexer) GetBalance(agent *felt.Felt) (*AgentBalance, bool)
 	defer i.mu.RUnlock()
 
 	bal, ok := i.balances[agent.Bytes()]
+	if bal.Token == nil || bal.Amount == nil {
+		return nil, false
+	}
+
 	return bal, ok
 }
 
