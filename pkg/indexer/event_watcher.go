@@ -419,6 +419,10 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 			toBlock = safeBlock
 		}
 
+		if from > toBlock {
+			break
+		}
+
 		slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
 
 		if w.rateLimiter != nil {
