@@ -165,6 +165,7 @@ func (i *AgentMetadataIndexer) fetchMetadata(ctx context.Context, addr *felt.Fel
 	priceResp, err := i.client.Call(ctx, rpc.FunctionCall{
 		ContractAddress:    addr,
 		EntryPointSelector: getPromptPriceSelector,
+		Calldata:           []*felt.Felt{},
 	}, rpc.WithBlockTag("latest"))
 	if err != nil {
 		return AgentMetadata{}, fmt.Errorf("get_prompt_price call failed: %v", snaccount.FormatRpcError(err))
@@ -181,6 +182,7 @@ func (i *AgentMetadataIndexer) fetchMetadata(ctx context.Context, addr *felt.Fel
 	tokenResp, err := i.client.Call(ctx, rpc.FunctionCall{
 		ContractAddress:    addr,
 		EntryPointSelector: getTokenSelector,
+		Calldata:           []*felt.Felt{},
 	}, rpc.WithBlockTag("latest"))
 	if err != nil {
 		return AgentMetadata{}, fmt.Errorf("get_token call failed: %v", snaccount.FormatRpcError(err))
