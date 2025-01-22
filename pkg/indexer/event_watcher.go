@@ -123,6 +123,8 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 	var to *felt.Felt
 	var amount *big.Int
 
+	ok := true
+
 	if keyCount >= 3 {
 		from = e.Raw.Keys[1]
 		to = e.Raw.Keys[2]
@@ -135,6 +137,8 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 			amount = e.Raw.Keys[3].BigInt(new(big.Int))
 		} else if keyCount == 5 {
 			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Keys[3:5]))
+		} else {
+			ok = false
 		}
 	} else if dataCount >= 3 {
 		from = e.Raw.Data[0]
@@ -144,8 +148,14 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 			amount = e.Raw.Data[2].BigInt(new(big.Int))
 		} else if dataCount == 4 {
 			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[2:4]))
+		} else {
+			ok = false
 		}
 	} else {
+		ok = false
+	}
+
+	if !ok {
 		slog.Warn("invalid transfer event", "txHash", e.Raw.TransactionHash)
 		return nil, false
 	}
