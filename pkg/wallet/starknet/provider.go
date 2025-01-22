@@ -22,8 +22,10 @@ func NewRateLimitedProviderWithNoLimiter(provider *rpc.Provider) *RateLimitedPro
 }
 
 func (p *RateLimitedProvider) Do(f func(provider *rpc.Provider) error) error {
-	if err := p.limiter.Wait(context.Background()); err != nil {
-		return err
+	if p.limiter != nil {
+		if err := p.limiter.Wait(context.Background()); err != nil {
+			return err
+		}
 	}
 
 	return f(p.provider)
