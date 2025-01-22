@@ -105,25 +105,13 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		return
 	}
 
-	i.pushAgentInfo(
-		agentRegisteredEv.Agent,
-		agentRegisteredEv.Name,
-		agentRegisteredEv.SystemPrompt,
-		ev.Raw.BlockNumber,
-	)
-}
-
-func (i *AgentIndexer) pushAgentInfo(addr *felt.Felt, name string, systemPrompt string, block uint64) {
-	i.agentsMu.Lock()
-	defer i.agentsMu.Unlock()
-
 	info := AgentInfo{
-		Address:      addr,
-		Name:         name,
-		SystemPrompt: systemPrompt,
+		Address:      agentRegisteredEv.Agent,
+		Name:         agentRegisteredEv.Name,
+		SystemPrompt: agentRegisteredEv.SystemPrompt,
 	}
-	i.agents[addr.Bytes()] = info
-	i.addresses = append(i.addresses, addr)
+	i.agents[agentRegisteredEv.Agent.Bytes()] = info
+	i.addresses = append(i.addresses, agentRegisteredEv.Agent)
 }
 
 // GetAgentInfo returns an agent's info, if it exists.
