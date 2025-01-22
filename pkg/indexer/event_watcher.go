@@ -461,8 +461,9 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 
 		w.broadcast(eventLists, from, toBlock)
 
-		for _, eventList := range eventLists {
-			eventList = eventList[:0]
+		// clean up event lists
+		for eventType, eventList := range eventLists {
+			eventLists[eventType] = eventList[:0]
 		}
 
 		w.mu.Lock()
