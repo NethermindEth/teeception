@@ -178,7 +178,7 @@ func (s *UIService) HandleGetAgents(c *gin.Context) {
 
 	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page-1)*uint64(s.pageSize), uint64(page)*uint64(s.pageSize))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})
 		return
 	}
 
@@ -226,13 +226,13 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 
 	balance, ok := s.agentBalanceIndexer.GetBalance(agentAddr)
 	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in balance indexer"})
 		return
 	}
 
 	info, ok := s.agentIndexer.GetAgentInfo(agentAddr)
 	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in agent indexer"})
 		return
 	}
 
