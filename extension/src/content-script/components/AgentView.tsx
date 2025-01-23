@@ -8,18 +8,32 @@ export enum AGENT_VIEWS {
   'LAUNCH_AGENT',
   'LEADERBOARD',
 }
-export const AgentView = () => {
+
+interface AgentViewProps {
+  isShowAgentView: boolean
+}
+
+export const AgentView = ({ isShowAgentView }: AgentViewProps) => {
   const [currentView, setCurrentView] = useState<AGENT_VIEWS>(AGENT_VIEWS.ACTIVE_AGENTS)
 
   return (
-    <div className="p-6 text-white bg-black w-[500px] fixed right-0 top-10 h-[800px] z-50">
-      {currentView === AGENT_VIEWS.ACTIVE_AGENTS && (
-        <ActiveAgents setCurrentView={setCurrentView} />
-      )}
-      {currentView === AGENT_VIEWS.LAUNCH_AGENT && <LaunchAgent setCurrentView={setCurrentView} />}
-      {currentView === AGENT_VIEWS.LEADERBOARD && (
-        <Leaderboard setCurrentView={setCurrentView} />
-      )}
+    <div 
+      className={`
+        overflow-hidden transition-all duration-300 ease-in-out text-white
+        ${isShowAgentView ? 'max-h-[800px] opacity-100 visible' : 'max-h-0 opacity-0 invisible'}
+      `}
+    >
+      <div className="px-5 pt-4 border-t border-[#2F3336]">
+        <div className={isShowAgentView ? 'block' : 'hidden'}>
+          {currentView === AGENT_VIEWS.ACTIVE_AGENTS && (
+            <ActiveAgents setCurrentView={setCurrentView} />
+          )}
+          {currentView === AGENT_VIEWS.LAUNCH_AGENT && <LaunchAgent setCurrentView={setCurrentView} />}
+          {currentView === AGENT_VIEWS.LEADERBOARD && (
+            <Leaderboard setCurrentView={setCurrentView} />
+          )}
+        </div>
+      </div>
     </div>
   )
 }
