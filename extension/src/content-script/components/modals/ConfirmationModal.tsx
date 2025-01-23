@@ -1,9 +1,9 @@
 import React from 'react'
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
 import { CONFIG } from '../../config'
-import { cn } from "@/lib/utils"
-import { AlertTriangle } from "lucide-react"
+import { cn } from '@/lib/utils'
+import { AlertTriangle } from 'lucide-react'
 import { debug } from '../../utils/debug'
 
 interface ConfirmationModalProps {
@@ -27,27 +27,21 @@ export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationMod
             <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-500" />
           </div>
           <div className="space-y-2 flex-1">
-            <h2 className={cn(
-              "text-xl font-semibold tracking-tight",
-              "text-black dark:text-white"
-            )}>
+            <h2
+              className={cn('text-xl font-semibold tracking-tight', 'text-black dark:text-white')}
+            >
               Account Mention Detected
             </h2>
-            <p className={cn(
-              "text-sm leading-6",
-              "text-muted-foreground"
-            )}>
+            <p className={cn('text-sm leading-6', 'text-muted-foreground')}>
               You're about to tweet a message mentioning{' '}
-              <span className="font-medium text-foreground">
-                {CONFIG.accountName}
-              </span>.
-              Are you sure you want to proceed?
+              <span className="font-medium text-foreground">{CONFIG.accountName}</span>. Are you
+              sure you want to proceed?
             </p>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col justify-end gap-3">
           <Button
             variant="outline"
             onClick={() => {
@@ -64,10 +58,10 @@ export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationMod
               onConfirm()
             }}
           >
-            Confirm Tweet
+            Confirm and transfer
           </Button>
         </div>
       </div>
     </Dialog>
   )
-} 
+}
