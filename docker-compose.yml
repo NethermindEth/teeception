@@ -18,7 +18,7 @@ services:
       AGENT_TWITTER_CLIENT_PORT: "4000"
       PROTONMAIL_EMAIL: "your_proton_email"
       PROTONMAIL_PASSWORD: "your_proton_password"
-      STARKNET_RPC_URL: "your_ethereum_rpc_url"
+      STARKNET_RPC_URLS: "your_starknet_rpc_url1 your_starknet_rpc_url2"
       CONTRACT_ADDRESS: "your_contract_address"
       OPENAI_API_KEY: "your_openai_api_key"
       X_LOGIN_SERVER_IP: "your_twitter_login_server_ip"

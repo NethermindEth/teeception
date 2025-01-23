@@ -23,7 +23,7 @@ type AgentMetadata struct {
 
 // AgentMetadataIndexer fetches and caches each agent's extra data.
 type AgentMetadataIndexer struct {
-	client *starknet.RateLimitedProvider
+	client starknet.ProviderWrapper
 
 	mu               sync.RWMutex
 	metadata         map[[32]byte]AgentMetadata
@@ -42,7 +42,7 @@ type AgentMetadataIndexerInitialState struct {
 
 // AgentMetadataIndexerConfig is the configuration for an AgentMetadataIndexer.
 type AgentMetadataIndexerConfig struct {
-	Client          *starknet.RateLimitedProvider
+	Client          starknet.ProviderWrapper
 	RegistryAddress *felt.Felt
 	InitialState    *AgentMetadataIndexerInitialState
 }

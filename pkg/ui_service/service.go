@@ -18,7 +18,7 @@ import (
 )
 
 type UIServiceConfig struct {
-	Client          *starknet.RateLimitedProvider
+	Client          starknet.ProviderWrapper
 	PageSize        int
 	ServerAddr      string
 	RegistryAddress *felt.Felt
@@ -35,7 +35,7 @@ type UIService struct {
 
 	registryAddress *felt.Felt
 
-	client *starknet.RateLimitedProvider
+	client starknet.ProviderWrapper
 
 	pageSize   int
 	serverAddr string

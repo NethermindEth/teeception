@@ -20,7 +20,7 @@ type SetupManager struct {
 	protonPassword       string
 	twitterAppKey        string
 	twitterAppSecret     string
-	starknetRpcUrl       string
+	starknetRpcUrls      []string
 	agentRegistryAddress string
 	openAiKey            string
 	loginServerIp        string
@@ -38,7 +38,7 @@ type SetupOutput struct {
 	TwitterAccessToken       string     `json:"twitter_access_token"`
 	TwitterAccessTokenSecret string     `json:"twitter_access_token_secret"`
 	StarknetPrivateKeySeed   []byte     `json:"starknet_private_key_seed"`
-	StarknetRpcUrl           string     `json:"starknet_rpc_url"`
+	StarknetRpcUrls          []string   `json:"starknet_rpc_urls"`
 	AgentRegistryAddress     *felt.Felt `json:"agent_registry_address"`
 	OpenAIKey                string     `json:"openai_key"`
 	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
@@ -52,7 +52,7 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		protonPassword:       envGetProtonPassword(),
 		twitterAppKey:        envGetTwitterAppKey(),
 		twitterAppSecret:     envGetTwitterAppSecret(),
-		starknetRpcUrl:       envGetStarknetRpcUrl(),
+		starknetRpcUrls:      envGetStarknetRpcUrls(),
 		agentRegistryAddress: envGetAgentRegistryAddress(),
 		openAiKey:            envGetOpenAiKey(),
 		loginServerIp:        envGetLoginServerIp(),
@@ -80,8 +80,8 @@ func (m *SetupManager) Validate() error {
 		return fmt.Errorf("invalid twitter app credentials")
 	}
 
-	if m.starknetRpcUrl == "" {
-		return fmt.Errorf("invalid starknet rpc url")
+	if len(m.starknetRpcUrls) == 0 {
+		return fmt.Errorf("invalid starknet rpc urls")
 	}
 
 	if m.agentRegistryAddress == "" {
@@ -144,7 +144,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		TwitterPassword:          twitterEncumbererOutput.NewPassword,
 		ProtonPassword:           protonEncumbererOutput.NewPassword,
 		StarknetPrivateKeySeed:   starknetPrivateKeySeed[:],
-		StarknetRpcUrl:           m.starknetRpcUrl,
+		StarknetRpcUrls:          m.starknetRpcUrls,
 		AgentRegistryAddress:     agentRegistryAddress,
 		OpenAIKey:                m.openAiKey,
 		DstackTappdEndpoint:      m.dstackTappdEndpoint,

@@ -27,7 +27,7 @@ type AgentIndexer struct {
 	addresses        []*felt.Felt
 	registryAddress  *felt.Felt
 	lastIndexedBlock uint64
-	client           *starknet.RateLimitedProvider
+	client           starknet.ProviderWrapper
 }
 
 // AgentIndexerInitialState is the initial state for an AgentIndexer.
@@ -39,7 +39,7 @@ type AgentIndexerInitialState struct {
 // AgentIndexerConfig is the configuration for an AgentIndexer.
 type AgentIndexerConfig struct {
 	RegistryAddress *felt.Felt
-	Client          *starknet.RateLimitedProvider
+	Client          starknet.ProviderWrapper
 	InitialState    *AgentIndexerInitialState
 }
 

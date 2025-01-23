@@ -46,7 +46,7 @@ type AgentConfig struct {
 	TwitterAccessTokenSecret string
 	OpenAIKey                string
 	DstackTappdEndpoint      string
-	StarknetRpcUrl           string
+	StarknetRpcUrls          []string
 	StarknetPrivateKeySeed   []byte
 	AgentRegistryAddress     *felt.Felt
 	TaskConcurrency          int
@@ -59,7 +59,7 @@ type Agent struct {
 
 	twitterClient     twitter.TwitterClient
 	openaiClient      *openai.Client
-	starknetClient    *rpc.Provider
+	starknetClient    starknet.ProviderWrapper
 	dStackTappdClient *tappd.TappdClient
 
 	agentIndexer *indexer.AgentIndexer
@@ -95,14 +95,26 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 	dstackTappdClient := tappd.NewTappdClient(config.DstackTappdEndpoint, slog.Default())
 
-	slog.Info("connecting to starknet", "rpc_url", config.StarknetRpcUrl)
-	starknetClient, err := rpc.NewProvider(config.StarknetRpcUrl)
-	if err != nil {
-		return nil, err
+	slog.Info("connecting to starknet", "rpc_urls", config.StarknetRpcUrls)
+
+	providers := make([]*rpc.Provider, 0, len(config.StarknetRpcUrls))
+	for _, url := range config.StarknetRpcUrls {
+		starknetClient, err := rpc.NewProvider(url)
+		if err != nil {
+			return nil, err
+		}
+		providers = append(providers, starknetClient)
 	}
-	rateLimitedClient := starknet.NewRateLimitedProviderWithNoLimiter(starknetClient)
+
+	starknetClient, err := starknet.NewRateLimitedMultiProvider(starknet.RateLimitedMultiProviderConfig{
+		Providers: providers,
+		Limiter:   nil,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create rate limited client: %v", err)
+	}
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
-		Client:          rateLimitedClient,
+		Client:          starknetClient,
 		SafeBlockDelta:  config.SafeBlockDelta,
 		TickRate:        1 * time.Second,
 		IndexChunkSize:  1000,
@@ -110,7 +122,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	})
 
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
-		Client:          rateLimitedClient,
+		Client:          starknetClient,
 		RegistryAddress: config.AgentRegistryAddress,
 	})
 

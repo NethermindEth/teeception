@@ -243,7 +243,7 @@ type EventWatcherInitialState struct {
 
 // EventWatcherConfig holds the necessary settings for constructing an EventWatcher.
 type EventWatcherConfig struct {
-	Client          *starknet.RateLimitedProvider
+	Client          starknet.ProviderWrapper
 	SafeBlockDelta  uint64
 	TickRate        time.Duration
 	IndexChunkSize  uint
@@ -254,7 +254,7 @@ type EventWatcherConfig struct {
 // EventWatcher fetches events from Starknet in block ranges, parses them, and
 // distributes them to subscribers (AgentRegistered, Transfer, PromptPaid, etc.).
 type EventWatcher struct {
-	client           *starknet.RateLimitedProvider
+	client           starknet.ProviderWrapper
 	lastIndexedBlock uint64
 	safeBlockDelta   uint64
 	tickRate         time.Duration

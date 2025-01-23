@@ -32,7 +32,7 @@ type AgentBalanceIndexerPriceCache interface {
 
 // AgentBalanceIndexer responds to Transfer events for addresses known to be Agents, and updates their balances.
 type AgentBalanceIndexer struct {
-	client   *starknet.RateLimitedProvider
+	client   starknet.ProviderWrapper
 	agentIdx *AgentIndexer
 	metaIdx  *AgentMetadataIndexer
 
@@ -61,7 +61,7 @@ type AgentBalanceIndexerInitialState struct {
 
 // AgentBalanceIndexerConfig is the configuration for an AgentBalanceIndexer.
 type AgentBalanceIndexerConfig struct {
-	Client          *starknet.RateLimitedProvider
+	Client          starknet.ProviderWrapper
 	AgentIdx        *AgentIndexer
 	MetaIdx         *AgentMetadataIndexer
 	TickRate        time.Duration

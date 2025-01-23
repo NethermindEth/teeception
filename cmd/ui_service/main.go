@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
-	"flag"
 	"log/slog"
 	"math/big"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
+
 	uiservice "github.com/NethermindEth/teeception/pkg/ui_service"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
@@ -18,55 +20,78 @@ var (
 )
 
 func main() {
-	providerURL := flag.String("provider-url", "", "Starknet provider URL")
-	pageSize := flag.Int("page-size", 10, "Page size for pagination")
-	serverAddr := flag.String("server-addr", ":8000", "Server address to listen on")
-	registryAddr := flag.String("registry-addr", "", "Agent registry contract address")
-	deploymentBlock := flag.Uint64("deployment-block", 0, "Block number of registry deployment")
-	flag.Parse()
+	var (
+		providerURLs    []string
+		pageSize        int
+		serverAddr      string
+		registryAddr    string
+		deploymentBlock uint64
+	)
 
-	if *providerURL == "" {
-		slog.Error("provider URL is required")
-		os.Exit(1)
+	rootCmd := &cobra.Command{
+		Use:   "ui-service",
+		Short: "UI Service for Teeception",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(providerURLs) == 0 ||
+				registryAddr == "" ||
+				deploymentBlock == 0 ||
+				pageSize == 0 ||
+				serverAddr == "" {
+				return cmd.Help()
+			}
+
+			registryAddress, err := new(felt.Felt).SetString(registryAddr)
+			if err != nil {
+				slog.Error("invalid registry address", "error", err)
+				return err
+			}
+
+			providers := make([]*rpc.Provider, 0, len(providerURLs))
+			for _, url := range providerURLs {
+				client, err := rpc.NewProvider(url)
+				if err != nil {
+					slog.Error("failed to create RPC client", "url", url, "error", err)
+					return err
+				}
+				providers = append(providers, client)
+			}
+
+			rateLimitedClient, err := starknet.NewRateLimitedMultiProvider(starknet.RateLimitedMultiProviderConfig{
+				Providers: providers,
+				Limiter:   nil,
+			})
+			if err != nil {
+				slog.Error("failed to create rate limited client", "error", err)
+				return err
+			}
+
+			tokenRates := make(map[[32]byte]*big.Int)
+			tokenRates[strkAddress.Bytes()] = big.NewInt(1)
+
+			uiService, err := uiservice.NewUIService(&uiservice.UIServiceConfig{
+				Client:          rateLimitedClient,
+				PageSize:        pageSize,
+				ServerAddr:      serverAddr,
+				RegistryAddress: registryAddress,
+				StartingBlock:   deploymentBlock,
+				TokenRates:      tokenRates,
+			})
+			if err != nil {
+				slog.Error("failed to create UI service", "error", err)
+				return err
+			}
+
+			return uiService.Run(context.Background())
+		},
 	}
 
-	if *registryAddr == "" {
-		slog.Error("registry address is required")
-		os.Exit(1)
-	}
+	rootCmd.Flags().StringArrayVar(&providerURLs, "provider-url", nil, "Starknet provider URL (can be specified multiple times)")
+	rootCmd.Flags().IntVar(&pageSize, "page-size", 10, "Page size for pagination")
+	rootCmd.Flags().StringVar(&serverAddr, "server-addr", ":8000", "Server address to listen on")
+	rootCmd.Flags().StringVar(&registryAddr, "registry-addr", "", "Agent registry contract address")
+	rootCmd.Flags().Uint64Var(&deploymentBlock, "deployment-block", 0, "Block number of registry deployment")
 
-	registryAddress, err := new(felt.Felt).SetString(*registryAddr)
-	if err != nil {
-		slog.Error("invalid registry address", "error", err)
-		os.Exit(1)
-	}
-
-	client, err := rpc.NewProvider(*providerURL)
-	if err != nil {
-		slog.Error("failed to create RPC client", "error", err)
-		os.Exit(1)
-	}
-
-	rateLimitedClient := starknet.NewRateLimitedProviderWithNoLimiter(client)
-
-	tokenRates := make(map[[32]byte]*big.Int)
-	tokenRates[strkAddress.Bytes()] = big.NewInt(1)
-
-	uiService, err := uiservice.NewUIService(&uiservice.UIServiceConfig{
-		Client:          rateLimitedClient,
-		PageSize:        *pageSize,
-		ServerAddr:      *serverAddr,
-		RegistryAddress: registryAddress,
-		StartingBlock:   *deploymentBlock,
-		TokenRates:      tokenRates,
-	})
-	if err != nil {
-		slog.Error("failed to create UI service", "error", err)
-		os.Exit(1)
-	}
-
-	if err := uiService.Run(context.Background()); err != nil {
-		slog.Error("failed to run UI service", "error", err)
+	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
 }

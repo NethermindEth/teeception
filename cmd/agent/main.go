@@ -32,7 +32,7 @@ func main() {
 		TwitterAccessToken:       output.TwitterAccessToken,
 		TwitterAccessTokenSecret: output.TwitterAccessTokenSecret,
 		OpenAIKey:                output.OpenAIKey,
-		StarknetRpcUrl:           output.StarknetRpcUrl,
+		StarknetRpcUrls:          output.StarknetRpcUrls,
 		DstackTappdEndpoint:      output.DstackTappdEndpoint,
 		StarknetPrivateKeySeed:   output.StarknetPrivateKeySeed,
 		AgentRegistryAddress:     output.AgentRegistryAddress,
