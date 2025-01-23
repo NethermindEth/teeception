@@ -78,10 +78,6 @@ const Popup = () => {
                   {walletData.address?.slice(0, 6)}...{walletData.address?.slice(-4)}
                 </span>
               </div>
-              <Button className="w-full" variant="outline">
-                Deploy New Agent
-              </Button>
-              <Button className="w-full">View My Agents</Button>
             </div>
           )}
           {/* <Button onClick={handleConnect} className="w-full">

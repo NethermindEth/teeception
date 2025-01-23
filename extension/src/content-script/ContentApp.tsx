@@ -24,7 +24,6 @@ const ContentApp = () => {
     }
   }, [originalButton])
 
-  // Set up keyboard shortcut handler with capture phase
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       console.log('🎹 Key pressed:', event.key, {
@@ -56,21 +55,6 @@ const ContentApp = () => {
     }
   }, [handleTweetAttempt])
 
-  useEffect(() => {
-    // console.log('Mounted')
-    // chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    //   console.log({ request, sender, sendResponse, starknet: window.starknet_braavos })
-    //   if (request.type === 'GET_STARKNET_WALLETS') {
-    //     sendResponse({
-    //       success: true,
-    //       starknet_braavos: window.starknet_braavos,
-    //       starknet_argentX: window.starknet_argentX,
-    //     })
-    //   }
-    // })
-    // injectScript(chrome.runtime.getURL('content.js'), 'body')
-  }, [])
-
   const handleConfirm = () => {
     setShowModal(false)
     //TODO: Here we need to make the payment
@@ -82,7 +66,7 @@ const ContentApp = () => {
   return (
     <>
       <ConnectButton />
-      {modalContainer && showModal
+      {modalContainer
         ? ReactDOM.createPortal(
             <ConfirmationModal
               open={true}

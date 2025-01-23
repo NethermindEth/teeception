@@ -7,7 +7,33 @@ import { useTokenBalance } from '../hooks/useTokenBalance'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { AgentRegistryModal } from './AgentRegistryModal'
-import { AgentList } from './AgentList'
+import { AgentView } from './AgentView'
+const containerStyle: React.CSSProperties = {
+  position: 'fixed',
+  top: '12px',
+  right: '12px',
+  zIndex: 9999,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+}
+
+const bannerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  backdropFilter: 'blur(4px)',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+}
+
+const topUpBannerStyle: React.CSSProperties = {
+  ...bannerStyle,
+  backgroundColor: 'rgba(234, 179, 8, 0.9)',
+  cursor: 'pointer',
+}
 
 export const ConnectButton = () => {
   const { address, status } = useAccount()
@@ -25,18 +51,12 @@ export const ConnectButton = () => {
     updateAddress,
     setIsModalOpen,
   } = useAgentRegistry()
+  const [isShowAgentView, setIsShowAgentView] = useState(false)
 
   async function connectWalletWithModal() {
     const { connector } = await starknetkitConnectModal()
     if (!connector) return
     await connectAsync({ connector: connector as Connector })
-    chrome.runtime.sendMessage({
-      type: 'CONNECT_WALLET',
-      payload: {
-        address,
-        status,
-      },
-    })
   }
 
   const handleCopyAddress = async () => {
@@ -45,33 +65,6 @@ export const ConnectButton = () => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
-  }
-
-  const containerStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: '12px',
-    right: '12px',
-    zIndex: 9999,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  }
-
-  const bannerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    backdropFilter: 'blur(4px)',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-  }
-
-  const topUpBannerStyle: React.CSSProperties = {
-    ...bannerStyle,
-    backgroundColor: 'rgba(234, 179, 8, 0.9)',
-    cursor: 'pointer',
   }
 
   const addressDisplay = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : ''
@@ -101,11 +94,21 @@ export const ConnectButton = () => {
   }
 
   const showTopUpBanner = Number(balance) === 0 && !loading
+  console.log('Status', status)
 
   return (
     <>
       <div style={containerStyle}>
         <div style={bannerStyle}>
+          <button
+            onClick={() => {
+              setIsShowAgentView(!isShowAgentView)
+            }}
+            className="text-white"
+          >
+            {' '}
+            {isShowAgentView ? 'HIDE' : 'SHOW'}
+          </button>
           <span
             style={{
               width: '8px',
@@ -175,7 +178,7 @@ export const ConnectButton = () => {
         error={error}
         onClose={() => setIsModalOpen(false)}
       />
-      {status === 'connected' && <AgentList />}
+      {status === 'connected' && isShowAgentView && <AgentView />}
     </>
   )
 }
