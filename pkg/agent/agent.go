@@ -93,7 +93,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 	openaiClient := openai.NewClient(config.OpenAIKey)
 
-	dstackTappdClient := tappd.NewTappdClient(config.DstackTappdEndpoint, slog.Default())
+	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(config.DstackTappdEndpoint))
 
 	slog.Info("connecting to starknet", "rpc_urls", config.StarknetRpcUrls)
 
@@ -421,7 +421,7 @@ func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
 		return nil, fmt.Errorf("failed to binary marshal report data: %v", err)
 	}
 
-	quoteResp, err := a.dStackTappdClient.TdxQuote(ctx, reportDataBytes, tappd.KECCAK256)
+	quoteResp, err := a.dStackTappdClient.TdxQuoteWithHashAlgorithm(ctx, reportDataBytes, tappd.KECCAK256)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get quote: %v", err)
 	}

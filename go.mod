@@ -5,7 +5,6 @@ go 1.23.1
 toolchain go1.23.4
 
 require (
-	github.com/Dstack-TEE/dstack/sdk/go v0.0.0-00010101000000-000000000000
 	github.com/NethermindEth/juno v0.12.2
 	github.com/NethermindEth/starknet.go v0.7.2
 	github.com/alitto/pond/v2 v2.1.5
@@ -22,6 +21,7 @@ require (
 )
 
 require (
+	github.com/Dstack-TEE/dstack/sdk/go v0.0.0-20250116110808-2f6df2b17da6 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/bits-and-blooms/bitset v1.14.2 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
@@ -73,5 +73,3 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
-
-replace github.com/Dstack-TEE/dstack/sdk/go => github.com/Hyodar/dstack/sdk/go v0.0.0-20241209145239-90bba8309f30
