@@ -11,7 +11,7 @@ export const STARKNET_CONFIG = {
     explorer: 'https://sepolia.starkscan.co',
     rpc: 'https://starknet-sepolia.public.blastapi.io',
     starkgate: 'https://sepolia.starkgate.starknet.io',
-    agentRegistryAddress: undefined, // Default address for Sepolia
+    agentRegistryAddress: '0x07876b81F61434381A970eC1ab3D451B400Ff216187Ba216Fa5d88BF3c115dE6', // Default address for Sepolia
   },
   mainnet: {
     chain: mainnet,
