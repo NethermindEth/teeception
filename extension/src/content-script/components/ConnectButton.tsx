@@ -2,19 +2,13 @@ import React, { useState } from 'react'
 import { Connector, useAccount, useConnect, useDisconnect } from '@starknet-react/core'
 import { Button } from '@/components/ui/button'
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
-import {
-  X,
-  Copy,
-  ExternalLink,
-  ChevronRightCircle,
-  ChevronLeftCircleIcon,
-  ChevronRightCircleIcon,
-} from 'lucide-react'
+import { X, Copy, ExternalLink, ChevronLeftCircleIcon, ChevronRightCircleIcon } from 'lucide-react'
 import { useTokenBalance } from '../hooks/useTokenBalance'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { AgentRegistryModal } from './AgentRegistryModal'
 import { AgentView } from './AgentView'
+
 const containerStyle: React.CSSProperties = {
   position: 'fixed',
   top: '12px',
