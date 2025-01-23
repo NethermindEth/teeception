@@ -46,7 +46,7 @@ func main() {
 				return err
 			}
 
-			providers := make([]*rpc.Provider, 0, len(providerURLs))
+			providers := make([]rpc.RpcProvider, 0, len(providerURLs))
 			for _, url := range providerURLs {
 				client, err := rpc.NewProvider(url)
 				if err != nil {
