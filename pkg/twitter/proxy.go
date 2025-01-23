@@ -22,7 +22,7 @@ func NewTwitterProxy(url string, client *http.Client) *TwitterProxy {
 	}
 }
 
-func (p *TwitterProxy) Initialize(config TwitterClientConfig) error {
+func (p *TwitterProxy) Initialize(config *TwitterClientConfig) error {
 	body := map[string]string{
 		"username":          config.Username,
 		"password":          config.Password,

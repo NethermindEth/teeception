@@ -143,7 +143,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 	var isAgentRegisteredResp []*felt.Felt
 	var err error
 
-	if err := i.client.Do(func(provider *rpc.Provider) error {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
 		isAgentRegisteredResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    i.registryAddress,
 			EntryPointSelector: isAgentRegisteredSelector,
@@ -160,7 +160,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 	}
 
 	var nameResp []*felt.Felt
-	if err := i.client.Do(func(provider *rpc.Provider) error {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
 		nameResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    addr,
 			EntryPointSelector: getNameSelector,
@@ -178,7 +178,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 	}
 
 	var getSystemPromptResp []*felt.Felt
-	if err := i.client.Do(func(provider *rpc.Provider) error {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
 		getSystemPromptResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    addr,
 			EntryPointSelector: getSystemPromptSelector,

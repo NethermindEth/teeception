@@ -13,12 +13,12 @@ import (
 
 // ProviderWrapper is a wrapper around a provider.
 type ProviderWrapper interface {
-	Do(f func(provider *rpc.Provider) error) error
+	Do(f func(provider rpc.RpcProvider) error) error
 }
 
 // RateLimitedMultiProviderConfig is the configuration for the RateLimitedMultiProvider.
 type RateLimitedMultiProviderConfig struct {
-	Providers []*rpc.Provider
+	Providers []rpc.RpcProvider
 	Limiter   *rate.Limiter
 }
 
@@ -26,7 +26,7 @@ var _ ProviderWrapper = (*RateLimitedMultiProvider)(nil)
 
 // RateLimitedMultiProvider is a wrapper around multiple providers that limits the number of requests per second.
 type RateLimitedMultiProvider struct {
-	providers []*rpc.Provider
+	providers []rpc.RpcProvider
 	limiter   *rate.Limiter
 }
 
@@ -43,7 +43,7 @@ func NewRateLimitedMultiProvider(config RateLimitedMultiProviderConfig) (*RateLi
 }
 
 // Do executes the given function for each provider in the list.
-func (p *RateLimitedMultiProvider) Do(f func(provider *rpc.Provider) error) error {
+func (p *RateLimitedMultiProvider) Do(f func(provider rpc.RpcProvider) error) error {
 	if p.limiter != nil {
 		if err := p.limiter.Wait(context.Background()); err != nil {
 			return err

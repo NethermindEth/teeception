@@ -39,7 +39,7 @@ func NewTwitterApiClient() *TwitterApiClient {
 	}
 }
 
-func (c *TwitterApiClient) Initialize(config TwitterClientConfig) error {
+func (c *TwitterApiClient) Initialize(config *TwitterClientConfig) error {
 	oauthConfig := oauth1.NewConfig(config.ConsumerKey, config.ConsumerSecret)
 	oauthToken := oauth1.NewToken(config.AccessToken, config.AccessTokenSecret)
 	client := oauthConfig.Client(oauth1.NoContext, oauthToken)

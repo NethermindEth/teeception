@@ -205,7 +205,7 @@ func (i *AgentBalanceIndexer) balanceUpdateTask(ctx context.Context) error {
 			var currentBlock uint64
 			var err error
 
-			if err := i.client.Do(func(provider *rpc.Provider) error {
+			if err := i.client.Do(func(provider rpc.RpcProvider) error {
 				currentBlock, err = provider.BlockNumber(ctx)
 				if err != nil {
 					return err
@@ -317,7 +317,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 	var balanceResp []*felt.Felt
 	var err error
 
-	if err := i.client.Do(func(provider *rpc.Provider) error {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
 		balanceResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    currentInfo.Token,
 			EntryPointSelector: balanceOfSelector,

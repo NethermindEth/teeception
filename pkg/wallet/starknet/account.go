@@ -100,7 +100,7 @@ func (a *StarknetAccount) connect(client ProviderWrapper) error {
 	var err error
 
 	slog.Info("creating new account instance")
-	client.Do(func(provider *rpc.Provider) error {
+	client.Do(func(provider rpc.RpcProvider) error {
 		a.account, err = account.NewAccount(provider, a.options.PublicKey, a.options.PublicKey.String(), a.options.Keystore, cairoVersion)
 		if err != nil {
 			return err

@@ -115,7 +115,7 @@ func (q *TxQueue) Stop() {
 func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *TxQueueResult, error) {
 	// Dry-run each FunctionCall to confirm success.
 	for i, c := range calls {
-		err := q.client.Do(func(client *rpc.Provider) error {
+		err := q.client.Do(func(client rpc.RpcProvider) error {
 			_, err := client.Call(ctx, c, rpc.WithBlockTag("latest"))
 			if err != nil {
 				return err

@@ -157,7 +157,7 @@ func (i *AgentMetadataIndexer) fetchMetadata(ctx context.Context, addr *felt.Fel
 	var priceResp []*felt.Felt
 	var err error
 
-	if err := i.client.Do(func(provider *rpc.Provider) error {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
 		priceResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    addr,
 			EntryPointSelector: getPromptPriceSelector,
@@ -172,7 +172,7 @@ func (i *AgentMetadataIndexer) fetchMetadata(ctx context.Context, addr *felt.Fel
 	}
 
 	var tokenResp []*felt.Felt
-	if err := i.client.Do(func(provider *rpc.Provider) error {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
 		tokenResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    addr,
 			EntryPointSelector: getTokenSelector,

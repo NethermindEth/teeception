@@ -367,7 +367,7 @@ func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) 
 		var eventsResp *rpc.EventChunk
 		var err error
 
-		if err := w.client.Do(func(provider *rpc.Provider) error {
+		if err := w.client.Do(func(provider rpc.RpcProvider) error {
 			eventsResp, err = provider.Events(ctx, rpc.EventsInput{
 				EventFilter: filter,
 				ResultPageRequest: rpc.ResultPageRequest{
@@ -401,7 +401,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 	var currentBlock uint64
 	var err error
 
-	if err := w.client.Do(func(provider *rpc.Provider) error {
+	if err := w.client.Do(func(provider rpc.RpcProvider) error {
 		currentBlock, err = provider.BlockNumber(ctx)
 		return err
 	}); err != nil {
