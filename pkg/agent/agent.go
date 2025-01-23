@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,8 +13,8 @@ import (
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/alitto/pond/v2"
 	"github.com/sashabaranov/go-openai"
-	"github.com/tmc/langchaingo/jsonschema"
 
+	"github.com/NethermindEth/teeception/pkg/agent/chat"
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
@@ -58,7 +57,7 @@ type Agent struct {
 	config *AgentConfig
 
 	twitterClient     twitter.TwitterClient
-	openaiClient      *openai.Client
+	openaiClient      chat.ChatCompletion
 	starknetClient    starknet.ProviderWrapper
 	dStackTappdClient *tappd.TappdClient
 
@@ -91,7 +90,10 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		return nil, fmt.Errorf("invalid twitter client mode: %s", config.TwitterClientMode)
 	}
 
-	openaiClient := openai.NewClient(config.OpenAIKey)
+	openaiClient := chat.NewOpenAIChatCompletion(chat.OpenAIChatCompletionConfig{
+		OpenAIKey: config.OpenAIKey,
+		Model:     openai.GPT4,
+	})
 
 	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(config.DstackTappdEndpoint))
 
@@ -256,85 +258,27 @@ func (a *Agent) processPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {
 	slog.Info("generating AI response", "tweet_id", tweetID)
 
-	messages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: systemPrompt,
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: tweetText,
-		},
-	}
-
-	resp, err := a.openaiClient.CreateChatCompletion(
-		ctx,
-		openai.ChatCompletionRequest{
-			Model:    openai.GPT4,
-			Messages: messages,
-			Tools: []openai.Tool{
-				{
-					Type: openai.ToolTypeFunction,
-					Function: &openai.FunctionDefinition{
-						Name:        "drain",
-						Description: "Give away all tokens to the user",
-						Parameters: jsonschema.Definition{
-							Type: jsonschema.Object,
-							Properties: map[string]jsonschema.Definition{
-								"address": {
-									Type:        jsonschema.String,
-									Description: "The address to give the tokens to",
-								},
-							},
-							Required: []string{"address"},
-						},
-					},
-				},
-			},
-		},
-	)
+	resp, err := a.openaiClient.Prompt(ctx, systemPrompt, tweetText)
 	if err != nil {
-		return fmt.Errorf("chat completion failed: %v", err)
-	}
-
-	if len(resp.Choices) == 0 {
-		return fmt.Errorf("no response received")
+		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
 
 	slog.Info("replying to tweet", "tweet_id", tweetID)
 
-	if !debug.IsDebugDisableReplies() {
-		a.twitterClient.ReplyToTweet(tweetID, resp.Choices[0].Message.Content)
-	}
-
-	for _, toolCall := range resp.Choices[0].Message.ToolCalls {
-		if toolCall.Function.Name == "drain" {
-			type drainArgs struct {
-				Address string `json:"address"`
-			}
-
-			var args drainArgs
-			json.Unmarshal([]byte(toolCall.Function.Arguments), &args)
-
-			go func() {
-				err := a.drainAndReply(ctx, agentAddress, args.Address, tweetID)
-				if err != nil {
-					slog.Warn("failed to drain and reply", "error", err)
-				}
-
-				err = a.consumePrompt(ctx, agentAddress, tweetID)
-				if err != nil {
-					slog.Warn("failed to consume prompt", "error", err)
-				}
-			}()
-
-			return nil
-		}
-	}
-
 	err = a.consumePrompt(ctx, agentAddress, tweetID)
 	if err != nil {
 		slog.Warn("failed to consume prompt", "error", err)
+	}
+
+	if !debug.IsDebugDisableReplies() {
+		a.twitterClient.ReplyToTweet(tweetID, resp.Response)
+	}
+
+	if resp.Drain != nil {
+		err := a.drainAndReply(ctx, agentAddress, resp.Drain.Address, tweetID)
+		if err != nil {
+			return fmt.Errorf("failed to drain and reply: %v", err)
+		}
 	}
 
 	return nil
