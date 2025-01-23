@@ -11,6 +11,7 @@ export const STARKNET_CONFIG = {
     explorer: 'https://sepolia.starkscan.co',
     rpc: 'https://starknet-sepolia.public.blastapi.io',
     starkgate: 'https://sepolia.starkgate.starknet.io',
+    agentRegistryAddress: undefined, // Default address for Sepolia
   },
   mainnet: {
     chain: mainnet,
@@ -21,6 +22,7 @@ export const STARKNET_CONFIG = {
     explorer: 'https://starkscan.co',
     rpc: 'https://starknet-mainnet.public.blastapi.io',
     starkgate: 'https://starkgate.starknet.io',
+    agentRegistryAddress: undefined, // Default address for Mainnet
   }
 } as const;
 
