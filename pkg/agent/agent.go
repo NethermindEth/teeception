@@ -16,6 +16,7 @@ import (
 
 	"github.com/NethermindEth/teeception/pkg/agent/chat"
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
+	"github.com/NethermindEth/teeception/pkg/agent/quote"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
@@ -56,10 +57,10 @@ type AgentConfig struct {
 type Agent struct {
 	config *AgentConfig
 
-	twitterClient     twitter.TwitterClient
-	openaiClient      chat.ChatCompletion
-	starknetClient    starknet.ProviderWrapper
-	dStackTappdClient *tappd.TappdClient
+	twitterClient  twitter.TwitterClient
+	openaiClient   chat.ChatCompletion
+	starknetClient starknet.ProviderWrapper
+	quoter         quote.Quoter
 
 	agentIndexer *indexer.AgentIndexer
 	eventWatcher *indexer.EventWatcher
@@ -96,6 +97,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	})
 
 	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(config.DstackTappdEndpoint))
+	quoter := quote.NewTappdQuoter(dstackTappdClient)
 
 	slog.Info("connecting to starknet", "rpc_urls", config.StarknetRpcUrls)
 
@@ -143,10 +145,10 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	return &Agent{
 		config: config,
 
-		twitterClient:     twitterClient,
-		openaiClient:      openaiClient,
-		starknetClient:    starknetClient,
-		dStackTappdClient: dstackTappdClient,
+		twitterClient:  twitterClient,
+		openaiClient:   openaiClient,
+		starknetClient: starknetClient,
+		quoter:         quoter,
 
 		agentIndexer: agentIndexer,
 		eventWatcher: eventWatcher,
@@ -351,25 +353,19 @@ func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addr
 	return a.twitterClient.ReplyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
 }
 
-func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
+func (a *Agent) quote(ctx context.Context) (string, error) {
 	slog.Info("requesting quote")
 
-	reportData := ReportData{
+	quote, err := a.quoter.Quote(ctx, &quote.ReportData{
 		Address:         a.account.Address(),
 		ContractAddress: a.config.AgentRegistryAddress,
 		TwitterUsername: a.config.TwitterUsername,
-	}
-
-	reportDataBytes, err := reportData.MarshalBinary()
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to binary marshal report data: %v", err)
+		return "", fmt.Errorf("failed to get quote: %v", err)
 	}
 
-	quoteResp, err := a.dStackTappdClient.TdxQuoteWithHashAlgorithm(ctx, reportDataBytes, tappd.KECCAK256)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get quote: %v", err)
-	}
+	slog.Info("quote generated successfully")
 
-	slog.Info("quote received successfully")
-	return quoteResp, nil
+	return quote, nil
 }
