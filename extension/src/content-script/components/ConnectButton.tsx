@@ -2,7 +2,14 @@ import React, { useState } from 'react'
 import { Connector, useAccount, useConnect, useDisconnect } from '@starknet-react/core'
 import { Button } from '@/components/ui/button'
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
-import { X, Copy, ExternalLink } from 'lucide-react'
+import {
+  X,
+  Copy,
+  ExternalLink,
+  ChevronRightCircle,
+  ChevronLeftCircleIcon,
+  ChevronRightCircleIcon,
+} from 'lucide-react'
 import { useTokenBalance } from '../hooks/useTokenBalance'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
@@ -107,7 +114,11 @@ export const ConnectButton = () => {
             className="text-white"
           >
             {' '}
-            {isShowAgentView ? 'HIDE' : 'SHOW'}
+            {isShowAgentView ? (
+              <ChevronRightCircleIcon size={20} style={{ color: 'white' }} />
+            ) : (
+              <ChevronLeftCircleIcon size={20} style={{ color: 'white' }} />
+            )}
           </button>
           <span
             style={{

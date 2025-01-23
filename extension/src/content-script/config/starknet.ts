@@ -24,4 +24,4 @@ export const STARKNET_CONFIG = {
   }
 } as const;
 
-export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia; 
+export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia;
