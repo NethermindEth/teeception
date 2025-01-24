@@ -147,7 +147,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		isAgentRegisteredResp, err = provider.Call(ctx, rpc.FunctionCall{
 			ContractAddress:    i.registryAddress,
 			EntryPointSelector: isAgentRegisteredSelector,
-			Calldata:           []*felt.Felt{},
+			Calldata:           []*felt.Felt{addr},
 		}, rpc.WithBlockTag("latest"))
 		return err
 	}); err != nil {
