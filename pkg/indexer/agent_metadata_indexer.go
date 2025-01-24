@@ -7,10 +7,10 @@ import (
 	"sync"
 
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -23,45 +23,44 @@ type AgentMetadata struct {
 
 // AgentMetadataIndexer fetches and caches each agent's extra data.
 type AgentMetadataIndexer struct {
-	client *rpc.Provider
+	client starknet.ProviderWrapper
 
 	mu               sync.RWMutex
 	metadata         map[[32]byte]AgentMetadata
 	lastIndexedBlock uint64
 
 	registryAddress *felt.Felt
-	rateLimiter     *rate.Limiter
 
 	initQueue chan *felt.Felt
 }
 
+// AgentMetadataIndexerInitialState is the initial state for an AgentMetadataIndexer.
+type AgentMetadataIndexerInitialState struct {
+	Metadata         map[[32]byte]AgentMetadata
+	LastIndexedBlock uint64
+}
+
 // AgentMetadataIndexerConfig is the configuration for an AgentMetadataIndexer.
 type AgentMetadataIndexerConfig struct {
-	Client          *rpc.Provider
+	Client          starknet.ProviderWrapper
 	RegistryAddress *felt.Felt
-	RateLimiter     *rate.Limiter
+	InitialState    *AgentMetadataIndexerInitialState
 }
 
 // NewAgentMetadataIndexer creates a new instance.
 func NewAgentMetadataIndexer(config *AgentMetadataIndexerConfig) *AgentMetadataIndexer {
-	return &AgentMetadataIndexer{
-		client: config.Client,
-
-		metadata:        make(map[[32]byte]AgentMetadata),
-		registryAddress: config.RegistryAddress,
-		rateLimiter:     config.RateLimiter,
-		initQueue:       make(chan *felt.Felt, 1000),
+	if config.InitialState == nil {
+		config.InitialState = &AgentMetadataIndexerInitialState{
+			Metadata:         make(map[[32]byte]AgentMetadata),
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewAgentMetadataIndexerWithInitialState creates a new AgentMetadataIndexer with an initial state.
-func NewAgentMetadataIndexerWithInitialState(config *AgentMetadataIndexerConfig, initialState map[[32]byte]AgentMetadata, lastIndexedBlock uint64) *AgentMetadataIndexer {
 	return &AgentMetadataIndexer{
 		client:           config.Client,
-		metadata:         initialState,
-		lastIndexedBlock: lastIndexedBlock,
+		metadata:         config.InitialState.Metadata,
+		lastIndexedBlock: config.InitialState.LastIndexedBlock,
 		registryAddress:  config.RegistryAddress,
-		rateLimiter:      config.RateLimiter,
 		initQueue:        make(chan *felt.Felt, 1000),
 	}
 }
@@ -155,38 +154,32 @@ func (i *AgentMetadataIndexer) initializeMetadata(ctx context.Context, addr *fel
 }
 
 func (i *AgentMetadataIndexer) fetchMetadata(ctx context.Context, addr *felt.Felt) (AgentMetadata, error) {
-	if i.rateLimiter != nil {
-		if err := i.rateLimiter.Wait(ctx); err != nil {
-			return AgentMetadata{}, fmt.Errorf("rate limit exceeded: %v", err)
-		}
-	}
+	var priceResp []*felt.Felt
+	var err error
 
-	if i.rateLimiter != nil {
-		if err := i.rateLimiter.Wait(ctx); err != nil {
-			return AgentMetadata{}, fmt.Errorf("rate limit exceeded: %v", err)
-		}
-	}
-	priceResp, err := i.client.Call(ctx, rpc.FunctionCall{
-		ContractAddress:    addr,
-		EntryPointSelector: getPromptPriceSelector,
-	}, rpc.WithBlockTag("latest"))
-	if err != nil {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		priceResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getPromptPriceSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
 		return AgentMetadata{}, fmt.Errorf("get_prompt_price call failed: %v", snaccount.FormatRpcError(err))
 	}
 	if len(priceResp) < 1 {
 		return AgentMetadata{}, fmt.Errorf("get_prompt_price unexpected length")
 	}
 
-	if i.rateLimiter != nil {
-		if err := i.rateLimiter.Wait(ctx); err != nil {
-			return AgentMetadata{}, fmt.Errorf("rate limit exceeded: %v", err)
-		}
-	}
-	tokenResp, err := i.client.Call(ctx, rpc.FunctionCall{
-		ContractAddress:    addr,
-		EntryPointSelector: getTokenSelector,
-	}, rpc.WithBlockTag("latest"))
-	if err != nil {
+	var tokenResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		tokenResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getTokenSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
 		return AgentMetadata{}, fmt.Errorf("get_token call failed: %v", snaccount.FormatRpcError(err))
 	}
 	if len(tokenResp) < 1 {

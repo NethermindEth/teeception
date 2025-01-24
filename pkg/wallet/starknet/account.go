@@ -92,7 +92,7 @@ func (a *StarknetAccount) Account() (*account.Account, error) {
 	return a.account, nil
 }
 
-func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
+func (a *StarknetAccount) connect(client ProviderWrapper) error {
 	if a.account != nil {
 		return nil
 	}
@@ -100,9 +100,14 @@ func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
 	var err error
 
 	slog.Info("creating new account instance")
-	a.account, err = account.NewAccount(provider, a.options.PublicKey, a.options.PublicKey.String(), a.options.Keystore, cairoVersion)
+	client.Do(func(provider rpc.RpcProvider) error {
+		a.account, err = account.NewAccount(provider, a.options.PublicKey, a.options.PublicKey.String(), a.options.Keystore, cairoVersion)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		LogRpcError(err)
 		return fmt.Errorf("failed to create new account instance: %w", err)
 	}
 
@@ -122,7 +127,7 @@ func (a *StarknetAccount) connect(provider rpc.RpcProvider) error {
 	return nil
 }
 
-func (a *StarknetAccount) Connect(provider rpc.RpcProvider) error {
+func (a *StarknetAccount) Connect(client ProviderWrapper) error {
 	a.connectMu.Lock()
 	defer a.connectMu.Unlock()
 
@@ -132,7 +137,7 @@ func (a *StarknetAccount) Connect(provider rpc.RpcProvider) error {
 	}
 
 	slog.Info("connecting account")
-	if err := a.connect(provider); err != nil {
+	if err := a.connect(client); err != nil {
 		return fmt.Errorf("failed to connect account: %w", err)
 	}
 
@@ -141,10 +146,10 @@ func (a *StarknetAccount) Connect(provider rpc.RpcProvider) error {
 	return nil
 }
 
-func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) error {
+func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) error {
 	if !a.connected {
 		slog.Info("connecting account before deployment")
-		err := a.Connect(provider)
+		err := a.Connect(client)
 		if err != nil {
 			return fmt.Errorf("failed to connect account before deployment: %w", err)
 		}
@@ -228,7 +233,7 @@ func (a *StarknetAccount) deploy(ctx context.Context, provider rpc.RpcProvider) 
 	return nil
 }
 
-func (a *StarknetAccount) Deploy(ctx context.Context, provider rpc.RpcProvider) error {
+func (a *StarknetAccount) Deploy(ctx context.Context, client ProviderWrapper) error {
 	a.deployMu.Lock()
 	defer a.deployMu.Unlock()
 
@@ -238,7 +243,7 @@ func (a *StarknetAccount) Deploy(ctx context.Context, provider rpc.RpcProvider) 
 	}
 
 	slog.Info("deploying account")
-	if err := a.deploy(ctx, provider); err != nil {
+	if err := a.deploy(ctx, client); err != nil {
 		return fmt.Errorf("failed to deploy account: %w", err)
 	}
 

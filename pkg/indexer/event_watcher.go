@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -26,6 +26,14 @@ const (
 	EventTokenAdded
 	EventTokenRemoved
 )
+
+var EventTypeItems = []EventType{
+	EventAgentRegistered,
+	EventPromptPaid,
+	EventTransfer,
+	EventTokenAdded,
+	EventTokenRemoved,
+}
 
 type Event struct {
 	Type EventType
@@ -44,8 +52,8 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 		return nil, false
 	}
 
-	agent := e.Raw.Keys[0]
-	creator := e.Raw.Keys[1]
+	agent := e.Raw.Keys[1]
+	creator := e.Raw.Keys[2]
 
 	namePos := uint64(0)
 	nameCount := e.Raw.Data[namePos].Uint64()
@@ -87,10 +95,7 @@ func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 	user := e.Raw.Keys[1]
 	promptID := e.Raw.Keys[2]
 	tweetID := e.Raw.Keys[3].Uint64()
-
-	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
-	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
-	amount := amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
 
 	return &PromptPaidEvent{
 		User:     user,
@@ -111,12 +116,49 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 		return nil, false
 	}
 
-	from := e.Raw.Keys[1]
-	to := e.Raw.Keys[2]
+	keyCount := len(e.Raw.Keys)
+	dataCount := len(e.Raw.Data)
 
-	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
-	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
-	amount := amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+	var from *felt.Felt
+	var to *felt.Felt
+	var amount *big.Int
+
+	ok := true
+
+	if keyCount >= 3 {
+		from = e.Raw.Keys[1]
+		to = e.Raw.Keys[2]
+
+		if dataCount == 1 {
+			amount = e.Raw.Data[0].BigInt(new(big.Int))
+		} else if dataCount == 2 {
+			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+		} else if keyCount == 4 {
+			amount = e.Raw.Keys[3].BigInt(new(big.Int))
+		} else if keyCount == 5 {
+			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Keys[3:5]))
+		} else {
+			ok = false
+		}
+	} else if dataCount >= 3 {
+		from = e.Raw.Data[0]
+		to = e.Raw.Data[1]
+
+		if dataCount == 3 {
+			amount = e.Raw.Data[2].BigInt(new(big.Int))
+		} else if dataCount == 4 {
+			amount = snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[2:4]))
+		} else {
+			ok = false
+		}
+	} else {
+		ok = false
+	}
+
+	if !ok {
+		slog.Warn("invalid transfer event", "txHash", e.Raw.TransactionHash)
+		return nil, false
+	}
 
 	return &TransferEvent{
 		From:   from,
@@ -135,11 +177,19 @@ func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 		return nil, false
 	}
 
-	token := e.Raw.Keys[0]
+	if len(e.Raw.Keys) != 2 {
+		slog.Warn("invalid token added event", "keys", e.Raw.Keys)
+		return nil, false
+	}
 
-	amountLow := e.Raw.Data[0].BigInt(new(big.Int))
-	amountHigh := e.Raw.Data[1].BigInt(new(big.Int))
-	minPromptPrice := amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
+	if len(e.Raw.Data) != 2 {
+		slog.Warn("invalid token added event", "data", e.Raw.Data)
+		return nil, false
+	}
+
+	token := e.Raw.Keys[1]
+
+	minPromptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
 
 	return &TokenAddedEvent{
 		Token:          token,
@@ -156,7 +206,12 @@ func (e *Event) ToTokenRemovedEvent() (*TokenRemovedEvent, bool) {
 		return nil, false
 	}
 
-	token := e.Raw.Keys[0]
+	if len(e.Raw.Keys) != 2 {
+		slog.Warn("invalid token removed event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
+	token := e.Raw.Keys[1]
 
 	return &TokenRemovedEvent{
 		Token: token,
@@ -181,26 +236,29 @@ type EventSubscriber struct {
 	ch  chan<- *EventSubscriptionData
 }
 
+// EventWatcherInitialState holds the initial state of the EventWatcher.
+type EventWatcherInitialState struct {
+	LastIndexedBlock uint64
+}
+
 // EventWatcherConfig holds the necessary settings for constructing an EventWatcher.
 type EventWatcherConfig struct {
-	Client          *rpc.Provider
+	Client          starknet.ProviderWrapper
 	SafeBlockDelta  uint64
 	TickRate        time.Duration
 	IndexChunkSize  uint
 	RegistryAddress *felt.Felt
-	RateLimiter     *rate.Limiter
+	InitialState    *EventWatcherInitialState
 }
 
 // EventWatcher fetches events from Starknet in block ranges, parses them, and
 // distributes them to subscribers (AgentRegistered, Transfer, PromptPaid, etc.).
 type EventWatcher struct {
-	client           *rpc.Provider
-	startBlock       uint64
+	client           starknet.ProviderWrapper
 	lastIndexedBlock uint64
 	safeBlockDelta   uint64
 	tickRate         time.Duration
 	indexChunkSize   uint
-	rateLimiter      *rate.Limiter
 
 	// Subscribers for specific event types
 	mu        sync.RWMutex
@@ -210,20 +268,15 @@ type EventWatcher struct {
 
 // NewEventWatcher initializes a new EventWatcher.
 func NewEventWatcher(cfg *EventWatcherConfig) *EventWatcher {
-	return &EventWatcher{
-		client:         cfg.Client,
-		safeBlockDelta: cfg.SafeBlockDelta,
-		tickRate:       cfg.TickRate,
-		indexChunkSize: cfg.IndexChunkSize,
-		subs:           make(map[EventType][]*EventSubscriber),
+	if cfg.InitialState == nil {
+		cfg.InitialState = &EventWatcherInitialState{
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewEventWatcherWithInitialState initializes a new EventWatcher with the given state.
-func NewEventWatcherWithInitialState(cfg *EventWatcherConfig, lastIndexedBlock uint64) *EventWatcher {
 	return &EventWatcher{
 		client:           cfg.Client,
-		lastIndexedBlock: lastIndexedBlock,
+		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
 		safeBlockDelta:   cfg.SafeBlockDelta,
 		tickRate:         cfg.TickRate,
 		indexChunkSize:   cfg.IndexChunkSize,
@@ -279,13 +332,15 @@ func (w *EventWatcher) Run(ctx context.Context) error {
 }
 
 func (w *EventWatcher) run(ctx context.Context) error {
-	slog.Info("starting EventWatcher", "startBlock", w.startBlock)
+	slog.Info("starting EventWatcher")
+
+	evs := w.allocEventLists()
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(w.tickRate):
-			if err := w.indexBlocks(ctx); err != nil {
+			if err := w.indexBlocks(ctx, evs); err != nil {
 				slog.Error("indexBlocks failed", "error", err)
 				// continue attempting on next tick
 			}
@@ -293,10 +348,63 @@ func (w *EventWatcher) run(ctx context.Context) error {
 	}
 }
 
+// allocEventLists allocates event lists for each event type.
+func (w *EventWatcher) allocEventLists() map[EventType][]*Event {
+	evs := make(map[EventType][]*Event, len(EventTypeItems))
+	for _, typ := range EventTypeItems {
+		evs[typ] = make([]*Event, 0, w.indexChunkSize)
+	}
+	return evs
+}
+
+// fetchEvents fetches events from the Starknet node following a continuation token.
+func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) ([]rpc.EmittedEvent, error) {
+	var events []rpc.EmittedEvent
+
+	continuationToken := ""
+
+	for {
+		var eventsResp *rpc.EventChunk
+		var err error
+
+		if err := w.client.Do(func(provider rpc.RpcProvider) error {
+			eventsResp, err = provider.Events(ctx, rpc.EventsInput{
+				EventFilter: filter,
+				ResultPageRequest: rpc.ResultPageRequest{
+					ContinuationToken: continuationToken,
+					ChunkSize:         int(w.indexChunkSize),
+				},
+			})
+			return err
+		}); err != nil {
+			snaccount.LogRpcError(err)
+			return nil, fmt.Errorf("failed to get events from %v to %v: %v", filter.FromBlock, filter.ToBlock, err)
+		}
+
+		continuationToken = eventsResp.ContinuationToken
+		if len(events) == 0 {
+			events = eventsResp.Events
+		} else {
+			events = append(events, eventsResp.Events...)
+		}
+
+		if continuationToken == "" {
+			break
+		}
+	}
+
+	return events, nil
+}
+
 // indexBlocks fetches blocks ranging from (lastIndexedBlock+1) to safeBlock in chunks, then parses events.
-func (w *EventWatcher) indexBlocks(ctx context.Context) error {
-	currentBlock, err := w.client.BlockNumber(ctx)
-	if err != nil {
+func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType][]*Event) error {
+	var currentBlock uint64
+	var err error
+
+	if err := w.client.Do(func(provider rpc.RpcProvider) error {
+		currentBlock, err = provider.BlockNumber(ctx)
+		return err
+	}); err != nil {
 		snaccount.LogRpcError(err)
 		return fmt.Errorf("failed to get current block number: %v", err)
 	}
@@ -312,30 +420,25 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 			toBlock = safeBlock
 		}
 
-		slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
-
-		if w.rateLimiter != nil {
-			if err := w.rateLimiter.Wait(ctx); err != nil {
-				return fmt.Errorf("rate limit exceeded: %v", err)
-			}
+		if from > toBlock {
+			break
 		}
 
+		slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
+
 		// Gather events for these blocks from the node
-		eventsResp, err := w.client.Events(ctx, rpc.EventsInput{
-			EventFilter: rpc.EventFilter{
-				FromBlock: rpc.WithBlockNumber(from),
-				ToBlock:   rpc.WithBlockNumber(toBlock),
-				// We'll fetch all possible keys of interest in a single request:
-				Keys: [][]*felt.Felt{
-					{agentRegisteredSelector},
-					{promptPaidSelector},
-					{transferSelector},
-					{tokenAddedSelector},
-					{tokenRemovedSelector},
+		events, err := w.fetchEvents(ctx, rpc.EventFilter{
+			FromBlock: rpc.WithBlockNumber(from),
+			ToBlock:   rpc.WithBlockNumber(toBlock),
+			// We'll fetch all possible keys of interest in a single request:
+			Keys: [][]*felt.Felt{
+				{
+					agentRegisteredSelector,
+					promptPaidSelector,
+					transferSelector,
+					tokenAddedSelector,
+					tokenRemovedSelector,
 				},
-			},
-			ResultPageRequest: rpc.ResultPageRequest{
-				ChunkSize: int(w.indexChunkSize),
 			},
 		})
 		if err != nil {
@@ -343,17 +446,20 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 			return fmt.Errorf("failed to get events from %v to %v: %v", from, toBlock, err)
 		}
 
-		evs := make([]*Event, 0, len(eventsResp.Events))
-
 		// Parse each event into our local struct and broadcast.
-		for _, rawEvent := range eventsResp.Events {
-			parsedEvt, ok := w.parseEvent(rawEvent)
+		for _, rawEvent := range events {
+			parsedEvent, ok := w.parseEvent(rawEvent)
 			if ok {
-				evs = append(evs, &parsedEvt)
+				eventLists[parsedEvent.Type] = append(eventLists[parsedEvent.Type], &parsedEvent)
 			}
 		}
 
-		w.broadcast(evs, from, toBlock)
+		w.broadcast(eventLists, from, toBlock)
+
+		// clean up event lists
+		for eventType, eventList := range eventLists {
+			eventLists[eventType] = eventList[:0]
+		}
 
 		w.mu.Lock()
 		w.lastIndexedBlock = toBlock
@@ -375,35 +481,43 @@ func (w *EventWatcher) parseEvent(raw rpc.EmittedEvent) (Event, bool) {
 	}
 	switch {
 	case selector.Cmp(agentRegisteredSelector) == 0:
+		slog.Debug("parsed agent registered event")
 		ev.Type = EventAgentRegistered
 		return ev, true
 	case selector.Cmp(transferSelector) == 0:
+		slog.Debug("parsed transfer event")
 		ev.Type = EventTransfer
 		return ev, true
 	case selector.Cmp(promptPaidSelector) == 0:
+		slog.Debug("parsed prompt paid event")
 		ev.Type = EventPromptPaid
 		return ev, true
 	case selector.Cmp(tokenAddedSelector) == 0:
+		slog.Debug("parsed token added event")
 		ev.Type = EventTokenAdded
 		return ev, true
 	case selector.Cmp(tokenRemovedSelector) == 0:
+		slog.Debug("parsed token removed event")
 		ev.Type = EventTokenRemoved
 		return ev, true
 	default:
+		slog.Debug("parsed unknown event")
 		return Event{}, false
 	}
 }
 
 // broadcast routes the parsed events to the correct set of subscribers.
-func (w *EventWatcher) broadcast(evs []*Event, fromBlock uint64, toBlock uint64) {
+func (w *EventWatcher) broadcast(eventLists map[EventType][]*Event, fromBlock uint64, toBlock uint64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	for _, sub := range w.subs[evs[0].Type] {
-		sub.ch <- &EventSubscriptionData{
-			Events:    evs,
-			FromBlock: fromBlock,
-			ToBlock:   toBlock,
+	for eventType, eventList := range eventLists {
+		for _, sub := range w.subs[eventType] {
+			sub.ch <- &EventSubscriptionData{
+				Events:    eventList,
+				FromBlock: fromBlock,
+				ToBlock:   toBlock,
+			}
 		}
 	}
 }

@@ -3,7 +3,9 @@ package starknet
 import (
 	"fmt"
 	"log/slog"
+	"math/big"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 )
 
@@ -22,4 +24,10 @@ func FormatRpcError(err error) string {
 		return err.Error()
 	}
 	return fmt.Sprintf("rpc error: %v", rpcErr)
+}
+
+func Uint256ToBigInt(uint256 [2]*felt.Felt) *big.Int {
+	amountLow := uint256[0].BigInt(new(big.Int))
+	amountHigh := uint256[1].BigInt(new(big.Int))
+	return amountHigh.Lsh(amountHigh, 128).Add(amountHigh, amountLow)
 }

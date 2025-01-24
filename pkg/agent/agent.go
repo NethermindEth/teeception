@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,11 +13,13 @@ import (
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/alitto/pond/v2"
 	"github.com/sashabaranov/go-openai"
-	"github.com/tmc/langchaingo/jsonschema"
 
+	"github.com/NethermindEth/teeception/pkg/agent/chat"
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
+	"github.com/NethermindEth/teeception/pkg/agent/quote"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -35,85 +36,99 @@ const (
 	TwitterClientModeProxy = "proxy"
 )
 
+type AgentConfigParams struct {
+	TwitterClientMode      string
+	TwitterClientConfig    *twitter.TwitterClientConfig
+	OpenAIKey              string
+	DstackTappdEndpoint    string
+	StarknetRpcUrls        []string
+	StarknetPrivateKeySeed []byte
+	AgentRegistryAddress   *felt.Felt
+	TaskConcurrency        int
+	TickRate               time.Duration
+	SafeBlockDelta         uint64
+}
+
 type AgentConfig struct {
-	TwitterClientMode        string
-	TwitterUsername          string
-	TwitterPassword          string
-	TwitterConsumerKey       string
-	TwitterConsumerSecret    string
-	TwitterAccessToken       string
-	TwitterAccessTokenSecret string
-	OpenAIKey                string
-	DstackTappdEndpoint      string
-	StarknetRpcUrl           string
-	StarknetPrivateKeySeed   []byte
-	AgentRegistryAddress     *felt.Felt
-	TaskConcurrency          int
-	TickRate                 time.Duration
-	SafeBlockDelta           uint64
+	TwitterClient       twitter.TwitterClient
+	TwitterClientConfig *twitter.TwitterClientConfig
+
+	OpenAIClient   chat.ChatCompletion
+	StarknetClient starknet.ProviderWrapper
+	Quoter         quote.Quoter
+
+	AgentIndexer *indexer.AgentIndexer
+	EventWatcher *indexer.EventWatcher
+
+	Account *snaccount.StarknetAccount
+	TxQueue *snaccount.TxQueue
+
+	Pool pond.Pool
+
+	TickRate             time.Duration
+	AgentRegistryAddress *felt.Felt
 }
 
-type Agent struct {
-	config *AgentConfig
-
-	twitterClient     twitter.TwitterClient
-	openaiClient      *openai.Client
-	starknetClient    *rpc.Provider
-	dStackTappdClient *tappd.TappdClient
-
-	agentIndexer *indexer.AgentIndexer
-	eventWatcher *indexer.EventWatcher
-
-	account *snaccount.StarknetAccount
-	txQueue *snaccount.TxQueue
-
-	pool pond.Pool
-}
-
-func NewAgent(config *AgentConfig) (*Agent, error) {
-	slog.Info("initializing new agent", "twitter_username", config.TwitterUsername)
+func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
+	slog.Info("initializing new agent", "twitter_username", params.TwitterClientConfig.Username)
 
 	var twitterClient twitter.TwitterClient
-	if config.TwitterClientMode == "" || config.TwitterClientMode == TwitterClientModeEnv {
-		config.TwitterClientMode = envGetAgentTwitterClientMode()
+	if params.TwitterClientMode == "" || params.TwitterClientMode == TwitterClientModeEnv {
+		params.TwitterClientMode = envGetAgentTwitterClientMode()
 	}
 
-	if config.TwitterClientMode == TwitterClientModeApi {
+	if params.TwitterClientMode == TwitterClientModeApi {
 		twitterClient = twitter.NewTwitterApiClient()
-	} else if config.TwitterClientMode == TwitterClientModeProxy {
+	} else if params.TwitterClientMode == TwitterClientModeProxy {
 		port, err := envLookupAgentTwitterClientPort()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get twitter client port: %v", err)
 		}
 		twitterClient = twitter.NewTwitterProxy("http://localhost:"+port, http.DefaultClient)
 	} else {
-		return nil, fmt.Errorf("invalid twitter client mode: %s", config.TwitterClientMode)
+		return nil, fmt.Errorf("invalid twitter client mode: %s", params.TwitterClientMode)
 	}
 
-	openaiClient := openai.NewClient(config.OpenAIKey)
+	openaiClient := chat.NewOpenAIChatCompletion(chat.OpenAIChatCompletionConfig{
+		OpenAIKey: params.OpenAIKey,
+		Model:     openai.GPT4,
+	})
 
-	dstackTappdClient := tappd.NewTappdClient(config.DstackTappdEndpoint, slog.Default())
+	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(params.DstackTappdEndpoint))
+	quoter := quote.NewTappdQuoter(dstackTappdClient)
 
-	slog.Info("connecting to starknet", "rpc_url", config.StarknetRpcUrl)
-	starknetClient, err := rpc.NewProvider(config.StarknetRpcUrl)
+	slog.Info("connecting to starknet", "rpc_urls", params.StarknetRpcUrls)
+
+	providers := make([]rpc.RpcProvider, 0, len(params.StarknetRpcUrls))
+	for _, url := range params.StarknetRpcUrls {
+		starknetClient, err := rpc.NewProvider(url)
+		if err != nil {
+			return nil, err
+		}
+		providers = append(providers, starknetClient)
+	}
+
+	starknetClient, err := starknet.NewRateLimitedMultiProvider(starknet.RateLimitedMultiProviderConfig{
+		Providers: providers,
+		Limiter:   nil,
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create rate limited client: %v", err)
 	}
-
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          starknetClient,
-		SafeBlockDelta:  config.SafeBlockDelta,
+		SafeBlockDelta:  params.SafeBlockDelta,
 		TickRate:        1 * time.Second,
 		IndexChunkSize:  1000,
-		RegistryAddress: config.AgentRegistryAddress,
+		RegistryAddress: params.AgentRegistryAddress,
 	})
 
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          starknetClient,
-		RegistryAddress: config.AgentRegistryAddress,
+		RegistryAddress: params.AgentRegistryAddress,
 	})
 
-	privateKey := snaccount.NewPrivateKey(config.StarknetPrivateKeySeed)
+	privateKey := snaccount.NewPrivateKey(params.StarknetPrivateKeySeed)
 	account, err := snaccount.NewStarknetAccount(privateKey)
 	if err != nil {
 		return nil, err
@@ -123,39 +138,77 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		return nil, err
 	}
 
-	slog.Info("agent initialized successfully", "account_address", account.Address())
+	txQueue := snaccount.NewTxQueue(account, starknetClient, &snaccount.TxQueueConfig{
+		MaxBatchSize:       10,
+		SubmissionInterval: 20 * time.Second,
+	})
+
+	return &AgentConfig{
+		TwitterClient:  twitterClient,
+		OpenAIClient:   openaiClient,
+		StarknetClient: starknetClient,
+		Quoter:         quoter,
+
+		AgentIndexer: agentIndexer,
+		EventWatcher: eventWatcher,
+		Account:      account,
+		TxQueue:      txQueue,
+
+		Pool: pond.NewPool(params.TaskConcurrency),
+
+		TickRate:             params.TickRate,
+		AgentRegistryAddress: params.AgentRegistryAddress,
+	}, nil
+}
+
+type Agent struct {
+	twitterClient       twitter.TwitterClient
+	twitterClientConfig *twitter.TwitterClientConfig
+
+	openaiClient   chat.ChatCompletion
+	starknetClient starknet.ProviderWrapper
+	quoter         quote.Quoter
+
+	agentIndexer *indexer.AgentIndexer
+	eventWatcher *indexer.EventWatcher
+
+	account *snaccount.StarknetAccount
+	txQueue *snaccount.TxQueue
+
+	pool pond.Pool
+
+	tickRate             time.Duration
+	agentRegistryAddress *felt.Felt
+}
+
+func NewAgent(config *AgentConfig) (*Agent, error) {
+
+	slog.Info("agent initialized successfully", "account_address", config.Account.Address())
 
 	return &Agent{
-		config: config,
+		twitterClient:       config.TwitterClient,
+		twitterClientConfig: config.TwitterClientConfig,
 
-		twitterClient:     twitterClient,
-		openaiClient:      openaiClient,
-		starknetClient:    starknetClient,
-		dStackTappdClient: dstackTappdClient,
+		openaiClient:   config.OpenAIClient,
+		starknetClient: config.StarknetClient,
+		quoter:         config.Quoter,
 
-		agentIndexer: agentIndexer,
-		eventWatcher: eventWatcher,
-		account:      account,
-		txQueue: snaccount.NewTxQueue(account, starknetClient, &snaccount.TxQueueConfig{
-			MaxBatchSize:       10,
-			SubmissionInterval: 20 * time.Second,
-		}),
+		agentIndexer: config.AgentIndexer,
+		eventWatcher: config.EventWatcher,
+		account:      config.Account,
+		txQueue:      config.TxQueue,
 
-		pool: pond.NewPool(config.TaskConcurrency),
+		pool: config.Pool,
+
+		tickRate:             config.TickRate,
+		agentRegistryAddress: config.AgentRegistryAddress,
 	}, nil
 }
 
 func (a *Agent) Run(ctx context.Context) error {
 	slog.Info("starting agent")
 
-	err := a.twitterClient.Initialize(twitter.TwitterClientConfig{
-		Username:          a.config.TwitterUsername,
-		Password:          a.config.TwitterPassword,
-		ConsumerKey:       a.config.TwitterConsumerKey,
-		ConsumerSecret:    a.config.TwitterConsumerSecret,
-		AccessToken:       a.config.TwitterAccessToken,
-		AccessTokenSecret: a.config.TwitterAccessTokenSecret,
-	})
+	err := a.twitterClient.Initialize(a.twitterClientConfig)
 	if err != nil {
 		return fmt.Errorf("failed to initialize twitter client: %v", err)
 	}
@@ -185,7 +238,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.After(a.config.TickRate):
+		case <-time.After(a.tickRate):
 			err := a.Tick(ctx, promptPaidCh)
 			if err != nil {
 				slog.Warn("failed to tick", "error", err)
@@ -243,85 +296,27 @@ func (a *Agent) processPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {
 	slog.Info("generating AI response", "tweet_id", tweetID)
 
-	messages := []openai.ChatCompletionMessage{
-		{
-			Role:    openai.ChatMessageRoleSystem,
-			Content: systemPrompt,
-		},
-		{
-			Role:    openai.ChatMessageRoleUser,
-			Content: tweetText,
-		},
-	}
-
-	resp, err := a.openaiClient.CreateChatCompletion(
-		ctx,
-		openai.ChatCompletionRequest{
-			Model:    openai.GPT4,
-			Messages: messages,
-			Tools: []openai.Tool{
-				{
-					Type: openai.ToolTypeFunction,
-					Function: &openai.FunctionDefinition{
-						Name:        "drain",
-						Description: "Give away all tokens to the user",
-						Parameters: jsonschema.Definition{
-							Type: jsonschema.Object,
-							Properties: map[string]jsonschema.Definition{
-								"address": {
-									Type:        jsonschema.String,
-									Description: "The address to give the tokens to",
-								},
-							},
-							Required: []string{"address"},
-						},
-					},
-				},
-			},
-		},
-	)
+	resp, err := a.openaiClient.Prompt(ctx, systemPrompt, tweetText)
 	if err != nil {
-		return fmt.Errorf("chat completion failed: %v", err)
-	}
-
-	if len(resp.Choices) == 0 {
-		return fmt.Errorf("no response received")
+		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
 
 	slog.Info("replying to tweet", "tweet_id", tweetID)
 
-	if !debug.IsDebugDisableReplies() {
-		a.twitterClient.ReplyToTweet(tweetID, resp.Choices[0].Message.Content)
-	}
-
-	for _, toolCall := range resp.Choices[0].Message.ToolCalls {
-		if toolCall.Function.Name == "drain" {
-			type drainArgs struct {
-				Address string `json:"address"`
-			}
-
-			var args drainArgs
-			json.Unmarshal([]byte(toolCall.Function.Arguments), &args)
-
-			go func() {
-				err := a.drainAndReply(ctx, agentAddress, args.Address, tweetID)
-				if err != nil {
-					slog.Warn("failed to drain and reply", "error", err)
-				}
-
-				err = a.consumePrompt(ctx, agentAddress, tweetID)
-				if err != nil {
-					slog.Warn("failed to consume prompt", "error", err)
-				}
-			}()
-
-			return nil
-		}
-	}
-
 	err = a.consumePrompt(ctx, agentAddress, tweetID)
 	if err != nil {
 		slog.Warn("failed to consume prompt", "error", err)
+	}
+
+	if !debug.IsDebugDisableReplies() {
+		a.twitterClient.ReplyToTweet(tweetID, resp.Response)
+	}
+
+	if resp.Drain != nil {
+		err := a.drainAndReply(ctx, agentAddress, resp.Drain.Address, tweetID)
+		if err != nil {
+			return fmt.Errorf("failed to drain and reply: %v", err)
+		}
 	}
 
 	return nil
@@ -329,7 +324,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 
 func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64) error {
 	fnCall := rpc.FunctionCall{
-		ContractAddress:    a.config.AgentRegistryAddress,
+		ContractAddress:    a.agentRegistryAddress,
 		EntryPointSelector: consumePromptSelector,
 		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID)},
 	}
@@ -360,7 +355,7 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 	}
 
 	fnCall := rpc.FunctionCall{
-		ContractAddress:    a.config.AgentRegistryAddress,
+		ContractAddress:    a.agentRegistryAddress,
 		EntryPointSelector: transferSelector,
 		Calldata:           []*felt.Felt{agentAddress, addressFelt},
 	}
@@ -394,25 +389,19 @@ func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addr
 	return a.twitterClient.ReplyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
 }
 
-func (a *Agent) quote(ctx context.Context) (*tappd.TdxQuoteResponse, error) {
+func (a *Agent) quote(ctx context.Context) (string, error) {
 	slog.Info("requesting quote")
 
-	reportData := ReportData{
+	quote, err := a.quoter.Quote(ctx, &quote.ReportData{
 		Address:         a.account.Address(),
-		ContractAddress: a.config.AgentRegistryAddress,
-		TwitterUsername: a.config.TwitterUsername,
-	}
-
-	reportDataBytes, err := reportData.MarshalBinary()
+		ContractAddress: a.agentRegistryAddress,
+		TwitterUsername: a.twitterClientConfig.Username,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to binary marshal report data: %v", err)
+		return "", fmt.Errorf("failed to get quote: %v", err)
 	}
 
-	quoteResp, err := a.dStackTappdClient.TdxQuote(ctx, reportDataBytes, tappd.KECCAK256)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get quote: %v", err)
-	}
+	slog.Info("quote generated successfully")
 
-	slog.Info("quote received successfully")
-	return quoteResp, nil
+	return quote, nil
 }

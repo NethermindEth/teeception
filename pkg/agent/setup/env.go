@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 	LoginServerPortKey      = "X_LOGIN_SERVER_PORT"
 	ProtonEmailKey          = "PROTONMAIL_EMAIL"
 	ProtonPasswordKey       = "PROTONMAIL_PASSWORD"
-	StarknetRpcUrlKey       = "STARKNET_RPC_URL"
+	StarknetRpcUrlsKey      = "STARKNET_RPC_URLS"
 	AgentRegistryAddressKey = "CONTRACT_ADDRESS"
 	OpenAiKeyKey            = "OPENAI_API_KEY"
 )
@@ -102,12 +103,12 @@ func envGetProtonPassword() string {
 	return password
 }
 
-func envGetStarknetRpcUrl() string {
-	url, ok := os.LookupEnv(StarknetRpcUrlKey)
+func envGetStarknetRpcUrls() []string {
+	urls, ok := os.LookupEnv(StarknetRpcUrlsKey)
 	if !ok {
-		slog.Warn(StarknetRpcUrlKey + " environment variable not set")
+		slog.Warn(StarknetRpcUrlsKey + " environment variable not set")
 	}
-	return url
+	return strings.Split(urls, " ")
 }
 
 func envGetAgentRegistryAddress() string {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/NethermindEth/teeception/pkg/agent"
 	"github.com/NethermindEth/teeception/pkg/agent/setup"
+	"github.com/NethermindEth/teeception/pkg/twitter"
 )
 
 func main() {
@@ -23,23 +24,31 @@ func main() {
 		twitterClientMode = agent.TwitterClientModeApi
 	}
 
-	agent, err := agent.NewAgent(&agent.AgentConfig{
-		TwitterClientMode:        twitterClientMode,
-		TwitterUsername:          output.TwitterUsername,
-		TwitterPassword:          output.TwitterPassword,
-		TwitterConsumerKey:       output.TwitterConsumerKey,
-		TwitterConsumerSecret:    output.TwitterConsumerSecret,
-		TwitterAccessToken:       output.TwitterAccessToken,
-		TwitterAccessTokenSecret: output.TwitterAccessTokenSecret,
-		OpenAIKey:                output.OpenAIKey,
-		StarknetRpcUrl:           output.StarknetRpcUrl,
-		DstackTappdEndpoint:      output.DstackTappdEndpoint,
-		StarknetPrivateKeySeed:   output.StarknetPrivateKeySeed,
-		AgentRegistryAddress:     output.AgentRegistryAddress,
-		TaskConcurrency:          10,
-		TickRate:                 10 * time.Second,
-		SafeBlockDelta:           0,
+	agentConfig, err := agent.NewAgentConfigFromParams(&agent.AgentConfigParams{
+		TwitterClientMode: twitterClientMode,
+		TwitterClientConfig: &twitter.TwitterClientConfig{
+			Username:          output.TwitterUsername,
+			Password:          output.TwitterPassword,
+			ConsumerKey:       output.TwitterConsumerKey,
+			ConsumerSecret:    output.TwitterConsumerSecret,
+			AccessToken:       output.TwitterAccessToken,
+			AccessTokenSecret: output.TwitterAccessTokenSecret,
+		},
+		OpenAIKey:              output.OpenAIKey,
+		StarknetRpcUrls:        output.StarknetRpcUrls,
+		DstackTappdEndpoint:    output.DstackTappdEndpoint,
+		StarknetPrivateKeySeed: output.StarknetPrivateKeySeed,
+		AgentRegistryAddress:   output.AgentRegistryAddress,
+		TaskConcurrency:        10,
+		TickRate:               10 * time.Second,
+		SafeBlockDelta:         0,
 	})
+	if err != nil {
+		slog.Error("failed to create agent config", "error", err)
+		os.Exit(1)
+	}
+
+	agent, err := agent.NewAgent(agentConfig)
 	if err != nil {
 		slog.Error("failed to create agent", "error", err)
 		os.Exit(1)

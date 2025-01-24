@@ -7,15 +7,16 @@ import (
 	"maps"
 	"math/big"
 	"slices"
-	"sort"
 	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
+
+	"github.com/NethermindEth/teeception/pkg/indexer/utils"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
@@ -26,12 +27,12 @@ type AgentBalance struct {
 }
 
 type AgentBalanceIndexerPriceCache interface {
-	GetTokenUsdPrice(token *felt.Felt) (*big.Int, bool)
+	GetTokenRate(token *felt.Felt) (*big.Int, bool)
 }
 
 // AgentBalanceIndexer responds to Transfer events for addresses known to be Agents, and updates their balances.
 type AgentBalanceIndexer struct {
-	client   *rpc.Provider
+	client   starknet.ProviderWrapper
 	agentIdx *AgentIndexer
 	metaIdx  *AgentMetadataIndexer
 
@@ -41,12 +42,9 @@ type AgentBalanceIndexer struct {
 	lastIndexedBlock uint64
 	registryAddress  *felt.Felt
 
-	sortedAgentsMu  sync.RWMutex
-	sortedAgents    [][32]byte
-	sortedAgentsLen int
-	priceCache      AgentBalanceIndexerPriceCache
-
-	balanceLimiter *rate.Limiter
+	sortedAgentsMu sync.RWMutex
+	sortedAgents   *utils.LazySortedList[[32]byte]
+	priceCache     AgentBalanceIndexerPriceCache
 
 	toUpdate   map[[32]byte]struct{}
 	toUpdateMu sync.Mutex
@@ -55,48 +53,42 @@ type AgentBalanceIndexer struct {
 	safeBlockDelta uint64
 }
 
+// AgentBalanceIndexerInitialState is the initial state for an AgentBalanceIndexer.
+type AgentBalanceIndexerInitialState struct {
+	Balances         map[[32]byte]*AgentBalance
+	LastIndexedBlock uint64
+}
+
+// AgentBalanceIndexerConfig is the configuration for an AgentBalanceIndexer.
 type AgentBalanceIndexerConfig struct {
-	Client          *rpc.Provider
+	Client          starknet.ProviderWrapper
 	AgentIdx        *AgentIndexer
 	MetaIdx         *AgentMetadataIndexer
-	RateLimiter     *rate.Limiter
 	TickRate        time.Duration
 	SafeBlockDelta  uint64
 	RegistryAddress *felt.Felt
 	PriceCache      AgentBalanceIndexerPriceCache
+	InitialState    *AgentBalanceIndexerInitialState
 }
 
-// NewAgentBalanceIndexer sets up the indexer with concurrency control and a background update interval.
+// NewAgentBalanceIndexer creates a new AgentBalanceIndexer.
 func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceIndexer {
-	return &AgentBalanceIndexer{
-		client:          config.Client,
-		agentIdx:        config.AgentIdx,
-		metaIdx:         config.MetaIdx,
-		registryAddress: config.RegistryAddress,
-		sortedAgents:    make([][32]byte, 0),
-		sortedAgentsLen: 0,
-		priceCache:      config.PriceCache,
-		balances:        make(map[[32]byte]*AgentBalance),
-		balanceLimiter:  config.RateLimiter,
-		toUpdate:        make(map[[32]byte]struct{}),
-		tickRate:        config.TickRate,
-		safeBlockDelta:  config.SafeBlockDelta,
+	if config.InitialState == nil {
+		config.InitialState = &AgentBalanceIndexerInitialState{
+			Balances:         make(map[[32]byte]*AgentBalance),
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewAgentBalanceIndexerWithInitialState creates a new AgentBalanceIndexer with an initial state.
-func NewAgentBalanceIndexerWithInitialState(config *AgentBalanceIndexerConfig, initialState map[[32]byte]*AgentBalance, lastIndexedBlock uint64) *AgentBalanceIndexer {
 	return &AgentBalanceIndexer{
 		client:           config.Client,
 		agentIdx:         config.AgentIdx,
 		metaIdx:          config.MetaIdx,
 		registryAddress:  config.RegistryAddress,
-		sortedAgents:     slices.Collect(maps.Keys(initialState)),
-		sortedAgentsLen:  0,
+		sortedAgents:     utils.NewLazySortedList[[32]byte](),
 		priceCache:       config.PriceCache,
-		balances:         initialState,
-		lastIndexedBlock: lastIndexedBlock,
-		balanceLimiter:   config.RateLimiter,
+		balances:         config.InitialState.Balances,
+		lastIndexedBlock: config.InitialState.LastIndexedBlock,
 		toUpdate:         make(map[[32]byte]struct{}),
 		tickRate:         config.TickRate,
 		safeBlockDelta:   config.SafeBlockDelta,
@@ -149,6 +141,13 @@ func (i *AgentBalanceIndexer) onTransferEvent(ctx context.Context, ev *Event) {
 		return
 	}
 
+	if _, ok := i.balances[transferEvent.From.Bytes()]; ok {
+		slog.Debug("enqueueing balance update for from", "address", transferEvent.From.String())
+	}
+	if _, ok := i.balances[transferEvent.To.Bytes()]; ok {
+		slog.Debug("enqueueing balance update for to", "address", transferEvent.To.String())
+	}
+
 	i.enqueueBalanceUpdate(transferEvent.From)
 	i.enqueueBalanceUpdate(transferEvent.To)
 }
@@ -165,6 +164,9 @@ func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Ev
 	}
 
 	i.pushAgent(agentRegisteredEvent.Agent)
+
+	slog.Debug("enqueueing balance update for agent registered", "address", agentRegisteredEvent.Agent.String())
+	i.enqueueBalanceUpdate(agentRegisteredEvent.Agent)
 }
 
 func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
@@ -176,12 +178,17 @@ func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
 		Amount:          big.NewInt(0),
 		AmountUpdatedAt: 0,
 	}
-	i.sortedAgents = append(i.sortedAgents, addr.Bytes())
+	i.sortedAgents.Add(addr.Bytes())
 }
 
 func (i *AgentBalanceIndexer) enqueueBalanceUpdate(addr *felt.Felt) {
 	i.toUpdateMu.Lock()
 	defer i.toUpdateMu.Unlock()
+
+	if _, ok := i.balances[addr.Bytes()]; !ok {
+		slog.Debug("agent not found in balances", "address", addr.String())
+		return
+	}
 
 	i.toUpdate[addr.Bytes()] = struct{}{}
 }
@@ -195,11 +202,21 @@ func (i *AgentBalanceIndexer) balanceUpdateTask(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			currentBlock, err := i.client.BlockNumber(ctx)
-			if err != nil {
+			var currentBlock uint64
+			var err error
+
+			if err := i.client.Do(func(provider rpc.RpcProvider) error {
+				currentBlock, err = provider.BlockNumber(ctx)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			}); err != nil {
 				slog.Error("failed to get current block for balance updates", "error", err)
 				continue
 			}
+
 			safeBlock := currentBlock - i.safeBlockDelta
 			i.processQueue(ctx, safeBlock)
 		}
@@ -208,6 +225,8 @@ func (i *AgentBalanceIndexer) balanceUpdateTask(ctx context.Context) error {
 
 // processQueue consumes the "toUpdate" set and tries to fetch new balances.
 func (i *AgentBalanceIndexer) processQueue(ctx context.Context, blockNumber uint64) {
+	slog.Info("processing balance update queue", "block", blockNumber)
+
 	i.toUpdateMu.Lock()
 	addresses := i.toUpdate
 	i.toUpdate = make(map[[32]byte]struct{})
@@ -217,8 +236,11 @@ func (i *AgentBalanceIndexer) processQueue(ctx context.Context, blockNumber uint
 	for addrBytes := range addresses {
 		addr.SetBytes(addrBytes[:])
 
+		slog.Debug("processing balance update", "address", addr.String())
+
 		// If not an agent, skip
 		if _, ok := i.agentIdx.GetAgentInfo(addr); !ok {
+			slog.Warn("agent not found in agent index", "address", addr.String())
 			continue
 		}
 
@@ -238,44 +260,36 @@ func (i *AgentBalanceIndexer) sortAgents() {
 	i.sortedAgentsMu.Lock()
 	defer i.sortedAgentsMu.Unlock()
 
-	i.sortedAgentsLen = len(i.balances)
-
-	if len(i.sortedAgents) != len(i.balances) {
-		i.sortedAgents = slices.Collect(maps.Keys(i.balances))
+	if i.sortedAgents.InnerLen() != len(i.balances) {
+		i.sortedAgents.Add(slices.Collect(maps.Keys(i.balances))...)
 	}
 
-	sort.Slice(i.sortedAgents, func(a, b int) bool {
-		balA := i.balances[i.sortedAgents[a]]
-		balB := i.balances[i.sortedAgents[b]]
+	i.sortedAgents.Sort(func(a, b [32]byte) int {
+		balA := i.balances[a]
+		balB := i.balances[b]
 
 		if balA.Token == balB.Token {
-			return balA.Amount.Cmp(balB.Amount) > 0
+			return -balA.Amount.Cmp(balB.Amount)
 		}
 
-		usdRateA, ok := i.priceCache.GetTokenUsdPrice(balA.Token)
+		rateA, ok := i.priceCache.GetTokenRate(balA.Token)
 		if !ok {
 			slog.Error("failed to get USD rate for agent", "agent", balA.Token)
-			return false
+			return 0
 		}
 
-		usdRateB, ok := i.priceCache.GetTokenUsdPrice(balB.Token)
+		rateB, ok := i.priceCache.GetTokenRate(balB.Token)
 		if !ok {
 			slog.Error("failed to get USD rate for agent", "agent", balB.Token)
-			return false
+			return 0
 		}
 
-		return balA.Amount.Mul(balA.Amount, usdRateA).Cmp(balB.Amount.Mul(balB.Amount, usdRateB)) > 0
+		return -balA.Amount.Mul(balA.Amount, rateA).Cmp(balB.Amount.Mul(balB.Amount, rateB))
 	})
 }
 
 // updateBalance does the actual "balanceOf" call at a given blockNumber
 func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Felt, blockNum uint64) error {
-	if i.balanceLimiter != nil {
-		if err := i.balanceLimiter.Wait(ctx); err != nil {
-			return fmt.Errorf("rate limit wait failed: %v", err)
-		}
-	}
-
 	currentInfo, ok := i.GetBalance(agent)
 	if !ok {
 		currentInfo = &AgentBalance{
@@ -300,28 +314,37 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 		currentInfo.Token = meta.Token
 	}
 
-	call := rpc.FunctionCall{
-		ContractAddress:    currentInfo.Token,
-		EntryPointSelector: balanceOfSelector,
-		Calldata:           []*felt.Felt{agent},
-	}
+	var balanceResp []*felt.Felt
+	var err error
 
-	balanceResp, err := i.client.Call(ctx, call, rpc.WithBlockNumber(blockNum))
-	if err != nil {
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		balanceResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    currentInfo.Token,
+			EntryPointSelector: balanceOfSelector,
+			Calldata:           []*felt.Felt{agent},
+		}, rpc.WithBlockNumber(blockNum))
+
+		return err
+	}); err != nil {
 		snaccount.LogRpcError(err)
 		return fmt.Errorf("balanceOf call failed: %v", err)
 	}
-	if len(balanceResp) != 1 {
+
+	var amount *big.Int
+	if len(balanceResp) == 1 {
+		amount = balanceResp[0].BigInt(new(big.Int))
+	} else if len(balanceResp) == 2 {
+		amount = snaccount.Uint256ToBigInt([2]*felt.Felt(balanceResp[0:2]))
+	} else {
 		return fmt.Errorf("unexpected length in balanceOf response: %d", len(balanceResp))
 	}
-
-	newBalance := balanceResp[0].BigInt(nil)
 
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	currentInfo.Amount = newBalance
+	currentInfo.Amount = amount
 	currentInfo.AmountUpdatedAt = blockNum
+	i.balances[agent.Bytes()] = currentInfo
 
 	return nil
 }
@@ -332,6 +355,10 @@ func (i *AgentBalanceIndexer) GetBalance(agent *felt.Felt) (*AgentBalance, bool)
 	defer i.mu.RUnlock()
 
 	bal, ok := i.balances[agent.Bytes()]
+	if bal.Token == nil || bal.Amount == nil {
+		return nil, false
+	}
+
 	return bal, ok
 }
 
@@ -350,17 +377,30 @@ func (i *AgentBalanceIndexer) GetAgentLeaderboard(start, end uint64) (*AgentLead
 	i.sortedAgentsMu.RLock()
 	defer i.sortedAgentsMu.RUnlock()
 
-	if start >= uint64(i.sortedAgentsLen) {
+	if i.sortedAgents.Len() == 0 {
+		return &AgentLeaderboardResponse{
+			Agents:     make([][32]byte, 0),
+			AgentCount: 0,
+			LastBlock:  i.lastIndexedBlock,
+		}, nil
+	}
+
+	if start >= uint64(i.sortedAgents.Len()) {
 		return nil, fmt.Errorf("start index out of bounds: %d", start)
 	}
 
-	if end > uint64(i.sortedAgentsLen) {
-		end = uint64(i.sortedAgentsLen)
+	if end > uint64(i.sortedAgents.Len()) {
+		end = uint64(i.sortedAgents.Len())
+	}
+
+	agents, ok := i.sortedAgents.GetRange(int(start), int(end))
+	if !ok {
+		return nil, fmt.Errorf("failed to get range of agents")
 	}
 
 	return &AgentLeaderboardResponse{
-		Agents:     i.sortedAgents[start:end],
-		AgentCount: uint64(i.sortedAgentsLen),
+		Agents:     agents,
+		AgentCount: uint64(i.sortedAgents.Len()),
 		LastBlock:  i.lastIndexedBlock,
 	}, nil
 }

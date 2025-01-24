@@ -9,9 +9,9 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/time/rate"
 )
 
 type AgentInfo struct {
@@ -27,34 +27,35 @@ type AgentIndexer struct {
 	addresses        []*felt.Felt
 	registryAddress  *felt.Felt
 	lastIndexedBlock uint64
-	rateLimiter      *rate.Limiter
-	client           *rpc.Provider
+	client           starknet.ProviderWrapper
+}
+
+// AgentIndexerInitialState is the initial state for an AgentIndexer.
+type AgentIndexerInitialState struct {
+	Agents           map[[32]byte]AgentInfo
+	LastIndexedBlock uint64
 }
 
 // AgentIndexerConfig is the configuration for an AgentIndexer.
 type AgentIndexerConfig struct {
 	RegistryAddress *felt.Felt
-	RateLimiter     *rate.Limiter
-	Client          *rpc.Provider
+	Client          starknet.ProviderWrapper
+	InitialState    *AgentIndexerInitialState
 }
 
 // NewAgentIndexer instantiates an AgentIndexer.
 func NewAgentIndexer(cfg *AgentIndexerConfig) *AgentIndexer {
-	return &AgentIndexer{
-		agents:          make(map[[32]byte]AgentInfo),
-		registryAddress: cfg.RegistryAddress,
-		rateLimiter:     cfg.RateLimiter,
-		client:          cfg.Client,
+	if cfg.InitialState == nil {
+		cfg.InitialState = &AgentIndexerInitialState{
+			Agents:           make(map[[32]byte]AgentInfo),
+			LastIndexedBlock: 0,
+		}
 	}
-}
 
-// NewAgentIndexerWithInitialState creates a new AgentIndexer with an initial state.
-func NewAgentIndexerWithInitialState(cfg AgentIndexerConfig, initialState map[[32]byte]AgentInfo, lastIndexedBlock uint64) *AgentIndexer {
 	return &AgentIndexer{
-		agents:           initialState,
+		agents:           cfg.InitialState.Agents,
+		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
 		registryAddress:  cfg.RegistryAddress,
-		lastIndexedBlock: lastIndexedBlock,
-		rateLimiter:      cfg.RateLimiter,
 		client:           cfg.Client,
 	}
 }
@@ -101,25 +102,13 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		return
 	}
 
-	i.pushAgentInfo(
-		agentRegisteredEv.Agent,
-		agentRegisteredEv.Name,
-		agentRegisteredEv.SystemPrompt,
-		ev.Raw.BlockNumber,
-	)
-}
-
-func (i *AgentIndexer) pushAgentInfo(addr *felt.Felt, name string, systemPrompt string, block uint64) {
-	i.agentsMu.Lock()
-	defer i.agentsMu.Unlock()
-
 	info := AgentInfo{
-		Address:      addr,
-		Name:         name,
-		SystemPrompt: systemPrompt,
+		Address:      agentRegisteredEv.Agent,
+		Name:         agentRegisteredEv.Name,
+		SystemPrompt: agentRegisteredEv.SystemPrompt,
 	}
-	i.agents[addr.Bytes()] = info
-	i.addresses = append(i.addresses, addr)
+	i.agents[agentRegisteredEv.Agent.Bytes()] = info
+	i.addresses = append(i.addresses, agentRegisteredEv.Agent)
 }
 
 // GetAgentInfo returns an agent's info, if it exists.
@@ -151,46 +140,56 @@ func (i *AgentIndexer) GetOrFetchAgentInfo(ctx context.Context, addr *felt.Felt,
 }
 
 func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (AgentInfo, error) {
-	if i.rateLimiter != nil {
-		if err := i.rateLimiter.Wait(ctx); err != nil {
-			return AgentInfo{}, fmt.Errorf("rate limit exceeded: %v", err)
-		}
+	var isAgentRegisteredResp []*felt.Felt
+	var err error
+
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		isAgentRegisteredResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    i.registryAddress,
+			EntryPointSelector: isAgentRegisteredSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
+		snaccount.LogRpcError(err)
+		return AgentInfo{}, fmt.Errorf("is_agent_registered call failed: %v", err)
 	}
-	isAgentRegisteredResp, err := i.client.Call(ctx, rpc.FunctionCall{
-		ContractAddress:    i.registryAddress,
-		EntryPointSelector: isAgentRegisteredSelector,
-	}, rpc.WithBlockTag("latest"))
-	if err != nil {
-		return AgentInfo{}, fmt.Errorf("is_agent_registered call failed: %v", snaccount.FormatRpcError(err))
-	}
+
 	if isAgentRegisteredResp[0].Cmp(new(felt.Felt).SetUint64(1)) != 0 {
 		return AgentInfo{}, fmt.Errorf("agent not registered")
 	}
 
-	if i.rateLimiter != nil {
-		if err := i.rateLimiter.Wait(ctx); err != nil {
-			return AgentInfo{}, fmt.Errorf("rate limit exceeded: %v", err)
-		}
+	var nameResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		nameResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getNameSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
+		snaccount.LogRpcError(err)
+		return AgentInfo{}, fmt.Errorf("get_name call failed: %v", err)
 	}
-	nameResp, err := i.client.Call(ctx, rpc.FunctionCall{
-		ContractAddress:    addr,
-		EntryPointSelector: getNameSelector,
-	}, rpc.WithBlockTag("latest"))
-	if err != nil {
-		return AgentInfo{}, fmt.Errorf("get_name call failed: %v", snaccount.FormatRpcError(err))
-	}
+
 	name, err := starknetgoutils.ByteArrFeltToString(nameResp)
 	if err != nil {
 		return AgentInfo{}, fmt.Errorf("parse get_name failed: %v", err)
 	}
 
-	getSystemPromptResp, err := i.client.Call(ctx, rpc.FunctionCall{
-		ContractAddress:    addr,
-		EntryPointSelector: getSystemPromptSelector,
-	}, rpc.WithBlockTag("latest"))
-	if err != nil {
-		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %v", snaccount.FormatRpcError(err))
+	var getSystemPromptResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getSystemPromptResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getSystemPromptSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
+		snaccount.LogRpcError(err)
+		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %v", err)
 	}
+
 	systemPrompt, err := starknetgoutils.ByteArrFeltToString(getSystemPromptResp)
 	if err != nil {
 		return AgentInfo{}, fmt.Errorf("parse system_prompt failed: %v", err)

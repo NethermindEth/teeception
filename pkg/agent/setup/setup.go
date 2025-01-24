@@ -23,9 +23,9 @@ func Setup(ctx context.Context) (*SetupOutput, error) {
 	}
 
 	dstackTappdEndpoint := envGetDstackTappdEndpoint()
-	dstackTappdClient := tappd.NewTappdClient(dstackTappdEndpoint, slog.Default())
+	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(dstackTappdEndpoint))
 
-	sealingKeyResp, err := dstackTappdClient.DeriveKey(ctx, "/agent/sealing", "teeception", nil)
+	sealingKeyResp, err := dstackTappdClient.DeriveKeyWithSubject(ctx, "/agent/sealing", "teeception")
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive sealing key: %v", err)
 	}

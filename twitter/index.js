@@ -64,7 +64,7 @@ class TwitterClientApi {
     async getTweet(req, res) {
         try {
             const tweetId = req.params.id
-            const tweet = await this.scraper.getTweetV2(tweetId)
+            const tweet = await this.scraper.getTweet(tweetId)
             res.send(tweet.text)
         } catch (err) {
             console.error('Failed to get tweet:', err)
@@ -82,7 +82,7 @@ class TwitterClientApi {
         try {
             const tweetId = req.params.id
             const { reply } = req.body
-            await this.scraper.sendTweetV2(reply, tweetId)
+            await this.scraper.sendTweet(reply, tweetId)
             res.sendStatus(200)
         } catch (err) {
             console.error('Failed to reply to tweet:', err)

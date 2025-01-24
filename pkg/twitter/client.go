@@ -10,7 +10,7 @@ type TwitterClientConfig struct {
 }
 
 type TwitterClient interface {
-	Initialize(config TwitterClientConfig) error
+	Initialize(config *TwitterClientConfig) error
 	GetTweetText(tweetID uint64) (string, error)
 	ReplyToTweet(tweetID uint64, reply string) error
 }

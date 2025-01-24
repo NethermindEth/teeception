@@ -42,7 +42,7 @@ type TxQueueResult struct {
 type TxQueue struct {
 	cfg      TxQueueConfig
 	account  *StarknetAccount
-	provider *rpc.Provider
+	client   ProviderWrapper
 	itemsMu  sync.Mutex
 	items    []*TxQueueItem
 	submitMu sync.Mutex
@@ -53,7 +53,7 @@ type TxQueue struct {
 }
 
 // NewTxQueue initializes a TxQueue with sensible defaults if none are provided.
-func NewTxQueue(account *StarknetAccount, provider *rpc.Provider, cfg *TxQueueConfig) *TxQueue {
+func NewTxQueue(account *StarknetAccount, client ProviderWrapper, cfg *TxQueueConfig) *TxQueue {
 	if cfg == nil {
 		cfg = &TxQueueConfig{}
 	}
@@ -65,11 +65,11 @@ func NewTxQueue(account *StarknetAccount, provider *rpc.Provider, cfg *TxQueueCo
 	}
 
 	return &TxQueue{
-		cfg:      *cfg,
-		account:  account,
-		provider: provider,
-		items:    make([]*TxQueueItem, 0),
-		stopCh:   make(chan struct{}),
+		cfg:     *cfg,
+		account: account,
+		client:  client,
+		items:   make([]*TxQueueItem, 0),
+		stopCh:  make(chan struct{}),
 	}
 }
 
@@ -115,15 +115,15 @@ func (q *TxQueue) Stop() {
 func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *TxQueueResult, error) {
 	// Dry-run each FunctionCall to confirm success.
 	for i, c := range calls {
-		_, err := q.provider.Call(ctx, c, rpc.WithBlockTag("latest"))
-		if err != nil {
-			var data any = err.Error()
-			rpcErr, ok := err.(*rpc.RPCError)
-			if ok {
-				data = rpcErr.Data
+		err := q.client.Do(func(client rpc.RpcProvider) error {
+			_, err := client.Call(ctx, c, rpc.WithBlockTag("latest"))
+			if err != nil {
+				return err
 			}
-
-			return nil, fmt.Errorf("function call index %d failed simulation: %v", i, data)
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("function call index %d failed simulation: %v", i, FormatRpcError(err))
 		}
 	}
 

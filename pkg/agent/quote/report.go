@@ -1,4 +1,4 @@
-package agent
+package quote
 
 import (
 	"bytes"
@@ -8,12 +8,14 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 )
 
+// ReportData is the data that is sent to the Quoter to get a quote.
 type ReportData struct {
 	Address         *felt.Felt
 	ContractAddress *felt.Felt
 	TwitterUsername string
 }
 
+// MarshalJSON marshals the ReportData to JSON.
 func (r *ReportData) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]string{
 		"address":         r.Address.String(),
@@ -22,6 +24,7 @@ func (r *ReportData) MarshalJSON() ([]byte, error) {
 	})
 }
 
+// MarshalBinary marshals the ReportData to binary.
 func (r *ReportData) MarshalBinary() ([]byte, error) {
 	writer := bytes.NewBuffer([]byte{})
 

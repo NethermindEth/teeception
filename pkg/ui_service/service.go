@@ -4,26 +4,29 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/starknet.go/rpc"
 	"github.com/NethermindEth/teeception/pkg/indexer"
+	"github.com/NethermindEth/teeception/pkg/indexer/price"
+	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 )
 
-type AgentServiceConfig struct {
-	Client          *rpc.Provider
-	AdminToken      string
+type UIServiceConfig struct {
+	Client          starknet.ProviderWrapper
 	PageSize        int
 	ServerAddr      string
 	RegistryAddress *felt.Felt
+	StartingBlock   uint64
+	TokenRates      map[[32]byte]*big.Int
 }
 
-type AgentService struct {
+type UIService struct {
 	eventWatcher         *indexer.EventWatcher
 	agentIndexer         *indexer.AgentIndexer
 	agentMetadataIndexer *indexer.AgentMetadataIndexer
@@ -32,48 +35,66 @@ type AgentService struct {
 
 	registryAddress *felt.Felt
 
-	client     *rpc.Provider
-	adminToken string
+	client starknet.ProviderWrapper
 
 	pageSize   int
 	serverAddr string
 }
 
-func NewAgentService(config *AgentServiceConfig) (*AgentService, error) {
+func NewUIService(config *UIServiceConfig) (*UIService, error) {
+	lastIndexedBlock := config.StartingBlock - 1
+
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          config.Client,
 		SafeBlockDelta:  0,
 		TickRate:        2 * time.Second,
 		IndexChunkSize:  1000,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.EventWatcherInitialState{
+			LastIndexedBlock: lastIndexedBlock,
+		},
 	})
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.AgentIndexerInitialState{
+			Agents:           make(map[[32]byte]indexer.AgentInfo),
+			LastIndexedBlock: lastIndexedBlock,
+		},
 	})
 	agentMetadataIndexer := indexer.NewAgentMetadataIndexer(&indexer.AgentMetadataIndexerConfig{
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.AgentMetadataIndexerInitialState{
+			Metadata:         make(map[[32]byte]indexer.AgentMetadata),
+			LastIndexedBlock: config.StartingBlock - 1,
+		},
 	})
-	// TODO: implement price feed
-	priceFeed := &PriceService{}
+	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
 	tokenIndexer := indexer.NewTokenIndexer(&indexer.TokenIndexerConfig{
-		Client:          config.Client,
 		PriceFeed:       priceFeed,
-		PriceTickRate:   1 * time.Minute,
+		PriceTickRate:   5 * time.Second,
 		RegistryAddress: config.RegistryAddress,
+		InitialState: &indexer.TokenIndexerInitialState{
+			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
+			LastIndexedBlock: lastIndexedBlock,
+		},
 	})
 	agentBalanceIndexer := indexer.NewAgentBalanceIndexer(&indexer.AgentBalanceIndexerConfig{
 		Client:          config.Client,
 		AgentIdx:        agentIndexer,
 		MetaIdx:         agentMetadataIndexer,
-		TickRate:        1 * time.Minute,
+		TickRate:        5 * time.Second,
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
+		InitialState: &indexer.AgentBalanceIndexerInitialState{
+			Balances:         make(map[[32]byte]*indexer.AgentBalance),
+			LastIndexedBlock: lastIndexedBlock,
+		},
 	})
 
-	return &AgentService{
+	return &UIService{
 		eventWatcher:         eventWatcher,
 		agentIndexer:         agentIndexer,
 		agentMetadataIndexer: agentMetadataIndexer,
@@ -83,13 +104,12 @@ func NewAgentService(config *AgentServiceConfig) (*AgentService, error) {
 		registryAddress: config.RegistryAddress,
 
 		client:     config.Client,
-		adminToken: config.AdminToken,
 		pageSize:   config.PageSize,
 		serverAddr: config.ServerAddr,
 	}, nil
 }
 
-func (s *AgentService) Run(ctx context.Context) error {
+func (s *UIService) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return s.eventWatcher.Run(ctx)
@@ -112,10 +132,11 @@ func (s *AgentService) Run(ctx context.Context) error {
 	return g.Wait()
 }
 
-func (s *AgentService) startServer(ctx context.Context) error {
+func (s *UIService) startServer(ctx context.Context) error {
 	router := gin.Default()
 
 	router.GET("/agents", s.HandleGetAgents)
+	router.GET("/agent/:address", s.HandleGetAgent)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
@@ -151,7 +172,7 @@ type AgentLeaderboardResponse struct {
 	LastBlock int          `json:"last_block"`
 }
 
-func (s *AgentService) HandleGetAgents(c *gin.Context) {
+func (s *UIService) HandleGetAgents(c *gin.Context) {
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
 		page = 1
@@ -159,7 +180,7 @@ func (s *AgentService) HandleGetAgents(c *gin.Context) {
 
 	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page-1)*uint64(s.pageSize), uint64(page)*uint64(s.pageSize))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})
 		return
 	}
 
@@ -197,7 +218,7 @@ func (s *AgentService) HandleGetAgents(c *gin.Context) {
 	})
 }
 
-func (s *AgentService) HandleGetAgent(c *gin.Context) {
+func (s *UIService) HandleGetAgent(c *gin.Context) {
 	agentAddrStr := c.Param("address")
 	agentAddr, err := new(felt.Felt).SetString(agentAddrStr)
 	if err != nil {
@@ -207,13 +228,13 @@ func (s *AgentService) HandleGetAgent(c *gin.Context) {
 
 	balance, ok := s.agentBalanceIndexer.GetBalance(agentAddr)
 	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in balance indexer"})
 		return
 	}
 
 	info, ok := s.agentIndexer.GetAgentInfo(agentAddr)
 	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in agent indexer"})
 		return
 	}
 
