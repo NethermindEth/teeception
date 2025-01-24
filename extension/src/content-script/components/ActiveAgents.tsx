@@ -7,12 +7,42 @@ import { Contract, RpcProvider } from 'starknet'
 import { ERC20_ABI } from '../../abis/ERC20_ABI'
 import { useEffect, useState, useMemo } from 'react'
 import { useTokenSupport } from '../hooks/useTokenSupport'
+import { SELECTORS } from '../constants/selectors'
+import { CONFIG } from '../config'
 
 interface AgentWithBalances {
   address: string;
   name: string;
   systemPrompt: string;
   balances: Record<string, string>;
+}
+
+// Function to focus tweet compose box and set text
+const composeTweet = (agentName: string) => {
+  const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
+  const tweetTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+  
+  if (tweetTextarea) {
+    // If textarea already exists, just focus it
+    tweetTextarea.focus()
+    const existingText = tweetTextarea.textContent || ''
+    const hasExistingText = existingText.trim().length > 0
+    const text = `${CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
+    document.execCommand('insertText', false, text)
+  } else if (tweetButton) {
+    // If no textarea, open compose box first
+    tweetButton.click()
+    setTimeout(() => {
+      const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+      if (newTextarea) {
+        newTextarea.focus()
+        const existingText = newTextarea.textContent || ''
+        const hasExistingText = existingText.trim().length > 0
+        const text = `${CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
+        document.execCommand('insertText', false, text)
+      }
+    }, 100)
+  }
 }
 
 export default function ActiveAgents({
@@ -140,10 +170,18 @@ export default function ActiveAgents({
           {sortedAgents.map((agent) => (
             <div 
               key={agent.address} 
-              className="grid border-b border-[#2F3336] last:border-0 py-4" 
+              className="group grid border-b border-[#2F3336] last:border-0 py-4 relative hover:bg-[#16181C]" 
               style={{ gridTemplateColumns: `auto repeat(${supportedTokenList.length}, 200px)` }}
             >
-              <div className="text-white text-base">{agent.name}</div>
+              <div className="text-white text-base flex items-center justify-between pr-4">
+                <span>{agent.name}</span>
+                <button
+                  onClick={() => composeTweet(agent.name)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full px-4 py-1 text-sm text-black hover:bg-white/90"
+                >
+                  Reply
+                </button>
+              </div>
               {supportedTokenList.map(([symbol, token]) => (
                 <div key={symbol} className="text-center text-base">
                   {formatBalance(agent.balances[symbol] || '0', token.decimals)} {symbol}
