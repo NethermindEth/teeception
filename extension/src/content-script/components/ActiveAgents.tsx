@@ -21,27 +21,48 @@ interface AgentWithBalances {
 const composeTweet = (agentName: string) => {
   const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
   const tweetTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+  const postButton = document.querySelector(SELECTORS.POST_BUTTON) as HTMLElement
   
-  if (tweetTextarea) {
-    // If textarea already exists, just focus it
-    tweetTextarea.focus()
-    const existingText = tweetTextarea.textContent || ''
+  const insertText = (textarea: HTMLElement) => {
+    textarea.focus()
+    const existingText = textarea.textContent || ''
     const hasExistingText = existingText.trim().length > 0
     const text = `${CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
     document.execCommand('insertText', false, text)
-  } else if (tweetButton) {
-    // If no textarea, open compose box first
-    tweetButton.click()
-    setTimeout(() => {
-      const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
-      if (newTextarea) {
-        newTextarea.focus()
-        const existingText = newTextarea.textContent || ''
-        const hasExistingText = existingText.trim().length > 0
-        const text = `${CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
-        document.execCommand('insertText', false, text)
-      }
-    }, 100)
+  }
+
+  if (tweetTextarea) {
+    // If textarea already exists, just focus it and insert
+    insertText(tweetTextarea)
+  } else {
+    // If no textarea, try to find and click the Post button first
+    if (postButton) {
+      postButton.click()
+      setTimeout(() => {
+        const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+        if (newTextarea) {
+          insertText(newTextarea)
+        } else if (tweetButton) {
+          // If still no textarea, try the tweet button as fallback
+          tweetButton.click()
+          setTimeout(() => {
+            const fallbackTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+            if (fallbackTextarea) {
+              insertText(fallbackTextarea)
+            }
+          }, 100)
+        }
+      }, 100)
+    } else if (tweetButton) {
+      // If no Post button found, try tweet button as fallback
+      tweetButton.click()
+      setTimeout(() => {
+        const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+        if (newTextarea) {
+          insertText(newTextarea)
+        }
+      }, 100)
+    }
   }
 }
 
