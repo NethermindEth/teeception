@@ -8,8 +8,30 @@ import {
 import { ControllerConnector } from "@cartridge/connector";
 import { ACTIVE_NETWORK } from '../config/starknet';
 
+const policies = {
+  contracts: {
+    [ACTIVE_NETWORK.agentRegistryAddress]: {
+      name: "Agent Registry",
+      description: "Allows interaction with the Agent Registry contract",
+      methods: [
+        {
+          name: "Register Agent",
+          description: "Register a new AI agent",
+          entrypoint: "register_agent"
+        },
+        {
+          name: "Transfer Agent",
+          description: "Transfer ownership of an agent",
+          entrypoint: "transfer"
+        }
+      ]
+    }
+  }
+};
+
 const cartridgeConnector = new ControllerConnector({
   rpc: ACTIVE_NETWORK.rpc,
+  policies
 });
 
 export function StarknetProvider({ children }: { children: React.ReactNode }) {
