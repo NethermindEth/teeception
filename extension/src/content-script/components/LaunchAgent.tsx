@@ -1,12 +1,14 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
-import { Info } from 'lucide-react'
+import { Info, AlertCircle } from 'lucide-react'
 import { AGENT_VIEWS } from './AgentView'
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAccount } from '@starknet-react/core'
 import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Contract, RpcProvider, uint256 } from 'starknet'
+import { useTokenSupport } from '../hooks/useTokenSupport'
+import { useTokenBalance } from '../hooks/useTokenBalance'
 
 interface FormData {
   agentName: string
@@ -22,6 +24,7 @@ interface FormErrors {
   initialBalance?: string
   systemPrompt?: string
   selectedToken?: string
+  submit?: string
 }
 
 export default function LaunchAgent({
@@ -31,6 +34,8 @@ export default function LaunchAgent({
 }) {
   const { account } = useAccount()
   const { address: registryAddress } = useAgentRegistry()
+  const { supportedTokens, isLoading: isLoadingSupport } = useTokenSupport()
+  
   const [formData, setFormData] = useState<FormData>({
     agentName: '',
     feePerMessage: '',
@@ -39,8 +44,33 @@ export default function LaunchAgent({
     selectedToken: Object.keys(ACTIVE_NETWORK.tokens)[0],
   })
 
+  const { balance: tokenBalance, isLoading: isLoadingBalance } = useTokenBalance(formData.selectedToken)
+
   const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
+
+  // Get supported tokens only
+  const supportedTokenList = useMemo(() => 
+    Object.entries(ACTIVE_NETWORK.tokens)
+      .filter(([symbol]) => supportedTokens[symbol]?.isSupported)
+      .map(([symbol, token]) => ({
+        symbol,
+        name: token.name,
+        address: token.address,
+        decimals: token.decimals,
+        minPromptPrice: supportedTokens[symbol]?.minPromptPrice
+      }))
+  , [supportedTokens])
+
+  // Set first supported token as default when loaded
+  useEffect(() => {
+    if (supportedTokenList.length > 0 && !supportedTokens[formData.selectedToken]?.isSupported) {
+      setFormData(prev => ({
+        ...prev,
+        selectedToken: supportedTokenList[0].symbol
+      }))
+    }
+  }, [supportedTokenList, formData.selectedToken, supportedTokens])
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -49,22 +79,37 @@ export default function LaunchAgent({
       newErrors.agentName = 'Agent name is required'
     }
 
+    const selectedToken = ACTIVE_NETWORK.tokens[formData.selectedToken]
+    const tokenSupport = supportedTokens[formData.selectedToken]
+
+    if (!tokenSupport?.isSupported) {
+      newErrors.selectedToken = 'Selected token is not supported'
+    }
+
     const feeNumber = parseFloat(formData.feePerMessage)
     if (isNaN(feeNumber) || feeNumber < 0) {
       newErrors.feePerMessage = 'Fee must be a positive number'
+    } else if (tokenSupport?.minPromptPrice) {
+      const feeInSmallestUnit = BigInt(feeNumber * Math.pow(10, selectedToken.decimals))
+      if (feeInSmallestUnit < tokenSupport.minPromptPrice) {
+        newErrors.feePerMessage = `Fee must be at least ${
+          Number(tokenSupport.minPromptPrice) / Math.pow(10, selectedToken.decimals)
+        } ${selectedToken.symbol}`
+      }
     }
 
     const balanceNumber = parseFloat(formData.initialBalance)
     if (isNaN(balanceNumber) || balanceNumber < 0) {
       newErrors.initialBalance = 'Initial balance must be a positive number'
+    } else if (tokenBalance?.balance) {
+      const balanceInSmallestUnit = BigInt(balanceNumber * Math.pow(10, selectedToken.decimals))
+      if (balanceInSmallestUnit > tokenBalance.balance) {
+        newErrors.initialBalance = `Insufficient balance. You have ${tokenBalance.formatted} ${selectedToken.symbol}`
+      }
     }
 
     if (!formData.systemPrompt.trim()) {
       newErrors.systemPrompt = 'System prompt is required'
-    }
-
-    if (!formData.selectedToken) {
-      newErrors.selectedToken = 'Token selection is required'
     }
 
     setErrors(newErrors)
@@ -91,15 +136,12 @@ export default function LaunchAgent({
       const promptPrice = uint256.bnToUint256(
         BigInt(parseFloat(formData.feePerMessage) * Math.pow(10, selectedToken.decimals))
       )
-      
-      // Current timestamp + 1 year in seconds
-      const endTime = BigInt(Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60)
 
       const response = await registry.register_agent(
         formData.agentName,
         formData.systemPrompt,
-        promptPrice,
-        endTime
+        selectedToken.address,
+        promptPrice
       )
 
       console.log('Agent registered:', response)
@@ -113,7 +155,19 @@ export default function LaunchAgent({
   }
 
   const selectedToken = ACTIVE_NETWORK.tokens[formData.selectedToken]
+  const selectedTokenSupport = supportedTokens[formData.selectedToken]
   const isFormValid = Object.values(formData).every((value) => value.trim() !== '')
+
+  const minPromptPriceDisplay = selectedTokenSupport?.minPromptPrice 
+    ? (Number(selectedTokenSupport.minPromptPrice) / Math.pow(10, selectedToken.decimals)).toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 6
+      })
+    : null;
+
+  if (isLoadingSupport) {
+    return <div className="text-white">Loading supported tokens...</div>
+  }
 
   return (
     <section className="pt-5">
@@ -169,13 +223,18 @@ export default function LaunchAgent({
               onChange={handleInputChange}
               className="w-full border border-[#818181] rounded-sm bg-black/80 outline-none min-h-[34px] p-2 focus:border-white text-white"
             >
-              {Object.entries(ACTIVE_NETWORK.tokens).map(([symbol, token]) => (
-                <option key={symbol} value={symbol}>
+              {supportedTokenList.map((token) => (
+                <option key={token.symbol} value={token.symbol}>
                   {token.name} ({token.symbol})
                 </option>
               ))}
             </select>
             {errors.selectedToken && <p className="text-red-500 mt-1">{errors.selectedToken}</p>}
+            {!isLoadingBalance && tokenBalance?.formatted && (
+              <p className="text-gray-400 mt-1">
+                Your balance: {tokenBalance.formatted} {selectedToken.symbol}
+              </p>
+            )}
           </div>
         </div>
 
@@ -203,6 +262,11 @@ export default function LaunchAgent({
               placeholder={`0.00 ${selectedToken?.symbol}`}
             />
             {errors.feePerMessage && <p className="text-red-500 mt-1">{errors.feePerMessage}</p>}
+            {minPromptPriceDisplay && (
+              <p className="text-gray-400 mt-1">
+                Minimum fee: {minPromptPriceDisplay} {selectedToken.symbol}
+              </p>
+            )}
           </div>
         </div>
 
@@ -229,7 +293,12 @@ export default function LaunchAgent({
               className="w-full border border-[#818181] rounded-sm bg-transparent outline-none min-h-[34px] p-2 focus:border-white text-white"
               placeholder={`0.00 ${selectedToken?.symbol}`}
             />
-            {errors.initialBalance && <p className="text-red-500 mt-1">{errors.initialBalance}</p>}
+            {errors.initialBalance && (
+              <div className="flex items-center gap-1 text-red-500 mt-1">
+                <AlertCircle width={12} height={12} />
+                <p>{errors.initialBalance}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -266,6 +335,13 @@ export default function LaunchAgent({
         <p className="text-xs text-white my-4">
           Users will receive 15% of fee generated by messages, 5% goes to Nethermind team
         </p>
+
+        {errors.submit && (
+          <div className="flex items-center gap-1 text-red-500">
+            <AlertCircle width={16} height={16} />
+            <p>{errors.submit}</p>
+          </div>
+        )}
 
         <button
           className="bg-white disabled:text-[#6F6F6F] disabled:border-[#6F6F6F] rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-base hover:bg-white/70 border border-transparent disabled:bg-transparent"

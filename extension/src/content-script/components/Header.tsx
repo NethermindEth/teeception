@@ -4,8 +4,6 @@ import { useAccount, useConnect, useDisconnect } from '@starknet-react/core'
 import { useState } from 'react'
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
 import { useTokenBalance } from '../hooks/useTokenBalance'
-import { ACTIVE_NETWORK } from '../config/starknet'
-import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { AgentView } from './AgentView'
 
 interface HeaderProps {
@@ -15,7 +13,7 @@ interface HeaderProps {
 
 export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderProps) {
   const { address, status } = useAccount()
-  const { balance, symbol, loading } = useTokenBalance(address)
+  const { balance: tokenBalance, isLoading: loading } = useTokenBalance('STRK')
   const [copied, setCopied] = useState(false)
   const { connectAsync, connectors } = useConnect()
   const { disconnect } = useDisconnect()
@@ -96,7 +94,7 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <p className="shrink-0">{loading ? "..." : `${balance} ${symbol}`}</p>
+                    <p className="shrink-0">{loading ? "..." : `${tokenBalance?.formatted || '0'} STRK`}</p>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Your balance</p>

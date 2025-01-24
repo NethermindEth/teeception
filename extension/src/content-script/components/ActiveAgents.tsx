@@ -5,7 +5,8 @@ import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Loader2 } from 'lucide-react'
 import { Contract, RpcProvider } from 'starknet'
 import { ERC20_ABI } from '../../abis/ERC20_ABI'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import { useTokenSupport } from '../hooks/useTokenSupport'
 
 interface TokenBalance {
   symbol: string;
@@ -26,9 +27,17 @@ export default function ActiveAgents({
 }) {
   const { address: registryAddress } = useAgentRegistry()
   const { agents, loading: agentsLoading, error: agentsError } = useAgents(registryAddress)
+  const { supportedTokens, isLoading: isLoadingSupport } = useTokenSupport()
   const [agentsWithBalances, setAgentsWithBalances] = useState<AgentWithBalances[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Get supported tokens only
+  const supportedTokenList = useMemo(() => 
+    Object.entries(ACTIVE_NETWORK.tokens)
+      .filter(([symbol]) => supportedTokens[symbol]?.isSupported)
+      .map(([symbol, token]) => [symbol, token] as [string, typeof token])
+  , [supportedTokens])
 
   useEffect(() => {
     const fetchTokenBalances = async () => {
@@ -44,7 +53,7 @@ export default function ActiveAgents({
           const tokenBalances: Record<string, string> = {}
           
           await Promise.all(
-            Object.entries(ACTIVE_NETWORK.tokens).map(async ([symbol, token]) => {
+            supportedTokenList.map(async ([symbol, token]) => {
               const tokenContract = new Contract(ERC20_ABI, token.address, provider)
               const balance = await tokenContract.balance_of(agent.address)
               tokenBalances[symbol] = balance.toString()
@@ -70,7 +79,7 @@ export default function ActiveAgents({
     if (agents.length) {
       fetchTokenBalances()
     }
-  }, [agents])
+  }, [agents, supportedTokenList])
 
   // Sort agents by total value in STRK
   const sortedAgents = [...agentsWithBalances].sort((a, b) => {
@@ -96,7 +105,7 @@ export default function ActiveAgents({
     return integerPart.toString()
   }
 
-  if (loading || agentsLoading) {
+  if (loading || agentsLoading || isLoadingSupport) {
     return (
       <div className="flex items-center justify-center h-[600px]">
         <div className="flex items-center gap-2">
@@ -115,18 +124,17 @@ export default function ActiveAgents({
     )
   }
 
-  const tokens = Object.entries(ACTIVE_NETWORK.tokens)
-  const columnCount = tokens.length + 1 // +1 for agent name column
+  const columnCount = supportedTokenList.length + 1 // +1 for agent name column
 
   return (
     <div>
       <section className="pt-5">
         {/* Header */}
-        <div className="grid border-b border-b-[#2F3336]" style={{ gridTemplateColumns: `auto repeat(${tokens.length}, 200px)` }}>
+        <div className="grid border-b border-b-[#2F3336]" style={{ gridTemplateColumns: `auto repeat(${supportedTokenList.length}, 200px)` }}>
           <div className="text-[#A4A4A4] text-sm py-4">
             Active agents ({agents.length})
           </div>
-          {tokens.map(([symbol, token]) => (
+          {supportedTokenList.map(([symbol, token]) => (
             <div key={symbol} className="flex items-center gap-2 justify-center text-[#A4A4A4] text-sm py-4">
               <img src={token.image} alt={token.name} className="w-4 h-4 rounded-full" />
               <span>{symbol}</span>
@@ -140,10 +148,10 @@ export default function ActiveAgents({
             <div 
               key={agent.address} 
               className="grid border-b border-[#2F3336] last:border-0 py-4" 
-              style={{ gridTemplateColumns: `auto repeat(${tokens.length}, 200px)` }}
+              style={{ gridTemplateColumns: `auto repeat(${supportedTokenList.length}, 200px)` }}
             >
               <div className="text-white text-base">{agent.name}</div>
-              {tokens.map(([symbol, token]) => (
+              {supportedTokenList.map(([symbol, token]) => (
                 <div key={symbol} className="text-center text-base">
                   {formatBalance(agent.balances[symbol] || '0', token.decimals)} {symbol}
                 </div>
