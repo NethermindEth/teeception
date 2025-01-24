@@ -197,7 +197,7 @@ export default function ActiveAgents({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col gap-3 px-4 py-8 bg-[#12121266] backdrop-blur-sm absolute bottom-0 left-0 right-0">
+        <div className="flex flex-col gap-3 px-4 py-8 absolute bottom-0 left-0 right-0">
           <button
             onClick={() => {
               setCurrentView(AGENT_VIEWS.LAUNCH_AGENT)
