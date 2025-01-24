@@ -1,4 +1,4 @@
 export const CONFIG = {
   accountName: '@jack_the_ether',
-  nodeUrl: 'https://free-rpc.nethermind.io/sepolia-juno/v0_7'
+  nodeUrl: 'https://api.cartridge.gg/x/starknet/sepolia'
 } 

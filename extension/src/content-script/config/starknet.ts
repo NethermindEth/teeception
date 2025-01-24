@@ -15,7 +15,7 @@ export const STARKNET_CONFIG = {
     chainId: constants.StarknetChainId.SN_SEPOLIA,
     name: 'Sepolia',
     explorer: 'https://sepolia.starkscan.co',
-    rpc: 'https://starknet-sepolia.public.blastapi.io',
+    rpc: 'https://api.cartridge.gg/x/starknet/sepolia',
     starkgate: 'https://sepolia.starkgate.starknet.io',
     agentRegistryAddress: '0x65cbb44cfdc88bc93f252355494490bd971b0f826df8c37d9466ea483dc4d0d',
     tokens: {
@@ -40,7 +40,7 @@ export const STARKNET_CONFIG = {
     chainId: constants.StarknetChainId.SN_MAIN,
     name: 'Mainnet',
     explorer: 'https://starkscan.co',
-    rpc: 'https://starknet-mainnet.public.blastapi.io',
+    rpc: 'https://api.cartridge.gg/x/starknet/mainnet',
     starkgate: 'https://starkgate.starknet.io',
     agentRegistryAddress: undefined,
     tokens: {
