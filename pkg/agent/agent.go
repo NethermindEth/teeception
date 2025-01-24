@@ -53,7 +53,7 @@ type AgentConfig struct {
 	TwitterClient       twitter.TwitterClient
 	TwitterClientConfig *twitter.TwitterClientConfig
 
-	OpenAIClient   chat.ChatCompletion
+	ChatCompletion chat.ChatCompletion
 	StarknetClient starknet.ProviderWrapper
 	Quoter         quote.Quoter
 
@@ -145,7 +145,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 
 	return &AgentConfig{
 		TwitterClient:  twitterClient,
-		OpenAIClient:   openaiClient,
+		ChatCompletion: openaiClient,
 		StarknetClient: starknetClient,
 		Quoter:         quoter,
 
@@ -165,7 +165,7 @@ type Agent struct {
 	twitterClient       twitter.TwitterClient
 	twitterClientConfig *twitter.TwitterClientConfig
 
-	openaiClient   chat.ChatCompletion
+	chatCompletion chat.ChatCompletion
 	starknetClient starknet.ProviderWrapper
 	quoter         quote.Quoter
 
@@ -189,7 +189,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		twitterClient:       config.TwitterClient,
 		twitterClientConfig: config.TwitterClientConfig,
 
-		openaiClient:   config.OpenAIClient,
+		chatCompletion: config.ChatCompletion,
 		starknetClient: config.StarknetClient,
 		quoter:         config.Quoter,
 
@@ -263,7 +263,7 @@ func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubs
 						"from_address", promptPaidEvent.User,
 						"tweet_id", promptPaidEvent.TweetID)
 
-					err := a.processPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
+					err := a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
 					if err != nil {
 						slog.Warn("failed to process prompt paid event", "error", err)
 					}
@@ -278,7 +278,7 @@ func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubs
 	return nil
 }
 
-func (a *Agent) processPromptPaidEvent(ctx context.Context, agentAddress *felt.Felt, promptPaidEvent *indexer.PromptPaidEvent, block uint64) error {
+func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.Felt, promptPaidEvent *indexer.PromptPaidEvent, block uint64) error {
 	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
 	tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 	if err != nil {
@@ -296,7 +296,7 @@ func (a *Agent) processPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, promptID, tweetID uint64, tweetText string, systemPrompt string) error {
 	slog.Info("generating AI response", "tweet_id", tweetID)
 
-	resp, err := a.openaiClient.Prompt(ctx, systemPrompt, tweetText)
+	resp, err := a.chatCompletion.Prompt(ctx, systemPrompt, tweetText)
 	if err != nil {
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
