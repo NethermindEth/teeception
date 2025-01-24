@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-react'
-import { useAccount, useConnect, useDisconnect } from '@starknet-react/core'
+import { useAccount, useConnect } from '@starknet-react/core'
 import { useState } from 'react'
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
 import { useTokenBalance } from '../hooks/useTokenBalance'
@@ -16,7 +16,6 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
   const { balance: tokenBalance, isLoading: loading } = useTokenBalance('STRK')
   const [copied, setCopied] = useState(false)
   const { connectAsync, connectors } = useConnect()
-  const { disconnect } = useDisconnect()
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: connectors as StarknetkitConnector[],
   })

@@ -73,20 +73,12 @@ const findTweetHandler = (element: Element): Function | null => {
   return null
 }
 
-interface TweetPayload {
-  text: string
-  reply?: {
-    in_reply_to_tweet_id: string
-    exclude_reply_user_ids: string[]
-  }
-}
-
 /**
  * Sends a tweet by simulating a click on the tweet button
  * @param text - The text content of the tweet
  * @returns Promise that resolves to true if the tweet was sent successfully
  */
-export const sendTweet = async (text: string): Promise<boolean> => {
+export const sendTweet = async (): Promise<boolean> => {
   try {
     // Try to find both types of tweet buttons
     const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement

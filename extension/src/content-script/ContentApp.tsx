@@ -10,7 +10,7 @@ import { SELECTORS } from './constants/selectors'
 
 const ContentApp = () => {
   const [showModal, setShowModal] = useState(false)
-  const { originalButton, overlayButton } = useTweetButton()
+  const { originalButton } = useTweetButton()
   const modalContainer = useModalContainer(showModal)
 
   const handleTweetAttempt = useCallback(() => {

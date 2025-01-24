@@ -8,11 +8,6 @@ import { ERC20_ABI } from '../../abis/ERC20_ABI'
 import { useEffect, useState, useMemo } from 'react'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 
-interface TokenBalance {
-  symbol: string;
-  balance: string;
-}
-
 interface AgentWithBalances {
   address: string;
   name: string;
@@ -123,8 +118,6 @@ export default function ActiveAgents({
       </div>
     )
   }
-
-  const columnCount = supportedTokenList.length + 1 // +1 for agent name column
 
   return (
     <div>
