@@ -290,10 +290,10 @@ func (a *Agent) processPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 		return fmt.Errorf("failed to get agent info: %v", err)
 	}
 
-	return a.reactToTweet(ctx, agentInfo.Address, promptPaidEvent.TweetID, tweetText, agentInfo.SystemPrompt)
+	return a.reactToTweet(ctx, agentInfo.Address, promptPaidEvent.PromptID, promptPaidEvent.TweetID, tweetText, agentInfo.SystemPrompt)
 }
 
-func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweetID uint64, tweetText string, systemPrompt string) error {
+func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, promptID, tweetID uint64, tweetText string, systemPrompt string) error {
 	slog.Info("generating AI response", "tweet_id", tweetID)
 
 	resp, err := a.openaiClient.Prompt(ctx, systemPrompt, tweetText)
@@ -301,11 +301,11 @@ func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, tweet
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
 
-	slog.Info("replying to tweet", "tweet_id", tweetID)
+	slog.Info("replying to tweet", "tweet_id", tweetID, "prompt_id", promptID)
 
-	err = a.consumePrompt(ctx, agentAddress, tweetID)
+	err = a.consumePrompt(ctx, agentAddress, promptID)
 	if err != nil {
-		slog.Warn("failed to consume prompt", "error", err)
+		return fmt.Errorf("failed to consume prompt: %v", err)
 	}
 
 	if !debug.IsDebugDisableReplies() {
