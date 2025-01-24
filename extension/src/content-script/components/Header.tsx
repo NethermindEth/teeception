@@ -6,7 +6,6 @@ import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
 import { useTokenBalance } from '../hooks/useTokenBalance'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
-import { AgentRegistryModal } from './AgentRegistryModal'
 import { AgentView } from './AgentView'
 
 interface HeaderProps {
@@ -23,14 +22,6 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: connectors as StarknetkitConnector[],
   })
-
-  const {
-    address: agentRegistryAddress,
-    isModalOpen,
-    error,
-    updateAddress,
-    setIsModalOpen,
-  } = useAgentRegistry()
 
   async function connectWalletWithModal() {
     const { connector } = await starknetkitConnectModal()
@@ -73,7 +64,7 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
             ${isShowAgentView ? 'w-[500px]' : 'w-[300px]'}
           `}
         >
-          <div className="px-5 py-3 flex items-center gap-4">
+          <div className="px-5 py-3 flex items-center">
             <button
               onClick={() => setIsShowAgentView(!isShowAgentView)}
               className="w-[26px] h-[26px] bg-white rounded-full flex items-center justify-center hover:opacity-80 transition-opacity shrink-0"
@@ -85,7 +76,7 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
               )}
             </button>
 
-            <div className="text-[#A4A4A4] text-xs flex items-center gap-4 overflow-hidden">
+            <div className="text-[#A4A4A4] text-xs flex items-center gap-4 justify-end flex-1">
               <div className="w-[6px] h-[6px] bg-[#58F083] rounded-full shrink-0"></div>
               
               <TooltipProvider>
@@ -118,12 +109,6 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
           <AgentView isShowAgentView={isShowAgentView} />
         </div>
       </div>
-      <AgentRegistryModal
-        isOpen={isModalOpen}
-        onSubmit={updateAddress}
-        error={error}
-        onClose={() => setIsModalOpen(false)}
-      />
     </>
   )
 }

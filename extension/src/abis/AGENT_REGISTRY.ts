@@ -3,7 +3,7 @@ export const AGENT_REGISTRY_COPY_ABI =
         {
             "type": "impl",
             "name": "AgentRegistryImpl",
-            "interface_name": "contracts::IAgentRegistry"
+            "interface_name": "teeception::IAgentRegistry"
         },
         {
             "type": "struct",
@@ -24,8 +24,36 @@ export const AGENT_REGISTRY_COPY_ABI =
             ]
         },
         {
+            "type": "struct",
+            "name": "core::integer::u256",
+            "members": [
+                {
+                    "name": "low",
+                    "type": "core::integer::u128"
+                },
+                {
+                    "name": "high",
+                    "type": "core::integer::u128"
+                }
+            ]
+        },
+        {
+            "type": "enum",
+            "name": "core::bool",
+            "variants": [
+                {
+                    "name": "False",
+                    "type": "()"
+                },
+                {
+                    "name": "True",
+                    "type": "()"
+                }
+            ]
+        },
+        {
             "type": "interface",
-            "name": "contracts::IAgentRegistry",
+            "name": "teeception::IAgentRegistry",
             "items": [
                 {
                     "type": "function",
@@ -38,9 +66,21 @@ export const AGENT_REGISTRY_COPY_ABI =
                         {
                             "name": "system_prompt",
                             "type": "core::byte_array::ByteArray"
+                        },
+                        {
+                            "name": "prompt_price",
+                            "type": "core::integer::u256"
+                        },
+                        {
+                            "name": "end_time",
+                            "type": "core::integer::u64"
                         }
                     ],
-                    "outputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        }
+                    ],
                     "state_mutability": "external"
                 },
                 {
@@ -56,11 +96,38 @@ export const AGENT_REGISTRY_COPY_ABI =
                 },
                 {
                     "type": "function",
+                    "name": "is_agent_registered",
+                    "inputs": [
+                        {
+                            "name": "address",
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "core::bool"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
                     "name": "get_agents",
                     "inputs": [],
                     "outputs": [
                         {
                             "type": "core::array::Array::<core::starknet::contract_address::ContractAddress>"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_registration_price",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u256"
                         }
                     ],
                     "state_mutability": "view"
@@ -88,24 +155,55 @@ export const AGENT_REGISTRY_COPY_ABI =
             "name": "constructor",
             "inputs": [
                 {
-                    "name": "agent_class_hash",
-                    "type": "core::starknet::class_hash::ClassHash"
-                },
-                {
                     "name": "tee",
                     "type": "core::starknet::contract_address::ContractAddress"
                 },
                 {
+                    "name": "agent_class_hash",
+                    "type": "core::starknet::class_hash::ClassHash"
+                },
+                {
                     "name": "token",
                     "type": "core::starknet::contract_address::ContractAddress"
+                },
+                {
+                    "name": "registration_price",
+                    "type": "core::integer::u256"
                 }
             ]
         },
         {
             "type": "event",
-            "name": "contracts::AgentRegistry::Event",
+            "name": "teeception::AgentRegistry::AgentRegistered",
+            "kind": "struct",
+            "members": [
+                {
+                    "name": "agent",
+                    "type": "core::starknet::contract_address::ContractAddress",
+                    "kind": "data"
+                },
+                {
+                    "name": "name",
+                    "type": "core::byte_array::ByteArray",
+                    "kind": "key"
+                },
+                {
+                    "name": "creator",
+                    "type": "core::starknet::contract_address::ContractAddress",
+                    "kind": "key"
+                }
+            ]
+        },
+        {
+            "type": "event",
+            "name": "teeception::AgentRegistry::Event",
             "kind": "enum",
-            "variants": []
+            "variants": [
+                {
+                    "name": "AgentRegistered",
+                    "type": "teeception::AgentRegistry::AgentRegistered",
+                    "kind": "nested"
+                }
+            ]
         }
     ]
-

@@ -2,12 +2,18 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tool
 import { Info } from 'lucide-react'
 import { AGENT_VIEWS } from './AgentView'
 import { useState } from 'react'
+import { ACTIVE_NETWORK } from '../config/starknet'
+import { useAccount } from '@starknet-react/core'
+import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
+import { useAgentRegistry } from '../hooks/useAgentRegistry'
+import { Contract, RpcProvider, uint256 } from 'starknet'
 
 interface FormData {
   agentName: string
   feePerMessage: string
   initialBalance: string
   systemPrompt: string
+  selectedToken: string
 }
 
 interface FormErrors {
@@ -15,6 +21,7 @@ interface FormErrors {
   feePerMessage?: string
   initialBalance?: string
   systemPrompt?: string
+  selectedToken?: string
 }
 
 export default function LaunchAgent({
@@ -22,14 +29,18 @@ export default function LaunchAgent({
 }: {
   setCurrentView: React.Dispatch<React.SetStateAction<AGENT_VIEWS>>
 }) {
+  const { account } = useAccount()
+  const { address: registryAddress } = useAgentRegistry()
   const [formData, setFormData] = useState<FormData>({
     agentName: '',
     feePerMessage: '',
     initialBalance: '',
     systemPrompt: '',
+    selectedToken: Object.keys(ACTIVE_NETWORK.tokens)[0],
   })
 
   const [errors, setErrors] = useState<FormErrors>({})
+  const [isLoading, setIsLoading] = useState(false)
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -52,22 +63,56 @@ export default function LaunchAgent({
       newErrors.systemPrompt = 'System prompt is required'
     }
 
+    if (!formData.selectedToken) {
+      newErrors.selectedToken = 'Token selection is required'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleLaunchAgent = () => {
-    if (validateForm()) {
-      // Handle form submission
-      console.log('Form submitted:', formData)
+  const handleLaunchAgent = async () => {
+    if (!validateForm() || !account || !registryAddress) return
+
+    setIsLoading(true)
+    try {
+      const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
+      const registry = new Contract(AGENT_REGISTRY_COPY_ABI, registryAddress, provider)
+      
+      // Connect the contract to the user's account
+      registry.connect(account)
+
+      const selectedToken = ACTIVE_NETWORK.tokens[formData.selectedToken]
+      const promptPrice = uint256.bnToUint256(
+        BigInt(parseFloat(formData.feePerMessage) * Math.pow(10, selectedToken.decimals))
+      )
+      
+      // Current timestamp + 1 year in seconds
+      const endTime = BigInt(Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60)
+
+      const response = await registry.register_agent(
+        formData.agentName,
+        formData.systemPrompt,
+        promptPrice,
+        endTime
+      )
+
+      console.log('Agent registered:', response)
+      setCurrentView(AGENT_VIEWS.ACTIVE_AGENTS)
+    } catch (error) {
+      console.error('Error registering agent:', error)
+      setErrors(prev => ({ ...prev, submit: 'Failed to register agent' }))
+    } finally {
+      setIsLoading(false)
     }
   }
 
+  const selectedToken = ACTIVE_NETWORK.tokens[formData.selectedToken]
   const isFormValid = Object.values(formData).every((value) => value.trim() !== '')
 
   return (
@@ -85,7 +130,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Add to library</p>
+                  <p>Name of your agent</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -105,6 +150,37 @@ export default function LaunchAgent({
 
         <div>
           <div className="flex items-center gap-1 mb-1">
+            <p>Token</p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info width={12} height={12} />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Select token for fees</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div>
+            <select
+              name="selectedToken"
+              value={formData.selectedToken}
+              onChange={handleInputChange}
+              className="w-full border border-[#818181] rounded-sm bg-black/80 outline-none min-h-[34px] p-2 focus:border-white text-white"
+            >
+              {Object.entries(ACTIVE_NETWORK.tokens).map(([symbol, token]) => (
+                <option key={symbol} value={symbol}>
+                  {token.name} ({token.symbol})
+                </option>
+              ))}
+            </select>
+            {errors.selectedToken && <p className="text-red-500 mt-1">{errors.selectedToken}</p>}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-1 mb-1">
             <p>Fee per message</p>
             <TooltipProvider>
               <Tooltip>
@@ -112,7 +188,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Fee per message</p>
+                  <p>Fee per message in {selectedToken?.symbol}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -124,7 +200,7 @@ export default function LaunchAgent({
               value={formData.feePerMessage}
               onChange={handleInputChange}
               className="w-full border border-[#818181] rounded-sm bg-transparent outline-none min-h-[34px] p-2 focus:border-white text-white"
-              placeholder="0.00"
+              placeholder={`0.00 ${selectedToken?.symbol}`}
             />
             {errors.feePerMessage && <p className="text-red-500 mt-1">{errors.feePerMessage}</p>}
           </div>
@@ -139,7 +215,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Initial balance</p>
+                  <p>Initial balance in {selectedToken?.symbol}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -151,7 +227,7 @@ export default function LaunchAgent({
               value={formData.initialBalance}
               onChange={handleInputChange}
               className="w-full border border-[#818181] rounded-sm bg-transparent outline-none min-h-[34px] p-2 focus:border-white text-white"
-              placeholder="0.00"
+              placeholder={`0.00 ${selectedToken?.symbol}`}
             />
             {errors.initialBalance && <p className="text-red-500 mt-1">{errors.initialBalance}</p>}
           </div>
@@ -193,15 +269,16 @@ export default function LaunchAgent({
 
         <button
           className="bg-white disabled:text-[#6F6F6F] disabled:border-[#6F6F6F] rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-base hover:bg-white/70 border border-transparent disabled:bg-transparent"
-          disabled={!isFormValid}
+          disabled={!isFormValid || isLoading}
           onClick={handleLaunchAgent}
         >
-          Launch Agent
+          {isLoading ? 'Launching...' : 'Launch Agent'}
         </button>
 
         <button
           className="bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-white hover:text-black"
           onClick={() => setCurrentView(AGENT_VIEWS.ACTIVE_AGENTS)}
+          disabled={isLoading}
         >
           Cancel
         </button>

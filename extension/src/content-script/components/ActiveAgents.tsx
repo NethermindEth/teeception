@@ -1,7 +1,23 @@
 import { AGENT_VIEWS } from './AgentView'
+import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAgents } from '../hooks/useAgents'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Loader2 } from 'lucide-react'
+import { Contract, RpcProvider } from 'starknet'
+import { ERC20_ABI } from '../../abis/ERC20_ABI'
+import { useEffect, useState } from 'react'
+
+interface TokenBalance {
+  symbol: string;
+  balance: string;
+}
+
+interface AgentWithBalances {
+  address: string;
+  name: string;
+  systemPrompt: string;
+  balances: Record<string, string>;
+}
 
 export default function ActiveAgents({
   setCurrentView,
@@ -9,36 +25,78 @@ export default function ActiveAgents({
   setCurrentView: React.Dispatch<React.SetStateAction<AGENT_VIEWS>>
 }) {
   const { address: registryAddress } = useAgentRegistry()
-  const { agents, loading, error } = useAgents(registryAddress)
+  const { agents, loading: agentsLoading, error: agentsError } = useAgents(registryAddress)
+  const [agentsWithBalances, setAgentsWithBalances] = useState<AgentWithBalances[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Sort agents by balance
-  const sortedAgents = [...agents].sort((a, b) => {
-    const balanceA = BigInt(a.balance)
-    const balanceB = BigInt(b.balance)
+  useEffect(() => {
+    const fetchTokenBalances = async () => {
+      if (!agents.length) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
+        
+        const balancePromises = agents.map(async (agent) => {
+          const tokenBalances: Record<string, string> = {}
+          
+          await Promise.all(
+            Object.entries(ACTIVE_NETWORK.tokens).map(async ([symbol, token]) => {
+              const tokenContract = new Contract(ERC20_ABI, token.address, provider)
+              const balance = await tokenContract.balance_of(agent.address)
+              tokenBalances[symbol] = balance.toString()
+            })
+          )
+
+          return {
+            ...agent,
+            balances: tokenBalances,
+          }
+        })
+
+        const agentsWithTokenBalances = await Promise.all(balancePromises)
+        setAgentsWithBalances(agentsWithTokenBalances)
+      } catch (err) {
+        console.error('Error fetching token balances:', err)
+        setError('Failed to fetch token balances')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (agents.length) {
+      fetchTokenBalances()
+    }
+  }, [agents])
+
+  // Sort agents by total value in STRK
+  const sortedAgents = [...agentsWithBalances].sort((a, b) => {
+    const balanceA = BigInt(a.balances['STRK'] || '0')
+    const balanceB = BigInt(b.balances['STRK'] || '0')
     return balanceB > balanceA ? 1 : balanceB < balanceA ? -1 : 0
   })
 
-  const formatBalance = (balance: string) => {
+  const formatBalance = (balance: string, decimals: number) => {
     const value = BigInt(balance)
     if (value === BigInt(0)) return '0'
     
-    // Format with 18 decimals
-    const decimals = 18
     const divisor = BigInt(10 ** decimals)
     const integerPart = value / divisor
     const fractionalPart = value % divisor
     
-    // Format fractional part and remove trailing zeros
     let fractionalStr = fractionalPart.toString().padStart(decimals, '0')
     fractionalStr = fractionalStr.replace(/0+$/, '')
     
     if (fractionalStr) {
-      return `${integerPart}.${fractionalStr.slice(0, 4)}` // Show only 4 decimal places
+      return `${integerPart}.${fractionalStr.slice(0, 4)}`
     }
     return integerPart.toString()
   }
 
-  if (loading) {
+  if (loading || agentsLoading) {
     return (
       <div className="flex items-center justify-center h-[600px]">
         <div className="flex items-center gap-2">
@@ -49,41 +107,57 @@ export default function ActiveAgents({
     )
   }
 
-  if (error) {
+  if (error || agentsError) {
     return (
       <div className="flex items-center justify-center h-[600px] text-red-500">
-        Failed to load agents
+        {error || 'Failed to load agents'}
       </div>
     )
   }
 
+  const tokens = Object.entries(ACTIVE_NETWORK.tokens)
+  const columnCount = tokens.length + 1 // +1 for agent name column
+
   return (
     <div>
       <section className="pt-5">
-        <div className="text-[#A4A4A4] text-sm grid grid-cols-2 py-4 border-b border-b-[#2F3336]">
-          <p className="">Active agents ({agents.length})</p>
-          <p className="text-right">Pool size</p>
+        {/* Header */}
+        <div className="grid border-b border-b-[#2F3336]" style={{ gridTemplateColumns: `auto repeat(${tokens.length}, 200px)` }}>
+          <div className="text-[#A4A4A4] text-sm py-4">
+            Active agents ({agents.length})
+          </div>
+          {tokens.map(([symbol, token]) => (
+            <div key={symbol} className="flex items-center gap-2 justify-center text-[#A4A4A4] text-sm py-4">
+              <img src={token.image} alt={token.name} className="w-4 h-4 rounded-full" />
+              <span>{symbol}</span>
+            </div>
+          ))}
         </div>
 
+        {/* Agent List */}
         <div className="pt-3 max-h-[calc(100vh-240px)] overflow-scroll pr-4 pb-12 h-[600px]">
-          {sortedAgents.map((agent, index) => {
-            return (
-              <div className="text-base grid grid-cols-2 py-2" key={agent.address}>
-                <div>
-                  <p>{agent.name}</p>
+          {sortedAgents.map((agent) => (
+            <div 
+              key={agent.address} 
+              className="grid border-b border-[#2F3336] last:border-0 py-4" 
+              style={{ gridTemplateColumns: `auto repeat(${tokens.length}, 200px)` }}
+            >
+              <div className="text-white text-base">{agent.name}</div>
+              {tokens.map(([symbol, token]) => (
+                <div key={symbol} className="text-center text-base">
+                  {formatBalance(agent.balances[symbol] || '0', token.decimals)} {symbol}
                 </div>
-                <div className="text-right">
-                  <p>{formatBalance(agent.balance)} STRK</p>
-                </div>
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          ))}
           {agents.length === 0 && (
             <div className="text-center text-[#A4A4A4] py-4">
               No agents found
             </div>
           )}
         </div>
+
+        {/* Action Buttons */}
         <div className="flex flex-col gap-3 px-4 py-8 bg-[#12121266] backdrop-blur-sm absolute bottom-0 left-0 right-0">
           <button
             onClick={() => {
