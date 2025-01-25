@@ -1,3 +1,8 @@
+if (import.meta.hot) {
+  import.meta.hot.accept()
+}
+
+// Your content script code here
 import React from 'react'
 import ReactDOM from 'react-dom'
 import ContentApp from './ContentApp'
