@@ -18,15 +18,16 @@ import (
 )
 
 type UIServiceConfig struct {
-	Client          starknet.ProviderWrapper
-	PageSize        int
-	ServerAddr      string
-	RegistryAddress *felt.Felt
-	StartingBlock   uint64
-	TokenRates      map[[32]byte]*big.Int
-	BalanceTickRate time.Duration
-	PriceTickRate   time.Duration
-	EventTickRate   time.Duration
+	Client               starknet.ProviderWrapper
+	PageSize             int
+	ServerAddr           string
+	RegistryAddress      *felt.Felt
+	StartingBlock        uint64
+	TokenRates           map[[32]byte]*big.Int
+	BalanceTickRate      time.Duration
+	PriceTickRate        time.Duration
+	EventTickRate        time.Duration
+	EventStartupTickRate time.Duration
 }
 
 type UIService struct {
@@ -51,6 +52,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		Client:          config.Client,
 		SafeBlockDelta:  0,
 		TickRate:        config.EventTickRate,
+		StartupTickRate: config.EventStartupTickRate,
 		IndexChunkSize:  1000,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.EventWatcherInitialState{

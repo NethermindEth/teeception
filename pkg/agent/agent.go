@@ -119,6 +119,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		Client:          starknetClient,
 		SafeBlockDelta:  params.SafeBlockDelta,
 		TickRate:        1 * time.Second,
+		StartupTickRate: 1 * time.Second,
 		IndexChunkSize:  1000,
 		RegistryAddress: params.AgentRegistryAddress,
 	})
