@@ -1,4 +1,4 @@
-import { Contract } from 'starknet'
+import { Contract, RpcProvider } from 'starknet'
 import { AGENT_ABI } from '../../abis/AGENT_ABI'
 import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
 import { ACTIVE_NETWORK } from '../config/starknet'
@@ -8,6 +8,23 @@ import { debug } from './debug'
 const AGENT_ADDRESS_CACHE = new Map<string, string>()
 let LAST_CACHE_UPDATE = 0
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+// Shared provider instance
+let provider: RpcProvider | null = null
+
+const getProvider = () => {
+  if (!provider) {
+    provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
+  }
+  return provider
+}
+
+const normalizeAddress = (address: string | bigint): string => {
+  if (typeof address === 'bigint') {
+    return '0x' + address.toString(16)
+  }
+  return address.startsWith('0x') ? address : '0x' + address
+}
 
 /**
  * Gets an agent's address by name
@@ -24,14 +41,15 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
       }
     }
 
-    // Create registry contract instance
-    const registryContract = new Contract(
+    const provider = getProvider()
+    const registry = new Contract(
       AGENT_REGISTRY_COPY_ABI,
-      ACTIVE_NETWORK.agentRegistryAddress
+      normalizeAddress(ACTIVE_NETWORK.agentRegistryAddress),
+      provider
     )
 
     // Get all agents
-    const agents = await registryContract.get_agents()
+    const agents = await registry.get_agents()
     debug.log('Contracts', 'Got agents from registry', { count: agents.length })
 
     // Clear old cache
@@ -40,16 +58,26 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
 
     // Check each agent's name
     for (const agentAddress of agents) {
-      const agentContract = new Contract(AGENT_ABI, agentAddress)
-      const nameResult = await agentContract.get_name()
-      const name = nameResult.toString()
-      
-      // Cache the result
-      AGENT_ADDRESS_CACHE.set(name, agentAddress)
+      try {
+        const normalizedAddress = normalizeAddress(agentAddress)
+        const agent = new Contract(
+          AGENT_ABI,
+          normalizedAddress,
+          provider
+        )
+        const nameResult = await agent.get_name()
+        const name = nameResult.toString()
+        
+        // Cache the result
+        AGENT_ADDRESS_CACHE.set(name, normalizedAddress)
 
-      if (name === agentName) {
-        debug.log('Contracts', 'Found agent address', { name, address: agentAddress })
-        return agentAddress
+        if (name === agentName) {
+          debug.log('Contracts', 'Found agent address', { name, address: normalizedAddress })
+          return normalizedAddress
+        }
+      } catch (error) {
+        debug.error('Contracts', 'Error checking agent', { agentAddress, error })
+        continue
       }
     }
 
@@ -69,7 +97,12 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
  */
 export const checkTweetPaid = async (agentAddress: string, tweetId: string): Promise<boolean> => {
   try {
-    const agentContract = new Contract(AGENT_ABI, agentAddress)
+    const provider = getProvider()
+    const agentContract = new Contract(
+      AGENT_ABI,
+      normalizeAddress(agentAddress),
+      provider
+    )
     
     // Convert tweet ID to uint64
     const tweetIdBN = BigInt(tweetId)
@@ -93,7 +126,12 @@ export const checkTweetPaid = async (agentAddress: string, tweetId: string): Pro
  */
 export const payForTweet = async (agentAddress: string, tweetId: string): Promise<string> => {
   try {
-    const agentContract = new Contract(AGENT_ABI, agentAddress)
+    const provider = getProvider()
+    const agentContract = new Contract(
+      AGENT_ABI,
+      normalizeAddress(agentAddress),
+      provider
+    )
     
     // Convert tweet ID to uint64
     const tweetIdBN = BigInt(tweetId)
@@ -116,7 +154,12 @@ export const payForTweet = async (agentAddress: string, tweetId: string): Promis
  */
 export const getPromptPrice = async (agentAddress: string): Promise<bigint> => {
   try {
-    const agentContract = new Contract(AGENT_ABI, agentAddress)
+    const provider = getProvider()
+    const agentContract = new Contract(
+      AGENT_ABI,
+      normalizeAddress(agentAddress),
+      provider
+    )
     const price = await agentContract.get_prompt_price()
     return price
   } catch (error) {

@@ -81,7 +81,11 @@ const findTweetHandler = (element: Element): Function | null => {
  */
 export const extractAgentName = (text: string): string | null => {
   debug.log('Twitter', 'Extracting agent name from text:', { text })
-  const match = text.match(/:([^:]+):/)
+  
+  // Remove any text from our overlay to prevent infinite loops
+  const cleanText = text.replace(/Paid|Pay to Challenge/g, '').trim()
+  
+  const match = cleanText.match(/:([^:]+):/)
   debug.log('Twitter', 'Agent name match result:', { match })
   if (!match || !match[1]) return null
   const agentName = match[1].trim()
