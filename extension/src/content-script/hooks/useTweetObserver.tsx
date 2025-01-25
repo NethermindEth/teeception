@@ -71,11 +71,49 @@ export const useTweetObserver = (
       if (processingTweets.current.has(tweetId)) return
       processingTweets.current.add(tweetId)
 
+      // Check if we've already processed this tweet and nothing has changed
+      const cachedTweet = tweetCache.current.get(tweetId)
+      const existingBanner = tweet.nextElementSibling
+      if (cachedTweet && existingBanner?.classList.contains('tweet-challenge-banner')) {
+        processingTweets.current.delete(tweetId)
+        return
+      }
+
       // Get agent address and check if tweet is paid
       const agentAddress = await getAgentAddressByName(agentName)
       let isPaid = false
       
+      // Remove any existing banner only if we're going to add a new one
+      if (existingBanner?.classList.contains('tweet-challenge-banner')) {
+        existingBanner.remove()
+      }
+
       if (!agentAddress) {
+        // Agent doesn't exist - show grey banner
+        tweet.style.border = '2px solid rgba(128, 128, 128, 0.1)'
+        tweet.style.borderRadius = '0'
+
+        const banner = document.createElement('div')
+        banner.className = 'tweet-challenge-banner'
+        banner.style.cssText = `
+          padding: 12px 16px;
+          background-color: rgba(128, 128, 128, 0.1);
+          border-bottom: 1px solid rgb(128, 128, 128, 0.2);
+          margin-top: 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 14px;
+          color: rgb(128, 128, 128);
+        `
+        
+        const bannerText = document.createElement('span')
+        bannerText.textContent = 'This tweet references a Teeception agent that does not exist'
+        banner.appendChild(bannerText)
+
+        // Insert banner after the tweet
+        tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
+        
         debug.log('TweetObserver', 'Agent not registered', { agentName })
         processingTweets.current.delete(tweetId)
         return
@@ -83,53 +121,88 @@ export const useTweetObserver = (
 
       isPaid = await checkTweetPaid(agentAddress, tweetId)
 
-      // Remove any existing banner
-      const existingBanner = tweet.nextElementSibling
-      if (existingBanner?.classList.contains('tweet-challenge-banner')) {
-        existingBanner.remove()
+      if (isPaid) {
+        // Paid tweet - show green banner
+        tweet.style.border = '2px solid rgba(0, 200, 83, 0.1)'
+        tweet.style.borderRadius = '0'
+
+        const banner = document.createElement('div')
+        banner.className = 'tweet-challenge-banner'
+        banner.style.cssText = `
+          padding: 12px 16px;
+          background-color: rgba(0, 200, 83, 0.1);
+          border-bottom: 1px solid rgb(0, 200, 83, 0.2);
+          margin-top: 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 14px;
+          color: rgb(0, 200, 83);
+        `
+        
+        const bannerText = document.createElement('span')
+        bannerText.textContent = 'This challenge has been paid for and is being executed'
+        banner.appendChild(bannerText)
+
+        const viewButton = document.createElement('button')
+        viewButton.textContent = 'View Progress'
+        viewButton.style.cssText = `
+          background-color: rgb(0, 200, 83);
+          color: white;
+          padding: 6px 16px;
+          border-radius: 9999px;
+          font-weight: 500;
+          font-size: 13px;
+          cursor: pointer;
+          border: none;
+        `
+        viewButton.addEventListener('click', () => window.open(`https://teeception.ai/tweet/${tweetId}`, '_blank'))
+        banner.appendChild(viewButton)
+
+        // Insert banner after the tweet
+        tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
+      } else {
+        // Unpaid tweet - show red banner (existing code)
+        tweet.style.border = '2px solid rgba(244, 33, 46, 0.1)'
+        tweet.style.borderRadius = '0'
+
+        const banner = document.createElement('div')
+        banner.className = 'tweet-challenge-banner'
+        banner.style.cssText = `
+          padding: 12px 16px;
+          background-color: rgba(244, 33, 46, 0.1);
+          border-bottom: 1px solid rgb(244, 33, 46, 0.2);
+          margin-top: 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 14px;
+          color: rgb(244, 33, 46);
+        `
+        
+        const bannerText = document.createElement('span')
+        bannerText.textContent = 'This tweet initiates a challenge'
+        banner.appendChild(bannerText)
+
+        const payButton = document.createElement('button')
+        payButton.textContent = 'Pay to Challenge'
+        payButton.style.cssText = `
+          background-color: rgb(244, 33, 46);
+          color: white;
+          padding: 6px 16px;
+          border-radius: 9999px;
+          font-weight: 500;
+          font-size: 13px;
+          cursor: pointer;
+          border: none;
+        `
+        payButton.addEventListener('click', () => onPayClick(tweetId, agentName))
+        banner.appendChild(payButton)
+
+        // Insert banner after the tweet
+        tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
       }
 
-      // Add border to tweet article
-      tweet.style.border = '2px solid rgba(244, 33, 46, 0.1)'
-      tweet.style.borderRadius = '0'
-
-      // Create and add banner
-      const banner = document.createElement('div')
-      banner.className = 'tweet-challenge-banner'
-      banner.style.cssText = `
-        padding: 12px 16px;
-        background-color: rgba(244, 33, 46, 0.1);
-        border-bottom: 1px solid rgb(244, 33, 46, 0.2);
-        margin-top: 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 14px;
-        color: rgb(244, 33, 46);
-      `
-      
-      const bannerText = document.createElement('span')
-      bannerText.textContent = 'This tweet initiates a challange'
-      banner.appendChild(bannerText)
-
-      const payButton = document.createElement('button')
-      payButton.textContent = 'Pay to Challange'
-      payButton.style.cssText = `
-        background-color: rgb(244, 33, 46);
-        color: white;
-        padding: 6px 16px;
-        border-radius: 9999px;
-        font-weight: 500;
-        font-size: 13px;
-        cursor: pointer;
-        border: none;
-      `
-      payButton.addEventListener('click', () => onPayClick(tweetId, agentName))
-      banner.appendChild(payButton)
-
-      // Insert banner after the tweet
-      tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
-      
       // Update cache
       tweetCache.current.set(tweetId, {
         id: tweetId,
