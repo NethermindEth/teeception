@@ -1,5 +1,6 @@
 import { constants } from 'starknet';
 import { sepolia, mainnet } from "@starknet-react/chains";
+import { debug } from '../utils/debug';
 
 interface Token {
   address: string;
@@ -17,7 +18,7 @@ export const STARKNET_CONFIG = {
     explorer: 'https://sepolia.starkscan.co',
     rpc: 'https://api.cartridge.gg/x/starknet/sepolia',
     starkgate: 'https://sepolia.starkgate.starknet.io',
-    agentRegistryAddress: '0x65cbb44cfdc88bc93f252355494490bd971b0f826df8c37d9466ea483dc4d0d',
+    agentRegistryAddress: '0x035d8620d6e5a5ddc8b48589198cfc08b605bf3eec515908ddcbd23f9c5b2927',
     tokens: {
       STRK: {
         address: '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
@@ -63,3 +64,9 @@ export const STARKNET_CONFIG = {
 } as const;
 
 export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia;
+
+debug.log('Starknet Config', 'Active network:', { 
+  name: ACTIVE_NETWORK.name,
+  registryAddress: ACTIVE_NETWORK.agentRegistryAddress,
+  rpc: ACTIVE_NETWORK.rpc
+});

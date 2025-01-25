@@ -4,6 +4,7 @@ import { debug } from './debug'
 declare global {
   interface Window {
     __INITIAL_STATE__: any
+    showChallengeModal?: (agentName: string) => Promise<boolean>;
   }
 }
 
@@ -74,6 +75,21 @@ const findTweetHandler = (element: Element): Function | null => {
 }
 
 /**
+ * Extracts agent name from tweet text
+ * @param text - The tweet text
+ * @returns The agent name or null if not found
+ */
+export const extractAgentName = (text: string): string | null => {
+  debug.log('Twitter', 'Extracting agent name from text:', { text })
+  const match = text.match(/:([^:]+):/)
+  debug.log('Twitter', 'Agent name match result:', { match })
+  if (!match || !match[1]) return null
+  const agentName = match[1].trim()
+  debug.log('Twitter', 'Extracted agent name:', { agentName })
+  return agentName
+}
+
+/**
  * Sends a tweet by simulating a click on the tweet button
  * @param text - The text content of the tweet
  * @returns Promise that resolves to true if the tweet was sent successfully
@@ -83,6 +99,22 @@ export const sendTweet = async (): Promise<boolean> => {
     // Try to find both types of tweet buttons
     const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
     const inlineTweetButton = document.querySelector('[data-testid="tweetButtonInline"]') as HTMLElement
+    const tweetTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+    
+    debug.log('Twitter', 'Tweet content:', { content: tweetTextarea?.textContent })
+    
+    // Extract agent name from textarea if it exists
+    const agentName = tweetTextarea ? extractAgentName(tweetTextarea.textContent || '') : null
+    
+    debug.log('Twitter', 'Found agent name:', { agentName })
+    
+    // If we found an agent name and have the modal function, show it first
+    if (agentName && window.showChallengeModal) {
+      const shouldProceed = await window.showChallengeModal(agentName)
+      if (!shouldProceed) {
+        return false
+      }
+    }
     
     debug.log('Twitter', 'Found tweet buttons', { 
       tweetButtonExists: !!tweetButton,

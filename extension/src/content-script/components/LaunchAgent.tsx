@@ -50,9 +50,16 @@ export default function LaunchAgent({
   const [isLoading, setIsLoading] = useState(false)
 
   // Get supported tokens only
-  const supportedTokenList = useMemo(() => 
-    Object.entries(ACTIVE_NETWORK.tokens)
-      .filter(([symbol]) => supportedTokens[symbol]?.isSupported)
+  const supportedTokenList = useMemo(() => {
+    console.log('Supported tokens:', supportedTokens)
+    console.log('Network tokens:', ACTIVE_NETWORK.tokens)
+    
+    return Object.entries(ACTIVE_NETWORK.tokens)
+      .filter(([symbol]) => {
+        const isSupported = supportedTokens[symbol]?.isSupported
+        console.log(`Token ${symbol} supported:`, isSupported)
+        return isSupported
+      })
       .map(([symbol, token]) => ({
         symbol,
         name: token.name,
@@ -60,11 +67,13 @@ export default function LaunchAgent({
         decimals: token.decimals,
         minPromptPrice: supportedTokens[symbol]?.minPromptPrice
       }))
-  , [supportedTokens])
+  }, [supportedTokens])
 
   // Set first supported token as default when loaded
   useEffect(() => {
+    console.log('Supported token list:', supportedTokenList)
     if (supportedTokenList.length > 0 && !supportedTokens[formData.selectedToken]?.isSupported) {
+      console.log('Setting default token to:', supportedTokenList[0].symbol)
       setFormData(prev => ({
         ...prev,
         selectedToken: supportedTokenList[0].symbol
@@ -167,6 +176,10 @@ export default function LaunchAgent({
 
   if (isLoadingSupport) {
     return <div className="text-white">Loading supported tokens...</div>
+  }
+
+  if (supportedTokenList.length === 0) {
+    return <div className="text-white">No supported tokens available</div>
   }
 
   return (

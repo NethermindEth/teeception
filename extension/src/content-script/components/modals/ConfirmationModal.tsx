@@ -3,34 +3,41 @@ import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
 import { CONFIG } from '../../config'
 import { cn } from '@/lib/utils'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, MessageCircle } from 'lucide-react'
 import { debug } from '../../utils/debug'
 
 interface ConfirmationModalProps {
   open: boolean
   onConfirm: () => void
   onCancel: () => void
+  agentName?: string
 }
 
 /**
  * Modal component that shows a confirmation dialog when a user mentions a specific account in their tweet
  */
-export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationModalProps) => {
-  debug.log('ConfirmationModal', 'Rendering', { open })
+export const ConfirmationModal = ({ open, onConfirm, onCancel, agentName }: ConfirmationModalProps) => {
+  debug.log('ConfirmationModal', 'Rendering', { open, agentName })
 
   return (
     <Dialog open={open} onClose={onCancel}>
       <div className="space-y-6">
         <div className="flex gap-4 items-start">
           <div className="space-y-2 flex-1">
-            <h2 className="text-xl font-semibold tracking-tight text-white">
-              Account Mention Detected
+            <h2 className="text-xl font-semibold tracking-tight text-white flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
+              Challenge Confirmation
             </h2>
-            <p className={cn('text-sm leading-6', 'text-muted-foreground')}>
-              You are about to transfer $24 to the agent and tweet a challenge to{' '}
-              <span className="font-medium">{CONFIG.accountName}</span>. Are you sure you want to
-              proceed?
-            </p>
+            <div className="space-y-4">
+              <p className={cn('text-sm leading-6', 'text-muted-foreground')}>
+                You're about to send a challenge to <span className="font-medium">{agentName}</span>
+              </p>
+              <ul className="text-sm leading-6 text-muted-foreground space-y-2 list-disc pl-4">
+                <li>Your tweet will be sent to initiate the challenge</li>
+                <li>You'll need to pay for the challenge attempt before it's processed</li>
+                <li>A button to pay and activate the challenge will appear on your tweet</li>
+              </ul>
+            </div>
           </div>
         </div>
         {/* Actions */}
@@ -43,7 +50,7 @@ export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationMod
               onConfirm()
             }}
           >
-            Confirm and transfer
+            Send Tweet
           </Button>
           <Button
             size="lg"

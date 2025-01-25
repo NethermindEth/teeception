@@ -6,27 +6,50 @@ import { CONFIG } from './config'
 import { getTweetText } from './utils/dom'
 import { useTweetButton } from './hooks/useTweetButton'
 import { useModalContainer } from './hooks/useModalContainer'
+import { useTweetObserver } from './hooks/useTweetObserver'
 import { SELECTORS } from './constants/selectors'
+import { debug } from './utils/debug'
+import { extractAgentName } from './utils/twitter'
+import { payForTweet, getPromptPrice, getAgentAddressByName } from './utils/contracts'
 
 const ContentApp = () => {
   const [showModal, setShowModal] = useState(false)
+  const [currentAgentName, setCurrentAgentName] = useState<string | null>(null)
+  const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const { originalButton } = useTweetButton()
   const modalContainer = useModalContainer(showModal)
 
   const handleTweetAttempt = useCallback(() => {
-    console.log('Handle Tweet attempt called')
+    debug.log('ContentApp', 'Handle Tweet attempt called')
     const text = getTweetText()
-    console.log('tweet text', text)
+    debug.log('ContentApp', 'Tweet text:', { text })
+    
     if (text && text.includes(CONFIG.accountName)) {
-      setShowModal(true)
+      const agentName = extractAgentName(text)
+      debug.log('ContentApp', 'Found agent name:', { agentName })
+      if (agentName) {
+        setCurrentAgentName(agentName)
+        setShowModal(true)
+      } else {
+        // If no agent name found, just send the tweet
+        originalButton?.click()
+      }
     } else if (originalButton) {
       originalButton.click()
     }
   }, [originalButton])
 
+  const handlePayment = useCallback(async (tweetId: string, agentName: string) => {
+    debug.log('ContentApp', 'Handling payment', { tweetId, agentName })
+    setCurrentTweetId(tweetId)
+    setCurrentAgentName(agentName)
+    setShowModal(true)
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      console.log('🎹 Key pressed:', event.key, {
+      debug.log('ContentApp', 'Key pressed:', {
+        key: event.key,
         metaKey: event.metaKey,
         ctrlKey: event.ctrlKey,
         target: event.target,
@@ -55,13 +78,49 @@ const ContentApp = () => {
     }
   }, [handleTweetAttempt])
 
-  const handleConfirm = () => {
-    setShowModal(false)
-    //TODO: Here we need to make the payment
-    if (originalButton) {
-      originalButton.click()
+  const handleConfirm = async () => {
+    try {
+      if (currentTweetId && currentAgentName) {
+        // Get agent address
+        const agentAddress = await getAgentAddressByName(currentAgentName)
+        if (!agentAddress) {
+          throw new Error(`Agent ${currentAgentName} not found`)
+        }
+        
+        // Get the price for the challenge
+        const price = await getPromptPrice(agentAddress)
+        debug.log('ContentApp', 'Got prompt price', { price })
+        
+        // Send the payment transaction
+        const txHash = await payForTweet(agentAddress, currentTweetId)
+        debug.log('ContentApp', 'Payment sent', { txHash })
+        
+        // TODO: Show transaction pending notification
+      } else if (originalButton) {
+        // If no tweet ID, this is a new tweet confirmation
+        originalButton.click()
+      }
+    } catch (error) {
+      debug.error('ContentApp', 'Error handling confirmation', error)
+      // TODO: Show error notification
+    } finally {
+      setShowModal(false)
+      setCurrentAgentName(null)
+      setCurrentTweetId(null)
     }
   }
+
+  // Get current user from Twitter
+  const [currentUser, setCurrentUser] = useState('')
+  useEffect(() => {
+    const userElement = document.querySelector('div[data-testid="UserName"]')
+    if (userElement) {
+      setCurrentUser(userElement.textContent || '')
+    }
+  }, [])
+
+  // Use tweet observer
+  useTweetObserver(handlePayment, currentUser)
 
   return (
     <>
@@ -73,7 +132,10 @@ const ContentApp = () => {
               onConfirm={handleConfirm}
               onCancel={() => {
                 setShowModal(false)
+                setCurrentAgentName(null)
+                setCurrentTweetId(null)
               }}
+              agentName={currentAgentName || undefined}
             />,
             modalContainer
           )
