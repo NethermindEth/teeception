@@ -1,10 +1,11 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-react'
 import { useAccount, useConnect } from '@starknet-react/core'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
 import { useTokenBalance } from '../hooks/useTokenBalance'
 import { AgentView } from './AgentView'
+import { debug } from '../utils/debug'
 
 interface HeaderProps {
   isShowAgentView: boolean
@@ -19,6 +20,27 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: connectors as StarknetkitConnector[],
   })
+
+  // Auto-connect on load
+  useEffect(() => {
+    const autoConnect = async () => {
+      if (status === 'disconnected') {
+        debug.log('Header', 'Attempting auto-connect')
+        try {
+          // Try to connect with the first available connector
+          const connector = connectors[0]
+          if (connector) {
+            await connectAsync({ connector })
+            debug.log('Header', 'Auto-connect successful')
+          }
+        } catch (err) {
+          debug.error('Header', 'Auto-connect failed', err)
+        }
+      }
+    }
+
+    autoConnect()
+  }, [status, connectAsync, connectors])
 
   async function connectWalletWithModal() {
     const { connector } = await starknetkitConnectModal()
