@@ -282,8 +282,8 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 		return
 	}
 
-	agentDatas := make([]*AgentData, 0, len(agents))
-	for _, info := range agents {
+	agentDatas := make([]*AgentData, 0, len(agents.Agents))
+	for _, info := range agents.Agents {
 		balance, ok := s.agentBalanceIndexer.GetBalance(info.Address)
 		if !ok {
 			slog.Error("failed to get agent balance", "agent", info.Address)
@@ -301,8 +301,9 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 
 	c.JSON(http.StatusOK, &AgentPageResponse{
 		Agents:    agentDatas,
+		Total:     int(agents.AgentCount),
 		Page:      page,
 		PageSize:  s.pageSize,
-		LastBlock: int(s.agentIndexer.GetLastIndexedBlock()),
+		LastBlock: int(agents.LastBlock),
 	})
 }

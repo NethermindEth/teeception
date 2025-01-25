@@ -128,9 +128,16 @@ func (i *AgentIndexer) GetAgentInfo(addr *felt.Felt) (AgentInfo, bool) {
 	return info, ok
 }
 
+// AgentsByCreatorResult is the result of a GetAgentsByCreator call.
+type AgentsByCreatorResult struct {
+	Agents     []AgentInfo
+	AgentCount uint64
+	LastBlock  uint64
+}
+
 // GetAgentsByCreator returns a list of agent addresses created by the given creator address
 // within the specified range. start and limit define the pagination window.
-func (i *AgentIndexer) GetAgentsByCreator(ctx context.Context, creator *felt.Felt, start uint64, limit uint64) ([]AgentInfo, bool) {
+func (i *AgentIndexer) GetAgentsByCreator(ctx context.Context, creator *felt.Felt, start uint64, limit uint64) (*AgentsByCreatorResult, bool) {
 	i.agentsMu.RLock()
 	defer i.agentsMu.RUnlock()
 
@@ -149,7 +156,11 @@ func (i *AgentIndexer) GetAgentsByCreator(ctx context.Context, creator *felt.Fel
 		agentInfos[idx] = i.agents[addr]
 	}
 
-	return agentInfos, true
+	return &AgentsByCreatorResult{
+		Agents:     agentInfos,
+		AgentCount: uint64(len(agents)),
+		LastBlock:  i.lastIndexedBlock,
+	}, true
 }
 
 // GetOrFetchAgentInfoAtBlock returns an agent's info if it exists.
