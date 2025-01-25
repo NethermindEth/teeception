@@ -168,8 +168,9 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 }
 
 type TokenAddedEvent struct {
-	Token          *felt.Felt
-	MinPromptPrice *big.Int
+	Token             *felt.Felt
+	MinPromptPrice    *big.Int
+	MinInitialBalance *big.Int
 }
 
 func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
@@ -182,7 +183,7 @@ func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 		return nil, false
 	}
 
-	if len(e.Raw.Data) != 2 {
+	if len(e.Raw.Data) != 4 {
 		slog.Warn("invalid token added event", "data", e.Raw.Data)
 		return nil, false
 	}
@@ -190,10 +191,12 @@ func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 	token := e.Raw.Keys[1]
 
 	minPromptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+	minInitialBalance := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[2:4]))
 
 	return &TokenAddedEvent{
-		Token:          token,
-		MinPromptPrice: minPromptPrice,
+		Token:             token,
+		MinPromptPrice:    minPromptPrice,
+		MinInitialBalance: minInitialBalance,
 	}, true
 }
 
