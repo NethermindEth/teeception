@@ -1,22 +1,36 @@
 use core::starknet::ContractAddress;
 
+#[derive(Drop, Copy, Serde, starknet::Store)]
+pub struct TokenParams {
+    min_prompt_price: u256,
+    min_initial_balance: u256,
+}
+
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
     fn register_agent(
-        ref self: TContractState, name: ByteArray, system_prompt: ByteArray, token: ContractAddress, prompt_price: u256,
+        ref self: TContractState,
+        name: ByteArray,
+        system_prompt: ByteArray,
+        token: ContractAddress,
+        prompt_price: u256,
+        initial_balance: u256,
     ) -> ContractAddress;
-    fn get_token(self: @TContractState) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
     fn get_agents(self: @TContractState) -> Array<ContractAddress>;
-    fn get_registration_price(self: @TContractState) -> u256;
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
     fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
     fn pause(ref self: TContractState);
     fn unpause(ref self: TContractState);
-    fn add_supported_token(ref self: TContractState, token: ContractAddress, min_prompt_price: u256);
+    fn add_supported_token(
+        ref self: TContractState,
+        token: ContractAddress,
+        min_prompt_price: u256,
+        min_initial_balance: u256,
+    );
     fn remove_supported_token(ref self: TContractState, token: ContractAddress);
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
-    fn get_min_prompt_price(self: @TContractState, token: ContractAddress) -> u256;
+    fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
 }
 
 #[starknet::interface]
@@ -44,7 +58,7 @@ pub mod AgentRegistry {
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::security::pausable::PausableComponent;
 
-    use super::{IAgentDispatcher, IAgentDispatcherTrait};
+    use super::{IAgentDispatcher, IAgentDispatcherTrait, TokenParams};
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
@@ -84,6 +98,7 @@ pub mod AgentRegistry {
         #[key]
         pub token: ContractAddress,
         pub min_prompt_price: u256,
+        pub min_initial_balance: u256,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -102,9 +117,7 @@ pub mod AgentRegistry {
         agent_registered: Map::<ContractAddress, bool>,
         agents: Vec::<ContractAddress>,
         tee: ContractAddress,
-        token: ContractAddress,
-        registration_price: u256,
-        min_prompt_prices: Map::<ContractAddress, u256>,
+        token_params: Map::<ContractAddress, TokenParams>,
     }
 
     #[constructor]
@@ -113,14 +126,10 @@ pub mod AgentRegistry {
         owner: ContractAddress,
         tee: ContractAddress,
         agent_class_hash: ClassHash,
-        token: ContractAddress,
-        registration_price: u256,
     ) {
         self.ownable.initializer(owner);
         self.agent_class_hash.write(agent_class_hash);
         self.tee.write(tee);
-        self.token.write(token);
-        self.registration_price.write(registration_price);
     }
 
     fn validate_agent_name(name: @ByteArray) {
@@ -140,22 +149,23 @@ pub mod AgentRegistry {
     #[abi(embed_v0)]
     impl AgentRegistryImpl of super::IAgentRegistry<ContractState> {
         fn register_agent(
-            ref self: ContractState, name: ByteArray, system_prompt: ByteArray, token: ContractAddress, prompt_price: u256,
+            ref self: ContractState,
+            name: ByteArray,
+            system_prompt: ByteArray,
+            token: ContractAddress,
+            prompt_price: u256,
+            initial_balance: u256,
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
 
             validate_agent_name(@name);
 
-            let min_prompt_price = self.min_prompt_prices.read(token);
-            assert(min_prompt_price != 0, 'Token not supported');
-            assert(prompt_price >= min_prompt_price, 'Prompt price too low');
+            let token_params = self.token_params.read(token);
+            assert(token_params.min_prompt_price != 0, 'Token not supported');
+            assert(prompt_price >= token_params.min_prompt_price, 'Prompt price too low');
+            assert(initial_balance >= token_params.min_initial_balance, 'Initial balance too low');
 
             let creator = get_caller_address();
-
-            let token = IERC20Dispatcher { contract_address: self.token.read() };
-
-            // TODO: redirect to the owner
-            token.transfer_from(creator, get_contract_address(), self.registration_price.read());
 
             let registry = get_contract_address();
 
@@ -171,6 +181,9 @@ pub mod AgentRegistry {
                 self.agent_class_hash.read(), 0, constructor_calldata.span(), false,
             )
                 .unwrap();
+
+            let token_dispatcher = IERC20Dispatcher { contract_address: token };
+            token_dispatcher.transfer_from(creator, deployed_address, initial_balance);
 
             self.agent_registered.write(deployed_address, true);
             self.agents.append().write(deployed_address);
@@ -197,14 +210,6 @@ pub mod AgentRegistry {
             self.agent_registered.read(address)
         }
 
-        fn get_token(self: @ContractState) -> ContractAddress {
-            self.token.read()
-        }
-
-        fn get_registration_price(self: @ContractState) -> u256 {
-            self.registration_price.read()
-        }
-
         fn transfer(ref self: ContractState, agent: ContractAddress, recipient: ContractAddress) {
             self.pausable.assert_not_paused();
 
@@ -228,24 +233,36 @@ pub mod AgentRegistry {
             self.pausable.unpause();
         }
 
-        fn add_supported_token(ref self: ContractState, token: ContractAddress, min_prompt_price: u256) {
+        fn add_supported_token(
+            ref self: ContractState,
+            token: ContractAddress,
+            min_prompt_price: u256,
+            min_initial_balance: u256,
+        ) {
             self.ownable.assert_only_owner();
-            self.min_prompt_prices.write(token, min_prompt_price);
-            self.emit(Event::TokenAdded(TokenAdded { token, min_prompt_price }));
+            self.token_params.write(token, TokenParams { min_prompt_price, min_initial_balance });
+            self
+                .emit(
+                    Event::TokenAdded(TokenAdded { token, min_prompt_price, min_initial_balance }),
+                );
         }
 
         fn remove_supported_token(ref self: ContractState, token: ContractAddress) {
             self.ownable.assert_only_owner();
-            self.min_prompt_prices.write(token, 0);
+            self
+                .token_params
+                .write(token, TokenParams { min_prompt_price: 0, min_initial_balance: 0 });
             self.emit(Event::TokenRemoved(TokenRemoved { token }));
         }
 
         fn is_token_supported(self: @ContractState, token: ContractAddress) -> bool {
-            self.min_prompt_prices.read(token) != 0
+            let params = self.token_params.read(token);
+
+            params.min_prompt_price != 0
         }
 
-        fn get_min_prompt_price(self: @ContractState, token: ContractAddress) -> u256 {
-            self.min_prompt_prices.read(token)
+        fn get_token_params(self: @ContractState, token: ContractAddress) -> TokenParams {
+            self.token_params.read(token)
         }
     }
 }
@@ -264,8 +281,6 @@ pub mod Agent {
     use openzeppelin::security::{
         pausable::PausableComponent, interface::{IPausableDispatcher, IPausableDispatcherTrait},
     };
-
-    use super::{IAgentRegistryDispatcher, IAgentRegistryDispatcherTrait};
 
     #[derive(Drop, starknet::Event)]
     pub struct Deposit {
@@ -381,7 +396,7 @@ pub mod Agent {
 
             assert(get_caller_address() == registry, 'Only registry can transfer');
 
-            let token = IAgentRegistryDispatcher { contract_address: registry }.get_token();
+            let token = self.token.read();
             let balance = IERC20Dispatcher { contract_address: token }
                 .balance_of(get_contract_address());
             IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);

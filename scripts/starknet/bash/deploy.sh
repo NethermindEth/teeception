@@ -4,8 +4,8 @@
 DEFAULT_OWNER='0x065cda5b8c9e475382b1942fd3e7bf34d0258d5a043d0c34787144a8d0ce4bcb'
 DEFAULT_TEE='0x0075d20cddf35d960f826443a933aaec825a298ff79b26aecf1abc07d6738c1e'
 DEFAULT_STRK='0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
-DEFAULT_REGISTRATION_PRICE='0'
-DEFAULT_STRK_MIN_PROMPT_PRICE='1000000000000000000'
+DEFAULT_MIN_PROMPT_PRICE='1000000000000000000'
+DEFAULT_MIN_INITIAL_BALANCE='1000000000000000000'
 DEFAULT_SLEEP_TIME=30
 
 # Help function
@@ -17,8 +17,8 @@ show_help() {
     echo "  -o, --owner ADDR       Owner address (default: $DEFAULT_OWNER)"
     echo "  -t, --tee ADDR         TEE address (default: $DEFAULT_TEE)"
     echo "  -s, --strk ADDR        STRK token address (default: $DEFAULT_STRK)"
-    echo "  -r, --reg-price PRICE  Registration price (default: $DEFAULT_REGISTRATION_PRICE)"
-    echo "  -p, --prompt-price VAL Min prompt price (default: $DEFAULT_STRK_MIN_PROMPT_PRICE)"
+    echo "  -p, --prompt-price VAL Min prompt price (default: $DEFAULT_MIN_PROMPT_PRICE)"
+    echo "  -b, --balance VAL      Min initial balance (default: $DEFAULT_MIN_INITIAL_BALANCE)"
     echo "  -w, --wait TIME        Sleep time between operations (default: ${DEFAULT_SLEEP_TIME}s)"
     echo "  -h, --help             Show this help message"
 }
@@ -29,8 +29,8 @@ while [[ $# -gt 0 ]]; do
         -o|--owner) OWNER="$2"; shift 2 ;;
         -t|--tee) TEE="$2"; shift 2 ;;
         -s|--strk) STRK="$2"; shift 2 ;;
-        -r|--reg-price) REGISTRATION_PRICE="$2"; shift 2 ;;
-        -p|--prompt-price) STRK_MIN_PROMPT_PRICE="$2"; shift 2 ;;
+        -p|--prompt-price) MIN_PROMPT_PRICE="$2"; shift 2 ;;
+        -b|--balance) MIN_INITIAL_BALANCE="$2"; shift 2 ;;
         -w|--wait) SLEEP_TIME="$2"; shift 2 ;;
         -h|--help) show_help; exit 0 ;;
         *) echo "Unknown option: $1"; show_help; exit 1 ;;
@@ -41,17 +41,9 @@ done
 OWNER=${OWNER:-$DEFAULT_OWNER}
 TEE=${TEE:-$DEFAULT_TEE}
 STRK=${STRK:-$DEFAULT_STRK}
-REGISTRATION_PRICE=${REGISTRATION_PRICE:-$DEFAULT_REGISTRATION_PRICE}
-STRK_MIN_PROMPT_PRICE=${STRK_MIN_PROMPT_PRICE:-$DEFAULT_STRK_MIN_PROMPT_PRICE}
+MIN_PROMPT_PRICE=${MIN_PROMPT_PRICE:-$DEFAULT_MIN_PROMPT_PRICE}
+MIN_INITIAL_BALANCE=${MIN_INITIAL_BALANCE:-$DEFAULT_MIN_INITIAL_BALANCE}
 SLEEP_TIME=${SLEEP_TIME:-$DEFAULT_SLEEP_TIME}
-
-# Split registration price into low and high parts using bc for large number handling
-REG_PRICE_HIGH=$(echo "scale=0; $REGISTRATION_PRICE / (2^128)" | bc)
-REG_PRICE_LOW=$(echo "scale=0; $REGISTRATION_PRICE % (2^128)" | bc)
-
-# Convert to hex with proper padding
-REG_PRICE_HIGH=$(printf "0x%x" "$REG_PRICE_HIGH")
-REG_PRICE_LOW=$(printf "0x%x" "$REG_PRICE_LOW")
 
 # Function to declare a contract
 declare_contract() {
@@ -83,14 +75,14 @@ echo "Deploying Registry contract..."
 REGISTRY_DEPLOY_RESP=$(sncast deploy \
     --fee-token strk \
     --class-hash "$REGISTRY_CLASS_HASH" \
-    --constructor-calldata "$OWNER" "$TEE" "$AGENT_CLASS_HASH" "$STRK" "$REG_PRICE_HIGH" "$REG_PRICE_LOW")
+    --constructor-calldata "$OWNER" "$TEE" "$AGENT_CLASS_HASH")
 REGISTRY_CONTRACT_ADDRESS=$(echo "$REGISTRY_DEPLOY_RESP" | awk '/contract_address:/ {print $2}')
 
 echo "Adding STRK token as supported payment token..."
 sncast invoke \
     --contract-address "$REGISTRY_CONTRACT_ADDRESS" \
     --function add_supported_token \
-    --arguments "$STRK, $STRK_MIN_PROMPT_PRICE" \
+    --arguments "$STRK" "$MIN_PROMPT_PRICE" "$MIN_INITIAL_BALANCE" \
     --fee-token strk
 
 echo "Waiting ${SLEEP_TIME}s for deployment to be processed..."
