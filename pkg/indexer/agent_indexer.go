@@ -16,18 +16,20 @@ import (
 
 type AgentInfo struct {
 	Address      *felt.Felt
+	Creator      *felt.Felt
 	Name         string
 	SystemPrompt string
 }
 
 // AgentIndexer processes AgentRegistered events and tracks known agents.
 type AgentIndexer struct {
-	agentsMu         sync.RWMutex
-	agents           map[[32]byte]AgentInfo
-	addresses        []*felt.Felt
-	registryAddress  *felt.Felt
-	lastIndexedBlock uint64
-	client           starknet.ProviderWrapper
+	agentsMu           sync.RWMutex
+	agents             map[[32]byte]AgentInfo
+	addressesByCreator map[[32]byte][][32]byte
+	addresses          []*felt.Felt
+	registryAddress    *felt.Felt
+	lastIndexedBlock   uint64
+	client             starknet.ProviderWrapper
 }
 
 // AgentIndexerInitialState is the initial state for an AgentIndexer.
@@ -53,10 +55,11 @@ func NewAgentIndexer(cfg *AgentIndexerConfig) *AgentIndexer {
 	}
 
 	return &AgentIndexer{
-		agents:           cfg.InitialState.Agents,
-		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
-		registryAddress:  cfg.RegistryAddress,
-		client:           cfg.Client,
+		agents:             cfg.InitialState.Agents,
+		addressesByCreator: make(map[[32]byte][][32]byte),
+		lastIndexedBlock:   cfg.InitialState.LastIndexedBlock,
+		registryAddress:    cfg.RegistryAddress,
+		client:             cfg.Client,
 	}
 }
 
@@ -104,11 +107,16 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 
 	info := AgentInfo{
 		Address:      agentRegisteredEv.Agent,
+		Creator:      agentRegisteredEv.Creator,
 		Name:         agentRegisteredEv.Name,
 		SystemPrompt: agentRegisteredEv.SystemPrompt,
 	}
 	i.agents[agentRegisteredEv.Agent.Bytes()] = info
 	i.addresses = append(i.addresses, agentRegisteredEv.Agent)
+
+	// Index by creator
+	creatorBytes := agentRegisteredEv.Creator.Bytes()
+	i.addressesByCreator[creatorBytes] = append(i.addressesByCreator[creatorBytes], agentRegisteredEv.Agent.Bytes())
 }
 
 // GetAgentInfo returns an agent's info, if it exists.
@@ -118,6 +126,30 @@ func (i *AgentIndexer) GetAgentInfo(addr *felt.Felt) (AgentInfo, bool) {
 
 	info, ok := i.agents[addr.Bytes()]
 	return info, ok
+}
+
+// GetAgentsByCreator returns a list of agent addresses created by the given creator address
+// within the specified range. start and limit define the pagination window.
+func (i *AgentIndexer) GetAgentsByCreator(ctx context.Context, creator *felt.Felt, start uint64, limit uint64) ([]AgentInfo, bool) {
+	i.agentsMu.RLock()
+	defer i.agentsMu.RUnlock()
+
+	agents := i.addressesByCreator[creator.Bytes()]
+	if uint64(len(agents)) <= start {
+		return nil, false
+	}
+
+	end := start + limit
+	if end > uint64(len(agents)) {
+		end = uint64(len(agents))
+	}
+
+	agentInfos := make([]AgentInfo, end-start)
+	for idx, addr := range agents[start:end] {
+		agentInfos[idx] = i.agents[addr]
+	}
+
+	return agentInfos, true
 }
 
 // GetOrFetchAgentInfoAtBlock returns an agent's info if it exists.

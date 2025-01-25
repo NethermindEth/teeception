@@ -137,6 +137,7 @@ func (s *UIService) startServer(ctx context.Context) error {
 
 	router.GET("/agents", s.HandleGetAgents)
 	router.GET("/agent/:address", s.HandleGetAgent)
+	router.GET("/user/agents", s.HandleGetUserAgents)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
@@ -165,7 +166,7 @@ type AgentData struct {
 	Balance string `json:"balance"`
 }
 
-type AgentLeaderboardResponse struct {
+type AgentPageResponse struct {
 	Agents    []*AgentData `json:"agents"`
 	Total     int          `json:"total"`
 	Page      int          `json:"page"`
@@ -211,7 +212,7 @@ func (s *UIService) HandleGetAgents(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, &AgentLeaderboardResponse{
+	c.JSON(http.StatusOK, &AgentPageResponse{
 		Agents:    agentDatas,
 		Total:     int(agents.AgentCount),
 		Page:      page,
@@ -246,5 +247,57 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 		Name:    info.Name,
 		Token:   balance.Token.String(),
 		Balance: balance.Amount.String(),
+	})
+}
+
+func (s *UIService) HandleGetUserAgents(c *gin.Context) {
+	userAddrStr := c.Query("user")
+	if userAddrStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user address required"})
+		return
+	}
+
+	userAddr, err := new(felt.Felt).SetString(userAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Errorf("invalid user address: %w", err).Error()})
+		return
+	}
+
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		page = 1
+	}
+
+	start := uint64(page-1) * uint64(s.pageSize)
+	limit := uint64(s.pageSize)
+
+	agents, ok := s.agentIndexer.GetAgentsByCreator(c.Request.Context(), userAddr, start, limit)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no agents found for user"})
+		return
+	}
+
+	agentDatas := make([]*AgentData, 0, len(agents))
+	for _, info := range agents {
+		balance, ok := s.agentBalanceIndexer.GetBalance(info.Address)
+		if !ok {
+			slog.Error("failed to get agent balance", "agent", info.Address)
+			continue
+		}
+
+		agentDatas = append(agentDatas, &AgentData{
+			Pending: balance.Pending,
+			Address: info.Address.String(),
+			Name:    info.Name,
+			Token:   balance.Token.String(),
+			Balance: balance.Amount.String(),
+		})
+	}
+
+	c.JSON(http.StatusOK, &AgentPageResponse{
+		Agents:    agentDatas,
+		Page:      page,
+		PageSize:  s.pageSize,
+		LastBlock: int(s.agentIndexer.GetLastIndexedBlock()),
 	})
 }
