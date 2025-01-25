@@ -7,6 +7,7 @@ DEFAULT_STRK='0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
 DEFAULT_MIN_PROMPT_PRICE='1000000000000000000'
 DEFAULT_MIN_INITIAL_BALANCE='1000000000000000000'
 DEFAULT_SLEEP_TIME=30
+DEFAULT_POLL_INTERVAL=2
 
 # Help function
 show_help() {
@@ -20,6 +21,9 @@ show_help() {
     echo "  -p, --prompt-price VAL Min prompt price (default: $DEFAULT_MIN_PROMPT_PRICE)"
     echo "  -b, --balance VAL      Min initial balance (default: $DEFAULT_MIN_INITIAL_BALANCE)"
     echo "  -w, --wait TIME        Sleep time between operations (default: ${DEFAULT_SLEEP_TIME}s)"
+    echo "  -i, --interval SECS    Transaction poll interval in seconds (default: $DEFAULT_POLL_INTERVAL)"
+    echo "  --agent-hash HASH      Agent class hash (if not provided, will declare)"
+    echo "  --registry-hash HASH   Registry class hash (if not provided, will declare)"
     echo "  -h, --help             Show this help message"
 }
 
@@ -32,6 +36,9 @@ while [[ $# -gt 0 ]]; do
         -p|--prompt-price) MIN_PROMPT_PRICE="$2"; shift 2 ;;
         -b|--balance) MIN_INITIAL_BALANCE="$2"; shift 2 ;;
         -w|--wait) SLEEP_TIME="$2"; shift 2 ;;
+        -i|--interval) POLL_INTERVAL="$2"; shift 2 ;;
+        --agent-hash) AGENT_CLASS_HASH="$2"; shift 2 ;;
+        --registry-hash) REGISTRY_CLASS_HASH="$2"; shift 2 ;;
         -h|--help) show_help; exit 0 ;;
         *) echo "Unknown option: $1"; show_help; exit 1 ;;
     esac
@@ -44,48 +51,92 @@ STRK=${STRK:-$DEFAULT_STRK}
 MIN_PROMPT_PRICE=${MIN_PROMPT_PRICE:-$DEFAULT_MIN_PROMPT_PRICE}
 MIN_INITIAL_BALANCE=${MIN_INITIAL_BALANCE:-$DEFAULT_MIN_INITIAL_BALANCE}
 SLEEP_TIME=${SLEEP_TIME:-$DEFAULT_SLEEP_TIME}
+POLL_INTERVAL=${POLL_INTERVAL:-$DEFAULT_POLL_INTERVAL}
+
+# Log to stderr
+log() {
+    echo "$1" >&2
+}
 
 # Function to declare a contract
 declare_contract() {
     local contract_name=$1
     local declare_resp
     local class_hash
-    
-    echo "Declaring $contract_name contract..."
+
+    log "Declaring $contract_name contract..."
+
     declare_resp=$(sncast declare -c "$contract_name" --fee-token strk 2>&1)
     
     if echo "$declare_resp" | grep -q "is already declared"; then
         class_hash=$(echo "$declare_resp" | grep -o '0x[0-9a-f]\{64\}')
-        echo "$contract_name contract already declared with class hash: $class_hash"
+        log "$contract_name contract already declared with class hash: $class_hash"
     else
         class_hash=$(echo "$declare_resp" | awk '/class_hash:/ {print $2}')
-        echo "$contract_name contract declared with class hash: $class_hash"
+        log "$contract_name contract declared with class hash: $class_hash"
     fi
     echo "$class_hash"
 }
 
-# Declare contracts
-AGENT_CLASS_HASH=$(declare_contract "Agent")
-REGISTRY_CLASS_HASH=$(declare_contract "AgentRegistry")
+# Function to wait for transaction acceptance
+wait_for_transaction() {
+    local tx_hash=$1
+    log "Waiting for transaction $tx_hash to be accepted..."
+    
+    while true; do
+        local tx_status
+        tx_status=$(sncast tx-status "$tx_hash")
+        
+        if echo "$tx_status" | grep -q "execution_status: Succeeded" && \
+           echo "$tx_status" | grep -q "finality_status: AcceptedOnL2"; then
+            return 0
+        fi
+        sleep "$POLL_INTERVAL"
+    done
+}
 
-echo "Waiting ${SLEEP_TIME}s for declarations to be processed..."
-sleep "$SLEEP_TIME"
+# Declare contracts if hashes not provided
+if [ -z "$AGENT_CLASS_HASH" ]; then
+    AGENT_CLASS_HASH=$(declare_contract "Agent")
+else
+    log "Using provided Agent class hash: $AGENT_CLASS_HASH"
+fi
 
-echo "Deploying Registry contract..."
+if [ -z "$REGISTRY_CLASS_HASH" ]; then
+    REGISTRY_CLASS_HASH=$(declare_contract "AgentRegistry")
+else
+    log "Using provided AgentRegistry class hash: $REGISTRY_CLASS_HASH"
+fi
+
+if [ -z "$AGENT_CLASS_HASH" ] || [ -z "$REGISTRY_CLASS_HASH" ]; then
+    log "Waiting ${SLEEP_TIME}s for declarations to be processed..."
+    sleep "$SLEEP_TIME"
+fi
+
+echo "$STRK, $MIN_PROMPT_PRICE, $MIN_INITIAL_BALANCE"
+
+log "Deploying Registry contract..."
 REGISTRY_DEPLOY_RESP=$(sncast deploy \
     --fee-token strk \
     --class-hash "$REGISTRY_CLASS_HASH" \
     --constructor-calldata "$OWNER" "$TEE" "$AGENT_CLASS_HASH")
 REGISTRY_CONTRACT_ADDRESS=$(echo "$REGISTRY_DEPLOY_RESP" | awk '/contract_address:/ {print $2}')
+log "Registry contract to be deployed with address: $REGISTRY_CONTRACT_ADDRESS"
 
-echo "Adding STRK token as supported payment token..."
-sncast invoke \
-    --contract-address "$REGISTRY_CONTRACT_ADDRESS" \
-    --function add_supported_token \
-    --arguments "$STRK" "$MIN_PROMPT_PRICE" "$MIN_INITIAL_BALANCE" \
-    --fee-token strk
-
-echo "Waiting ${SLEEP_TIME}s for deployment to be processed..."
+REGISTRY_TX_HASH=$(echo "$REGISTRY_DEPLOY_RESP" | awk '/transaction_hash:/ {print $2}')
+wait_for_transaction "$REGISTRY_TX_HASH"
+echo "Waiting for registry to be deployed..."
 sleep "$SLEEP_TIME"
 
-echo "Registry contract deployed with address: $REGISTRY_CONTRACT_ADDRESS"
+log "Adding STRK token as supported payment token..."
+ADD_TOKEN_RESP=$(sncast invoke \
+    --contract-address "$REGISTRY_CONTRACT_ADDRESS" \
+    --function add_supported_token \
+    --arguments "$STRK, $MIN_PROMPT_PRICE, $MIN_INITIAL_BALANCE" \
+    --fee-token strk)
+
+ADD_TOKEN_TX_HASH=$(echo "$ADD_TOKEN_RESP" | awk '/transaction_hash:/ {print $2}')
+
+wait_for_transaction "$ADD_TOKEN_TX_HASH"
+
+log "Registry contract deployed with address: $REGISTRY_CONTRACT_ADDRESS"

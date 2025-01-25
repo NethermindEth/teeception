@@ -49,10 +49,14 @@ REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS:-$DEFAULT_REGISTRY}
 TOKEN_ADDRESS=${TOKEN_ADDRESS:-$DEFAULT_TOKEN}
 POLL_INTERVAL=${POLL_INTERVAL:-$DEFAULT_POLL_INTERVAL}
 
+log() {
+    echo "$1" >&2
+}
+
 # Function to wait for transaction acceptance
 wait_for_transaction() {
     local tx_hash=$1
-    echo "Waiting for transaction $tx_hash to be accepted..."
+    log "Waiting for transaction $tx_hash to be accepted..."
     
     while true; do
         local tx_status
@@ -91,26 +95,26 @@ get_agent_address() {
 }
 
 # Main execution
-echo "Registering new agent with name: $AGENT_NAME"
-echo "Using registry contract: $REGISTRY_CONTRACT_ADDRESS"
+log "Registering new agent with name: $AGENT_NAME"
+log "Using registry contract: $REGISTRY_CONTRACT_ADDRESS"
 
 # Approve token spending for registry
-echo "Approving token spending..."
+log "Approving token spending..."
 APPROVE_RESP=$(sncast invoke \
     --contract-address "$TOKEN_ADDRESS" \
     --function approve \
-    --arguments "$REGISTRY_CONTRACT_ADDRESS" "$INITIAL_BALANCE" \
+    --arguments "$REGISTRY_CONTRACT_ADDRESS, $INITIAL_BALANCE" \
     --fee-token strk)
 
 APPROVE_TX_HASH=$(echo "$APPROVE_RESP" | awk '/transaction_hash:/ {print $2}')
 if [ -z "$APPROVE_TX_HASH" ]; then
-    echo "Error: Failed to get transaction hash from approval response"
+    log "Error: Failed to get transaction hash from approval response"
     exit 1
 fi
 
 wait_for_transaction "$APPROVE_TX_HASH"
 
-echo "Waiting..."
+log "Waiting for approval to be processed..."
 sleep 30
 
 # Register the agent
@@ -124,7 +128,7 @@ REGISTER_RESP=$(sncast invoke \
 REGISTER_TX_HASH=$(echo "$REGISTER_RESP" | awk '/transaction_hash:/ {print $2}')
 
 if [ -z "$REGISTER_TX_HASH" ]; then
-    echo "Error: Failed to get transaction hash from registration response"
+    log "Error: Failed to get transaction hash from registration response"
     exit 1
 fi
 
@@ -132,16 +136,16 @@ fi
 wait_for_transaction "$REGISTER_TX_HASH"
 
 # Additional wait to ensure transaction indexing
-echo "Waiting for transaction indexing..."
+log "Waiting for registration to be processed..."
 sleep 30
 
 # Get the agent address
 AGENT_ADDRESS=$(get_agent_address "$REGISTER_TX_HASH" "$REGISTRY_CONTRACT_ADDRESS")
 
 if [ -z "$AGENT_ADDRESS" ]; then
-    echo "Error: Failed to get agent address from transaction receipt"
+    log "Error: Failed to get agent address from transaction receipt"
     exit 1
 fi
 
-echo "Agent successfully registered!"
-echo "Agent address: $AGENT_ADDRESS"
+log "Agent successfully registered!"
+log "Agent address: $AGENT_ADDRESS"
