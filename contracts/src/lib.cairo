@@ -28,6 +28,7 @@ pub trait IAgent<TContractState> {
     fn get_token(self: @TContractState) -> ContractAddress;
     fn transfer(ref self: TContractState, recipient: ContractAddress);
     fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
+    fn is_prompt_paid(self: @TContractState, prompt_id: u64) -> bool;
     fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
     fn consume_prompt(ref self: TContractState, prompt_id: u64);
 }
@@ -424,6 +425,10 @@ pub mod Agent {
                 );
 
             prompt_id
+        }
+
+        fn is_prompt_paid(self: @ContractState, prompt_id: u64) -> bool {
+            self.pending_prompts.read(prompt_id).reclaimer != contract_address_const::<0>()
         }
 
         fn reclaim_prompt(ref self: ContractState, prompt_id: u64) {
