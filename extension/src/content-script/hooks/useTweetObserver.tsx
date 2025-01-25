@@ -176,8 +176,14 @@ export const useTweetObserver = (
   }, [processTweet])
 
   useEffect(() => {
-    // Process existing tweets on mount and URL changes
-    processExistingTweets()
+    // Process existing tweets immediately on mount
+    debug.log('TweetObserver', 'Initial processing of tweets')
+    const tweets = document.querySelectorAll(SELECTORS.TWEET)
+    tweets.forEach(tweet => {
+      if (tweet instanceof HTMLElement) {
+        processTweet(tweet)
+      }
+    })
 
     // Set up navigation listener
     const handleNavigation = () => {
@@ -250,7 +256,7 @@ export const useTweetObserver = (
         mutationTimeout = setTimeout(() => {
           processExistingTweets()
           mutationTimeout = null
-        }, 250)
+        }, 100) // Reduced timeout for faster response
       }
     })
 
@@ -260,6 +266,9 @@ export const useTweetObserver = (
       attributes: true,
       attributeFilter: ['data-testid']
     })
+
+    // Also set up an interval to periodically check for tweets that might have been missed
+    const checkInterval = setInterval(processExistingTweets, 2000)
 
     return () => {
       if (processTimeoutRef.current) {
@@ -271,13 +280,16 @@ export const useTweetObserver = (
       if (mutationTimeout) {
         clearTimeout(mutationTimeout)
       }
+      if (checkInterval) {
+        clearInterval(checkInterval)
+      }
       window.removeEventListener('popstate', handleNavigation)
       window.removeEventListener('pushstate', handleNavigation)
       window.removeEventListener('replacestate', handleNavigation)
       window.removeEventListener('scroll', handleScroll)
       observer.current?.disconnect()
     }
-  }, [processExistingTweets])
+  }, [processExistingTweets, processTweet]) // Added processTweet to dependencies
 
   return null
 } 
