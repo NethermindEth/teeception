@@ -177,10 +177,10 @@ type AgentPageResponse struct {
 func (s *UIService) HandleGetAgents(c *gin.Context) {
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
-		page = 1
+		page = 0
 	}
 
-	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page-1)*uint64(s.pageSize), uint64(page)*uint64(s.pageSize))
+	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(s.pageSize), uint64(page+1)*uint64(s.pageSize))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})
 		return
@@ -268,7 +268,7 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 		page = 1
 	}
 
-	start := uint64(page-1) * uint64(s.pageSize)
+	start := uint64(page) * uint64(s.pageSize)
 	limit := uint64(s.pageSize)
 
 	agents, ok := s.agentIndexer.GetAgentsByCreator(c.Request.Context(), userAddr, start, limit)
