@@ -270,7 +270,7 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
-		page = 1
+		page = 0
 	}
 
 	start := uint64(page) * uint64(s.pageSize)
