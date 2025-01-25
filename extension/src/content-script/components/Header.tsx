@@ -25,13 +25,11 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
   useEffect(() => {
     const autoConnect = async () => {
       if (status === 'disconnected') {
-        debug.log('Header', 'Attempting auto-connect')
         try {
           // Try to connect with the first available connector
           const connector = connectors[0]
           if (connector) {
             await connectAsync({ connector })
-            debug.log('Header', 'Auto-connect successful')
           }
         } catch (err) {
           debug.error('Header', 'Auto-connect failed', err)

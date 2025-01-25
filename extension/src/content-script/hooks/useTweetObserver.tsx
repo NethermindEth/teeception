@@ -1,7 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react'
 import ReactDOM from 'react-dom'
 import { SELECTORS } from '../constants/selectors'
-import { TweetOverlay } from '../components/TweetOverlay'
 import { extractAgentName } from '../utils/twitter'
 import { checkTweetPaid, getAgentAddressByName } from '../utils/contracts'
 import { debug } from '../utils/debug'
@@ -114,7 +113,6 @@ export const useTweetObserver = (
         // Insert banner after the tweet
         tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
         
-        debug.log('TweetObserver', 'Agent not registered', { agentName })
         processingTweets.current.delete(tweetId)
         return
       }
@@ -213,11 +211,9 @@ export const useTweetObserver = (
 
       // Double check the tweet is still in the DOM
       if (!document.contains(tweet)) {
-        debug.log('TweetObserver', 'Tweet removed from DOM during processing', { tweetId })
         return
       }
 
-      debug.log('TweetObserver', 'Processed tweet', { tweetId, agentName, isOwnTweet: tweet.textContent?.includes(currentUser) || false, isPaid })
     } catch (error) {
       debug.error('TweetObserver', 'Error processing tweet', error)
     } finally {
@@ -238,7 +234,6 @@ export const useTweetObserver = (
 
     // Delay processing to let Twitter's UI settle
     processTimeoutRef.current = setTimeout(() => {
-      debug.log('TweetObserver', 'Processing existing tweets')
       const tweets = document.querySelectorAll(SELECTORS.TWEET)
       tweets.forEach(tweet => {
         if (tweet instanceof HTMLElement) {
@@ -250,7 +245,6 @@ export const useTweetObserver = (
 
   useEffect(() => {
     // Process existing tweets immediately on mount
-    debug.log('TweetObserver', 'Initial processing of tweets')
     const tweets = document.querySelectorAll(SELECTORS.TWEET)
     tweets.forEach(tweet => {
       if (tweet instanceof HTMLElement) {
@@ -260,7 +254,6 @@ export const useTweetObserver = (
 
     // Set up navigation listener
     const handleNavigation = () => {
-      debug.log('TweetObserver', 'Navigation detected')
       processExistingTweets()
     }
 

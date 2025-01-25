@@ -27,10 +27,8 @@ export const Dialog = ({ open, onClose, children }: DialogProps) => {
     const container = document.getElementById('jack-the-ether-modal-container')
     if (container) {
       container.style.pointerEvents = 'auto'
-      debug.log('Dialog', 'Enabled pointer events')
       return () => {
         container.style.pointerEvents = 'none'
-        debug.log('Dialog', 'Disabled pointer events')
       }
     }
   }, [])
@@ -39,7 +37,6 @@ export const Dialog = ({ open, onClose, children }: DialogProps) => {
     if (e.target === e.currentTarget) {
       e.preventDefault()
       e.stopPropagation()
-      debug.log('Dialog', 'Backdrop clicked')
       onClose()
     }
   }

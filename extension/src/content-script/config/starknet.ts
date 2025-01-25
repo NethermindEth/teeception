@@ -65,8 +65,3 @@ export const STARKNET_CONFIG = {
 
 export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia;
 
-debug.log('Starknet Config', 'Active network:', { 
-  name: ACTIVE_NETWORK.name,
-  registryAddress: ACTIVE_NETWORK.agentRegistryAddress,
-  rpc: ACTIVE_NETWORK.rpc
-});

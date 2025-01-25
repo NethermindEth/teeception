@@ -17,7 +17,6 @@ interface ConfirmationModalProps {
  * Modal component that shows a confirmation dialog when a user mentions a specific account in their tweet
  */
 export const ConfirmationModal = ({ open, onConfirm, onCancel, agentName }: ConfirmationModalProps) => {
-  debug.log('ConfirmationModal', 'Rendering', { open, agentName })
 
   return (
     <Dialog open={open} onClose={onCancel}>
@@ -46,7 +45,6 @@ export const ConfirmationModal = ({ open, onConfirm, onCancel, agentName }: Conf
             variant="default"
             size="lg"
             onClick={() => {
-              debug.log('ConfirmationModal', 'Confirm button clicked')
               onConfirm()
             }}
           >
@@ -56,7 +54,6 @@ export const ConfirmationModal = ({ open, onConfirm, onCancel, agentName }: Conf
             size="lg"
             variant="ghost"
             onClick={() => {
-              debug.log('ConfirmationModal', 'Cancel button clicked')
               onCancel()
             }}
           >

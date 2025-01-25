@@ -20,10 +20,8 @@ export const useAgents = (registryAddress: string | null) => {
 
     useEffect(() => {
         const fetchAgents = async () => {
-            debug.log('useAgents', 'Starting to fetch agents', { registryAddress })
             
             if (!registryAddress) {
-                debug.log('useAgents', 'No registry address provided')
                 setLoading(false);
                 return;
             }
@@ -32,25 +30,18 @@ export const useAgents = (registryAddress: string | null) => {
                 const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc });
                 const registry = new Contract(AGENT_REGISTRY_COPY_ABI, registryAddress, provider);
 
-                debug.log('useAgents', 'Created registry contract instance')
-
                 const tokenAddressRaw = await registry.get_token();
                 const tokenAddress = `0x${BigInt(tokenAddressRaw).toString(16)}`;
                 const tokenContract = new Contract(ERC20_ABI, tokenAddress, provider);
-
-                debug.log('useAgents', 'Got token contract', { tokenAddress })
 
                 const rawAgentAddresses = await registry.get_agents();
                 const agentAddresses = rawAgentAddresses.map((address: string) => {
                     return `0x${BigInt(address).toString(16)}`;
                 });
 
-                debug.log('useAgents', 'Got agent addresses', { count: agentAddresses.length })
-
                 const agentDetails = await Promise.all(
                     agentAddresses.map(async (address: string) => {
                         try {
-                            debug.log('useAgents', 'Loading agent details', { address })
                             const agent = new Contract(AGENT_ABI, address, provider);
                             
                             const [nameResult, systemPromptResult, balanceResult] = await Promise.all([
@@ -79,12 +70,6 @@ export const useAgents = (registryAddress: string | null) => {
                                 balance: balanceValue.toString(),
                             };
 
-                            debug.log('useAgents', 'Loaded agent details', { 
-                                address, 
-                                name: result.name,
-                                balance: result.balance 
-                            })
-
                             return result;
                         } catch (err) {
                             debug.error('useAgents', 'Error processing agent', { address, error: err })
@@ -98,7 +83,6 @@ export const useAgents = (registryAddress: string | null) => {
                     })
                 );
 
-                debug.log('useAgents', 'Finished loading all agents', { count: agentDetails.length })
                 setAgents(agentDetails);
                 setError(null);
             } catch (err) {

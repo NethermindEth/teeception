@@ -28,7 +28,6 @@ interface Agent {
 
 // Function to focus tweet compose box and set text
 const composeTweet = (agentName: string) => {
-  debug.log('ActiveAgents', 'Composing tweet for agent', { agentName })
   const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
   const tweetTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
   const postButton = document.querySelector(SELECTORS.POST_BUTTON) as HTMLElement
@@ -39,29 +38,22 @@ const composeTweet = (agentName: string) => {
     const hasExistingText = existingText.trim().length > 0
     const text = `${CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
     document.execCommand('insertText', false, text)
-    debug.log('ActiveAgents', 'Inserted text into textarea', { text })
   }
 
   if (tweetTextarea) {
-    debug.log('ActiveAgents', 'Found existing textarea')
     insertText(tweetTextarea)
   } else {
-    debug.log('ActiveAgents', 'No existing textarea, trying to open compose')
     if (postButton) {
-      debug.log('ActiveAgents', 'Clicking post button')
       postButton.click()
       setTimeout(() => {
         const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
         if (newTextarea) {
-          debug.log('ActiveAgents', 'Found new textarea after clicking post')
           insertText(newTextarea)
         } else if (tweetButton) {
-          debug.log('ActiveAgents', 'No textarea after post, trying tweet button')
           tweetButton.click()
           setTimeout(() => {
             const fallbackTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
             if (fallbackTextarea) {
-              debug.log('ActiveAgents', 'Found textarea after tweet button')
               insertText(fallbackTextarea)
             } else {
               debug.error('ActiveAgents', 'Failed to find textarea after all attempts', { agentName })
@@ -70,12 +62,10 @@ const composeTweet = (agentName: string) => {
         }
       }, 100)
     } else if (tweetButton) {
-      debug.log('ActiveAgents', 'No post button, trying tweet button directly')
       tweetButton.click()
       setTimeout(() => {
         const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
         if (newTextarea) {
-          debug.log('ActiveAgents', 'Found textarea after tweet button')
           insertText(newTextarea)
         } else {
           debug.error('ActiveAgents', 'Failed to find textarea after tweet button', { agentName })

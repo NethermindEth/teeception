@@ -51,13 +51,9 @@ export default function LaunchAgent({
 
   // Get supported tokens only
   const supportedTokenList = useMemo(() => {
-    console.log('Supported tokens:', supportedTokens)
-    console.log('Network tokens:', ACTIVE_NETWORK.tokens)
-    
     return Object.entries(ACTIVE_NETWORK.tokens)
       .filter(([symbol]) => {
         const isSupported = supportedTokens[symbol]?.isSupported
-        console.log(`Token ${symbol} supported:`, isSupported)
         return isSupported
       })
       .map(([symbol, token]) => ({
@@ -71,9 +67,7 @@ export default function LaunchAgent({
 
   // Set first supported token as default when loaded
   useEffect(() => {
-    console.log('Supported token list:', supportedTokenList)
     if (supportedTokenList.length > 0 && !supportedTokens[formData.selectedToken]?.isSupported) {
-      console.log('Setting default token to:', supportedTokenList[0].symbol)
       setFormData(prev => ({
         ...prev,
         selectedToken: supportedTokenList[0].symbol
@@ -153,7 +147,6 @@ export default function LaunchAgent({
         promptPrice
       )
 
-      console.log('Agent registered:', response)
       setCurrentView(AGENT_VIEWS.ACTIVE_AGENTS)
     } catch (error) {
       console.error('Error registering agent:', error)

@@ -50,7 +50,6 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
 
     // Get all agents
     const agents = await registry.get_agents()
-    debug.log('Contracts', 'Got agents from registry', { count: agents.length })
 
     // Clear old cache
     AGENT_ADDRESS_CACHE.clear()
@@ -72,7 +71,6 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
         AGENT_ADDRESS_CACHE.set(name, normalizedAddress)
 
         if (name === agentName) {
-          debug.log('Contracts', 'Found agent address', { name, address: normalizedAddress })
           return normalizedAddress
         }
       } catch (error) {
@@ -81,7 +79,6 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
       }
     }
 
-    debug.log('Contracts', 'Agent not found', { agentName })
     return null
   } catch (error) {
     debug.error('Contracts', 'Error getting agent address', error)
@@ -110,7 +107,6 @@ export const checkTweetPaid = async (agentAddress: string, tweetId: string): Pro
     // Call is_prompt_paid function
     const isPaid = await agentContract.is_prompt_paid(tweetIdBN)
     
-    debug.log('Contracts', 'Checked tweet payment status', { tweetId, isPaid })
     return isPaid
   } catch (error) {
     debug.error('Contracts', 'Error checking tweet payment status', error)
@@ -139,7 +135,6 @@ export const payForTweet = async (agentAddress: string, tweetId: string): Promis
     // Call pay_for_prompt function
     const result = await agentContract.pay_for_prompt(tweetIdBN)
     
-    debug.log('Contracts', 'Payment transaction sent', { result })
     return result.transaction_hash
   } catch (error) {
     debug.error('Contracts', 'Error paying for tweet', error)
@@ -166,4 +161,11 @@ export const getPromptPrice = async (agentAddress: string): Promise<bigint> => {
     debug.error('Contracts', 'Error getting prompt price', error)
     throw error
   }
+}
+
+export async function getAgentToken(agentAddress: string): Promise<string> {
+  const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
+  const contract = new Contract(AGENT_ABI, agentAddress, provider)
+  const token = await contract.get_token()
+  return token.toString()
 } 
