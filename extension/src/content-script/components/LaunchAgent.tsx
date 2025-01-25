@@ -9,6 +9,7 @@ import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Contract, RpcProvider, uint256 } from 'starknet'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 import { useTokenBalance } from '../hooks/useTokenBalance'
+import { ERC20_ABI } from '../../abis/ERC20_ABI'
 
 interface FormData {
   agentName: string
@@ -139,6 +140,18 @@ export default function LaunchAgent({
       const promptPrice = uint256.bnToUint256(
         BigInt(parseFloat(formData.feePerMessage) * Math.pow(10, selectedToken.decimals))
       )
+      const initialBalance = uint256.bnToUint256(
+        BigInt(parseFloat(formData.initialBalance) * Math.pow(10, selectedToken.decimals))
+      )
+
+      // Approve token spending for initial balance
+      const tokenContract = new Contract(
+        ERC20_ABI,
+        selectedToken.address,
+        provider
+      )
+      tokenContract.connect(account)
+      await tokenContract.approve(registryAddress, initialBalance)
 
       const response = await registry.register_agent(
         formData.agentName,

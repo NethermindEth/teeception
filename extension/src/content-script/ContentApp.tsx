@@ -6,12 +6,12 @@ import { ConnectButton } from './components/ConnectButton'
 import { CONFIG } from './config'
 import { getTweetText } from './utils/dom'
 import { useTweetButton } from './hooks/useTweetButton'
-import { useModalContainer } from './hooks/useModalContainer'
 import { useTweetObserver } from './hooks/useTweetObserver'
 import { SELECTORS } from './constants/selectors'
 import { debug } from './utils/debug'
 import { extractAgentName } from './utils/twitter'
-import { payForTweet } from './utils/contracts'
+import { payForTweet, getAgentAddressByName } from './utils/contracts'
+import { useAccount } from '@starknet-react/core'
 
 const ContentApp = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -19,7 +19,7 @@ const ContentApp = () => {
   const [currentAgentName, setCurrentAgentName] = useState<string | null>(null)
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const { originalButton } = useTweetButton()
-  const modalContainer = useModalContainer(showConfirmModal || showPaymentModal)
+  const { account } = useAccount()
 
   const handleTweetAttempt = useCallback(() => {
     const text = getTweetText()
@@ -79,19 +79,37 @@ const ContentApp = () => {
 
   const handleConfirmPayment = async () => {
     try {
+      if (!account) {
+        throw new Error('Please connect your wallet first')
+      }
+
       if (currentTweetId && currentAgentName) {
+        // Get agent address first
+        const agentAddress = await getAgentAddressByName(currentAgentName)
+        if (!agentAddress) {
+          throw new Error(`Agent ${currentAgentName} not found`)
+        }
+        
+        debug.log('ContentApp', 'Sending payment transaction', {
+          agentAddress,
+          tweetId: currentTweetId,
+          account
+        })
+
         // Send the payment transaction
-        const txHash = await payForTweet(currentAgentName, currentTweetId)
+        const txHash = await payForTweet(agentAddress, currentTweetId, account)
+        debug.log('ContentApp', 'Payment transaction sent', { txHash })
+        
+        // Only close modal after successful transaction
+        setShowPaymentModal(false)
+        setCurrentAgentName(null)
+        setCurrentTweetId(null)
         
         // TODO: Show transaction pending notification
       }
     } catch (error) {
       debug.error('ContentApp', 'Error handling payment', error)
-      // TODO: Show error notification
-    } finally {
-      setShowPaymentModal(false)
-      setCurrentAgentName(null)
-      setCurrentTweetId(null)
+      throw error // Re-throw to let PaymentModal handle the error state
     }
   }
 
@@ -110,33 +128,29 @@ const ContentApp = () => {
   return (
     <>
       <ConnectButton />
-      {modalContainer && (
-        <>
-          {showConfirmModal && (
-            <ConfirmationModal
-              open={true}
-              onConfirm={handleConfirmTweet}
-              onCancel={() => {
-                setShowConfirmModal(false)
-                setCurrentAgentName(null)
-              }}
-              agentName={currentAgentName || undefined}
-            />
-          )}
-          {showPaymentModal && currentAgentName && currentTweetId && (
-            <PaymentModal
-              open={true}
-              onConfirm={handleConfirmPayment}
-              onCancel={() => {
-                setShowPaymentModal(false)
-                setCurrentAgentName(null)
-                setCurrentTweetId(null)
-              }}
-              agentName={currentAgentName}
-              tweetId={currentTweetId}
-            />
-          )}
-        </>
+      {showConfirmModal && (
+        <ConfirmationModal
+          open={true}
+          onConfirm={handleConfirmTweet}
+          onCancel={() => {
+            setShowConfirmModal(false)
+            setCurrentAgentName(null)
+          }}
+          agentName={currentAgentName || undefined}
+        />
+      )}
+      {showPaymentModal && currentAgentName && currentTweetId && (
+        <PaymentModal
+          open={true}
+          onConfirm={handleConfirmPayment}
+          onCancel={() => {
+            setShowPaymentModal(false)
+            setCurrentAgentName(null)
+            setCurrentTweetId(null)
+          }}
+          agentName={currentAgentName}
+          tweetId={currentTweetId}
+        />
       )}
     </>
   )

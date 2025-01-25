@@ -1,6 +1,7 @@
-import { Contract, RpcProvider } from 'starknet'
+import { Contract, RpcProvider, uint256 } from 'starknet'
 import { AGENT_ABI } from '../../abis/AGENT_ABI'
 import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
+import { ERC20_ABI } from '../../abis/ERC20_ABI'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { debug } from './debug'
 
@@ -19,11 +20,20 @@ const getProvider = () => {
   return provider
 }
 
-const normalizeAddress = (address: string | bigint): string => {
-  if (typeof address === 'bigint') {
-    return '0x' + address.toString(16)
+export const normalizeAddress = (address: string | bigint): string => {
+  try {
+    if (typeof address === 'bigint') {
+      // Convert to hex, remove '0x' if present, pad to 64 characters
+      const hex = address.toString(16).replace('0x', '').padStart(64, '0')
+      return `0x${hex}`
+    }
+    // If it's already a hex string, ensure proper format
+    const hex = address.replace('0x', '').padStart(64, '0')
+    return `0x${hex}`
+  } catch (error) {
+    debug.error('Contracts', 'Error normalizing address', { address, error })
+    throw error
   }
-  return address.startsWith('0x') ? address : '0x' + address
 }
 
 /**
@@ -115,19 +125,77 @@ export const checkTweetPaid = async (agentAddress: string, tweetId: string): Pro
 }
 
 /**
+ * Approves token spending for a contract
+ * @param tokenAddress - The address of the token contract
+ * @param spenderAddress - The address of the contract that will spend the tokens
+ * @param amount - The amount to approve in smallest token units
+ * @param account - The user's account
+ */
+const approveToken = async (
+  tokenAddress: string,
+  spenderAddress: string,
+  amount: bigint,
+  account: any
+): Promise<string> => {
+  const provider = getProvider()
+  const normalizedTokenAddress = '0x' + BigInt(tokenAddress).toString(16).padStart(64, '0')
+  debug.log('Contracts', 'Approving token', {
+    rawTokenAddress: tokenAddress,
+    normalizedTokenAddress,
+    spenderAddress,
+    amount: amount.toString()
+  })
+
+  const tokenContract = new Contract(
+    ERC20_ABI,
+    normalizedTokenAddress,
+    provider
+  )
+  
+  tokenContract.connect(account)
+  
+  const amountUint256 = uint256.bnToUint256(amount)
+  const result = await tokenContract.approve(spenderAddress, amountUint256)
+  
+  return result.transaction_hash
+}
+
+/**
  * Pays for a tweet challenge
  * @param agentAddress - The address of the agent contract
  * @param tweetId - The ID of the tweet to pay for
+ * @param account - The user's account to send the transaction from
  * @returns Promise that resolves to the transaction hash
  */
-export const payForTweet = async (agentAddress: string, tweetId: string): Promise<string> => {
+export const payForTweet = async (agentAddress: string, tweetId: string, account: any): Promise<string> => {
   try {
+    debug.log('Contracts', 'Paying for tweet', { 
+      agentAddress, 
+      tweetId,
+      accountAddress: account.address
+    })
+
     const provider = getProvider()
     const agentContract = new Contract(
       AGENT_ABI,
       normalizeAddress(agentAddress),
       provider
     )
+    
+    // Get token and price
+    const tokenAddress = await getAgentToken(agentAddress)
+    const price = await getPromptPrice(agentAddress)
+    
+    debug.log('Contracts', 'Approving token spend', {
+      tokenAddress,
+      price: price.toString()
+    })
+
+    // Approve token spending
+    await approveToken(tokenAddress, agentAddress, price, account)
+    
+    // Connect the contract to the user's account
+    agentContract.connect(account)
     
     // Convert tweet ID to uint64
     const tweetIdBN = BigInt(tweetId)

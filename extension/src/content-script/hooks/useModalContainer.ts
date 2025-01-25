@@ -11,12 +11,12 @@ export const useModalContainer = (isVisible: boolean) => {
     if (isVisible) {
       const modalContainer = document.createElement('div')
       modalContainer.id = 'jack-the-ether-modal-container'
-      modalContainer.style.position = 'fixed'
-      modalContainer.style.top = '0'
-      modalContainer.style.left = '0'
-      modalContainer.style.right = '0'
-      modalContainer.style.bottom = '0'
-      modalContainer.style.zIndex = '9999'
+      modalContainer.style.cssText = `
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        pointer-events: none;
+      `
       document.body.appendChild(modalContainer)
       setContainer(modalContainer)
 
