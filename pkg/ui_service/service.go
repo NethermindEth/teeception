@@ -135,7 +135,7 @@ func (s *UIService) Run(ctx context.Context) error {
 func (s *UIService) startServer(ctx context.Context) error {
 	router := gin.Default()
 
-	router.GET("/agents", s.HandleGetAgents)
+	router.GET("/leaderboard", s.HandleGetLeaderboard)
 	router.GET("/agent/:address", s.HandleGetAgent)
 	router.GET("/user/agents", s.HandleGetUserAgents)
 
@@ -174,7 +174,7 @@ type AgentPageResponse struct {
 	LastBlock int          `json:"last_block"`
 }
 
-func (s *UIService) HandleGetAgents(c *gin.Context) {
+func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
 		page = 0
