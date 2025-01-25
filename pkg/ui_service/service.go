@@ -158,6 +158,7 @@ func (s *UIService) startServer(ctx context.Context) error {
 }
 
 type AgentData struct {
+	Pending bool   `json:"pending"`
 	Address string `json:"address"`
 	Token   string `json:"token"`
 	Name    string `json:"name"`
@@ -202,6 +203,7 @@ func (s *UIService) HandleGetAgents(c *gin.Context) {
 		}
 
 		agentDatas = append(agentDatas, &AgentData{
+			Pending: balance.Pending,
 			Address: agentAddr.String(),
 			Name:    info.Name,
 			Token:   balance.Token.String(),
@@ -239,6 +241,7 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &AgentData{
+		Pending: balance.Pending,
 		Address: agentAddr.String(),
 		Name:    info.Name,
 		Token:   balance.Token.String(),
