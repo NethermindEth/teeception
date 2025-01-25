@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"math/big"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -26,6 +27,9 @@ func main() {
 		serverAddr      string
 		registryAddr    string
 		deploymentBlock uint64
+		balanceTickRate time.Duration
+		priceTickRate   time.Duration
+		eventTickRate   time.Duration
 	)
 
 	rootCmd := &cobra.Command{
@@ -75,6 +79,9 @@ func main() {
 				RegistryAddress: registryAddress,
 				StartingBlock:   deploymentBlock,
 				TokenRates:      tokenRates,
+				BalanceTickRate: balanceTickRate,
+				PriceTickRate:   priceTickRate,
+				EventTickRate:   eventTickRate,
 			})
 			if err != nil {
 				slog.Error("failed to create UI service", "error", err)
@@ -90,6 +97,9 @@ func main() {
 	rootCmd.Flags().StringVar(&serverAddr, "server-addr", ":8000", "Server address to listen on")
 	rootCmd.Flags().StringVar(&registryAddr, "registry-addr", "", "Agent registry contract address")
 	rootCmd.Flags().Uint64Var(&deploymentBlock, "deployment-block", 0, "Block number of registry deployment")
+	rootCmd.Flags().DurationVar(&balanceTickRate, "balance-tick-rate", 5*time.Second, "Balance indexer tick rate")
+	rootCmd.Flags().DurationVar(&priceTickRate, "price-tick-rate", 5*time.Second, "Price indexer tick rate")
+	rootCmd.Flags().DurationVar(&eventTickRate, "event-tick-rate", 5*time.Second, "Event watcher tick rate")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

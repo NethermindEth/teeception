@@ -24,6 +24,9 @@ type UIServiceConfig struct {
 	RegistryAddress *felt.Felt
 	StartingBlock   uint64
 	TokenRates      map[[32]byte]*big.Int
+	BalanceTickRate time.Duration
+	PriceTickRate   time.Duration
+	EventTickRate   time.Duration
 }
 
 type UIService struct {
@@ -47,7 +50,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          config.Client,
 		SafeBlockDelta:  0,
-		TickRate:        2 * time.Second,
+		TickRate:        config.EventTickRate,
 		IndexChunkSize:  1000,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.EventWatcherInitialState{
@@ -73,7 +76,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
 	tokenIndexer := indexer.NewTokenIndexer(&indexer.TokenIndexerConfig{
 		PriceFeed:       priceFeed,
-		PriceTickRate:   5 * time.Second,
+		PriceTickRate:   config.PriceTickRate,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.TokenIndexerInitialState{
 			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
@@ -84,7 +87,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		Client:          config.Client,
 		AgentIdx:        agentIndexer,
 		MetaIdx:         agentMetadataIndexer,
-		TickRate:        5 * time.Second,
+		TickRate:        config.BalanceTickRate,
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
