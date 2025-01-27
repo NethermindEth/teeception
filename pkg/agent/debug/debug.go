@@ -23,3 +23,7 @@ func IsDebugShowPassword() bool {
 func IsDebugDisableReplies() bool {
 	return Debug && isDebugDisableRepliesSet()
 }
+
+func IsDebugDisableTweetValidation() bool {
+	return Debug && isDebugDisableTweetValidationSet()
+}

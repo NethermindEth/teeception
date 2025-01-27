@@ -53,7 +53,7 @@ pub trait IAgentRegistry<TContractState> {
 pub trait IAgent<TContractState> {
     fn transfer(ref self: TContractState, recipient: ContractAddress);
 
-    fn pay_for_prompt(ref self: TContractState, tweet_id: u64) -> u64;
+    fn pay_for_prompt(ref self: TContractState, tweet_id: u64, prompt: ByteArray) -> u64;
     fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
     fn consume_prompt(ref self: TContractState, prompt_id: u64);
 
@@ -351,7 +351,7 @@ pub mod Agent {
         pub prompt_id: u64,
         #[key]
         pub tweet_id: u64,
-        pub amount: u256,
+        pub prompt: ByteArray,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -486,7 +486,7 @@ pub mod Agent {
             IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);
         }
 
-        fn pay_for_prompt(ref self: ContractState, tweet_id: u64) -> u64 {
+        fn pay_for_prompt(ref self: ContractState, tweet_id: u64, prompt: ByteArray) -> u64 {
             let registry = self.registry.read();
 
             let registry_pausable = IPausableDispatcher { contract_address: registry };
@@ -516,12 +516,7 @@ pub mod Agent {
             // Store prompt ID
             self.user_tweet_prompts.entry(caller).entry(tweet_id).append().write(prompt_id);
 
-            self
-                .emit(
-                    Event::PromptPaid(
-                        PromptPaid { user: caller, prompt_id, tweet_id, amount: prompt_price },
-                    ),
-                );
+            self.emit(Event::PromptPaid(PromptPaid { user: caller, prompt_id, tweet_id, prompt }));
 
             prompt_id
         }

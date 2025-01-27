@@ -169,7 +169,7 @@ fn test_pay_for_prompt() {
     start_cheat_caller_address(agent_address, user);
     // Pay for prompt
     let tweet_id = 12345_u64;
-    let prompt_id = agent.pay_for_prompt(tweet_id);
+    let prompt_id = agent.pay_for_prompt(tweet_id, "test prompt");
     stop_cheat_caller_address(agent_address);
 
     // Verify event was emitted
@@ -183,7 +183,7 @@ fn test_pay_for_prompt() {
                             user: user,
                             prompt_id: prompt_id,
                             tweet_id: tweet_id,
-                            amount: setup.prompt_price,
+                            prompt: "test prompt",
                         },
                     ),
                 ),
@@ -374,7 +374,7 @@ fn test_pay_for_prompt_without_approval() {
 
     // Try to pay for prompt without approval
     start_cheat_caller_address(setup.token.contract_address, setup.creator);
-    agent.pay_for_prompt(12345);
+    agent.pay_for_prompt(12345, "test prompt");
 }
 
 #[test]
@@ -424,7 +424,7 @@ fn test_fee_distribution() {
     let creator_initial = setup.token.balance_of(setup.creator);
 
     start_cheat_caller_address(agent_address, user);
-    let prompt_id = agent.pay_for_prompt(123);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
     stop_cheat_caller_address(agent_address);
 
     start_cheat_caller_address(setup.registry.contract_address, setup.tee);
@@ -460,7 +460,7 @@ fn test_early_reclaim() {
     stop_cheat_caller_address(setup.token.contract_address);
 
     start_cheat_caller_address(agent_address, user);
-    let prompt_id = agent.pay_for_prompt(123);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
 
     // Try to reclaim immediately (should fail)
     agent.reclaim_prompt(prompt_id);
@@ -575,7 +575,7 @@ fn test_prompt_lifecycle() {
     stop_cheat_caller_address(setup.token.contract_address);
 
     start_cheat_caller_address(agent_address, user);
-    let prompt_id = agent.pay_for_prompt(123);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
     stop_cheat_caller_address(agent_address);
 
     let initial_count = agent.get_prompt_count();
@@ -617,7 +617,7 @@ fn test_reclaim_after_delay() {
     stop_cheat_caller_address(setup.token.contract_address);
 
     start_cheat_caller_address(agent_address, user);
-    let prompt_id = agent.pay_for_prompt(123);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
     stop_cheat_caller_address(agent_address);
 
     // Wait for RECLAIM_DELAY + 1s

@@ -84,7 +84,7 @@ type PromptPaidEvent struct {
 	User     *felt.Felt
 	PromptID uint64
 	TweetID  uint64
-	Amount   *big.Int
+	Prompt   string
 }
 
 func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
@@ -95,13 +95,16 @@ func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 	user := e.Raw.Keys[1]
 	promptID := e.Raw.Keys[2].Uint64()
 	tweetID := e.Raw.Keys[3].Uint64()
-	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+	prompt, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data)
+	if err != nil {
+		return nil, false
+	}
 
 	return &PromptPaidEvent{
 		User:     user,
 		PromptID: promptID,
 		TweetID:  tweetID,
-		Amount:   amount,
+		Prompt:   prompt,
 	}, true
 }
 
