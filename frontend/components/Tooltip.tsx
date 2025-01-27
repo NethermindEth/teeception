@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import React from 'react'
 
 const positions = {
@@ -18,14 +19,16 @@ export const Tooltip = ({
   children,
   text,
   position,
+  className,
 }: {
   children: React.ReactNode
   text: string
   position: 'top' | 'bottom' | 'left' | 'right'
+  className?: string
 }) => {
   return (
     // <span className="contents">
-    <div className="relative block group/tooltip">
+    <div className={clsx('relative block group/tooltip', className)}>
       {children}
       <span
         className={`
