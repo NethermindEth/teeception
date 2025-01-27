@@ -313,13 +313,6 @@ pub mod Agent {
 
     use super::PendingPrompt;
 
-    #[derive(Drop, starknet::Event)]
-    pub struct Deposit {
-        #[key]
-        pub depositor: ContractAddress,
-        pub tweet_id: felt252,
-    }
-
     const PROMPT_REWARD_BPS: u16 = 7000; // 70% goes to agent
     const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
     const PROTOCOL_FEE_BPS: u16 = 1000; // 10% goes to protocol
