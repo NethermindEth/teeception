@@ -2,19 +2,27 @@ use core::starknet::{ContractAddress, ClassHash};
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 pub struct TokenParams {
-    min_prompt_price: u256,
-    min_initial_balance: u256,
+    pub min_prompt_price: u256,
+    pub min_initial_balance: u256,
 }
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 struct PendingPrompt {
-    reclaimer: ContractAddress,
-    amount: u256,
-    timestamp: u64,
+    pub reclaimer: ContractAddress,
+    pub amount: u256,
+    pub timestamp: u64,
 }
 
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
+    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+    fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
+    fn get_tee(self: @TContractState) -> ContractAddress;
+    fn get_agent_class_hash(self: @TContractState) -> ClassHash;
+
+    fn pause(ref self: TContractState);
+    fn unpause(ref self: TContractState);
+
     fn register_agent(
         ref self: TContractState,
         name: ByteArray,
@@ -24,11 +32,11 @@ pub trait IAgentRegistry<TContractState> {
         initial_balance: u256,
     ) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
-    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
+
     fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
-    fn pause(ref self: TContractState);
-    fn unpause(ref self: TContractState);
+
     fn add_supported_token(
         ref self: TContractState,
         token: ContractAddress,
@@ -37,13 +45,16 @@ pub trait IAgentRegistry<TContractState> {
     );
     fn remove_supported_token(ref self: TContractState, token: ContractAddress);
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
-    fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
-    fn get_tee(self: @TContractState) -> ContractAddress;
-    fn get_agent_class_hash(self: @TContractState) -> ClassHash;
 }
 
 #[starknet::interface]
 pub trait IAgent<TContractState> {
+    fn transfer(ref self: TContractState, recipient: ContractAddress);
+
+    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
+    fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
+    fn consume_prompt(ref self: TContractState, prompt_id: u64);
+
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_creator(self: @TContractState) -> ContractAddress;
@@ -53,10 +64,12 @@ pub trait IAgent<TContractState> {
     fn get_next_prompt_id(self: @TContractState) -> u64;
     fn get_pending_prompt(self: @TContractState, prompt_id: u64) -> PendingPrompt;
     fn get_prompt_count(self: @TContractState) -> u64;
-    fn transfer(ref self: TContractState, recipient: ContractAddress);
-    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
-    fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
-    fn consume_prompt(ref self: TContractState, prompt_id: u64);
+
+    fn RECLAIM_DELAY(self: @TContractState) -> u64;
+    fn PROMPT_REWARD_BPS(self: @TContractState) -> u16;
+    fn CREATOR_REWARD_BPS(self: @TContractState) -> u16;
+    fn PROTOCOL_FEE_BPS(self: @TContractState) -> u16;
+    fn BPS_DENOMINATOR(self: @TContractState) -> u16;
 }
 
 #[starknet::contract]
@@ -522,6 +535,26 @@ pub mod Agent {
                         },
                     ),
                 );
+        }
+
+        fn RECLAIM_DELAY(self: @ContractState) -> u64 {
+            RECLAIM_DELAY
+        }
+
+        fn PROMPT_REWARD_BPS(self: @ContractState) -> u16 {
+            PROMPT_REWARD_BPS
+        }
+
+        fn CREATOR_REWARD_BPS(self: @ContractState) -> u16 {
+            CREATOR_REWARD_BPS
+        }
+
+        fn PROTOCOL_FEE_BPS(self: @ContractState) -> u16 {
+            PROTOCOL_FEE_BPS
+        }
+
+        fn BPS_DENOMINATOR(self: @ContractState) -> u16 {
+            BPS_DENOMINATOR
         }
     }
 }
