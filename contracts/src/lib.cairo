@@ -15,6 +15,7 @@ struct PendingPrompt {
 
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
+    fn get_agent(self: @TContractState, idx: u64) -> ContractAddress;
     fn get_agents(self: @TContractState) -> Array<ContractAddress>;
     fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
     fn get_tee(self: @TContractState) -> ContractAddress;
@@ -214,6 +215,10 @@ pub mod AgentRegistry {
             deployed_address
         }
 
+        fn get_agent(self: @ContractState, idx: u64) -> ContractAddress {
+            self.agents.at(idx).read()
+        }
+
         fn get_agents(self: @ContractState) -> Array<ContractAddress> {
             let mut addresses = array![];
             for i in 0..self.agents.len() {
@@ -307,13 +312,6 @@ pub mod Agent {
     };
 
     use super::PendingPrompt;
-
-    #[derive(Drop, starknet::Event)]
-    pub struct Deposit {
-        #[key]
-        pub depositor: ContractAddress,
-        pub tweet_id: felt252,
-    }
 
     const PROMPT_REWARD_BPS: u16 = 7000; // 70% goes to agent
     const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
