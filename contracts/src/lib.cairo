@@ -16,7 +16,8 @@ struct PendingPrompt {
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
     fn get_agent(self: @TContractState, idx: u64) -> ContractAddress;
-    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+    fn get_agents_count(self: @TContractState) -> u64;
+    fn get_agents(self: @TContractState, start: u64, end: u64) -> Array<ContractAddress>;
     fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
     fn get_tee(self: @TContractState) -> ContractAddress;
     fn get_agent_class_hash(self: @TContractState) -> ClassHash;
@@ -68,8 +69,11 @@ pub trait IAgent<TContractState> {
     fn get_user_tweet_prompt(
         self: @TContractState, user: ContractAddress, tweet_id: u64, idx: u64,
     ) -> u64;
-    fn get_user_tweet_prompts(
+    fn get_user_tweet_prompts_count(
         self: @TContractState, user: ContractAddress, tweet_id: u64,
+    ) -> u64;
+    fn get_user_tweet_prompts(
+        self: @TContractState, user: ContractAddress, tweet_id: u64, start: u64, end: u64,
     ) -> Array<u64>;
 
     fn RECLAIM_DELAY(self: @TContractState) -> u64;
@@ -219,9 +223,21 @@ pub mod AgentRegistry {
             self.agents.at(idx).read()
         }
 
-        fn get_agents(self: @ContractState) -> Array<ContractAddress> {
+        fn get_agents_count(self: @ContractState) -> u64 {
+            self.agents.len()
+        }
+
+        fn get_agents(self: @ContractState, start: u64, mut end: u64) -> Array<ContractAddress> {
+            let agents_len = self.agents.len();
+
+            assert(start < end, 'Invalid range');
+
+            if end > agents_len {
+                end = agents_len;
+            }
+
             let mut addresses = array![];
-            for i in 0..self.agents.len() {
+            for i in start..end {
                 addresses.append(self.agents.at(i).read());
             };
             addresses
@@ -432,15 +448,27 @@ pub mod Agent {
             vec.at(idx).read()
         }
 
-        fn get_user_tweet_prompts(
+        fn get_user_tweet_prompts_count(
             self: @ContractState, user: ContractAddress, tweet_id: u64,
-        ) -> Array<u64> {
-            let mut prompts = array![];
+        ) -> u64 {
+            self.user_tweet_prompts.entry(user).entry(tweet_id).len()
+        }
 
+        fn get_user_tweet_prompts(
+            self: @ContractState, user: ContractAddress, tweet_id: u64, start: u64, mut end: u64,
+        ) -> Array<u64> {
             let vec = self.user_tweet_prompts.entry(user).entry(tweet_id);
             let vec_len = vec.len();
 
-            for i in 0..vec_len {
+            assert(start < end, 'Invalid range');
+
+            if end > vec_len {
+                end = vec_len;
+            }
+
+            let mut prompts = array![];
+
+            for i in start..end {
                 prompts.append(vec.at(i).read());
             };
 

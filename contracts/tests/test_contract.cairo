@@ -101,7 +101,7 @@ fn test_register_agent() {
 
     assert(setup.registry.is_agent_registered(agent_address), 'Agent should be registered');
 
-    let agents = setup.registry.get_agents();
+    let agents = setup.registry.get_agents(0, 2);
     assert(agents.len() == 1, 'Should have 1 agent');
     assert(*agents[0] == agent_address, 'Agent should be in the list');
 
@@ -588,7 +588,7 @@ fn test_prompt_lifecycle() {
     assert(agent.get_prompt_count() == initial_count, 'Prompt count mismatch');
     assert(agent.get_user_tweet_prompt(user, 123, 0) == prompt_id, 'Prompt not consumed');
 
-    let prompts = agent.get_user_tweet_prompts(user, 123);
+    let prompts = agent.get_user_tweet_prompts(user, 123, 0, 2);
     assert(prompts.len() == 1, 'Prompt not consumed');
     assert(*prompts[0] == prompt_id, 'Prompt not consumed');
 }
