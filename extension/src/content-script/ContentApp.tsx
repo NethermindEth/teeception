@@ -1,9 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
-import ReactDOM from 'react-dom'
 import { ConfirmationModal } from './components/modals/ConfirmationModal'
 import { PaymentModal } from './components/modals/PaymentModal'
 import { ConnectButton } from './components/ConnectButton'
-import { CONFIG } from './config'
 import { getTweetText } from './utils/dom'
 import { useTweetButton } from './hooks/useTweetButton'
 import { useTweetObserver } from './hooks/useTweetObserver'
@@ -12,6 +10,7 @@ import { debug } from './utils/debug'
 import { extractAgentName } from './utils/twitter'
 import { payForTweet, getAgentAddressByName } from './utils/contracts'
 import { useAccount } from '@starknet-react/core'
+import { TWITTER_CONFIG } from './config/starknet'
 
 const ContentApp = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -23,8 +22,9 @@ const ContentApp = () => {
 
   const handleTweetAttempt = useCallback(() => {
     const text = getTweetText()
-    
-    if (text && text.includes(CONFIG.accountName)) {
+
+    if (text && text.includes(TWITTER_CONFIG.accountName)) {
+      console.log('Tweet text', text)
       const agentName = extractAgentName(text)
       if (agentName) {
         setCurrentAgentName(agentName)
@@ -89,22 +89,22 @@ const ContentApp = () => {
         if (!agentAddress) {
           throw new Error(`Agent ${currentAgentName} not found`)
         }
-        
+
         debug.log('ContentApp', 'Sending payment transaction', {
           agentAddress,
           tweetId: currentTweetId,
-          account
+          account,
         })
 
         // Send the payment transaction
         const txHash = await payForTweet(agentAddress, currentTweetId, account)
         debug.log('ContentApp', 'Payment transaction sent', { txHash })
-        
+
         // Only close modal after successful transaction
         setShowPaymentModal(false)
         setCurrentAgentName(null)
         setCurrentTweetId(null)
-        
+
         // TODO: Show transaction pending notification
       }
     } catch (error) {

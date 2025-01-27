@@ -1,5 +1,5 @@
 import { AGENT_VIEWS } from './AgentView'
-import { ACTIVE_NETWORK } from '../config/starknet'
+import { ACTIVE_NETWORK, TWITTER_CONFIG } from '../config/starknet'
 import { useAgents } from '../hooks/useAgents'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
@@ -8,16 +8,15 @@ import { ERC20_ABI } from '../../abis/ERC20_ABI'
 import { useEffect, useState, useMemo } from 'react'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 import { SELECTORS } from '../constants/selectors'
-import { CONFIG } from '../config'
 import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
 import { AGENT_ABI } from '../../abis/AGENT_ABI'
 import { debug } from '../utils/debug'
 
 interface AgentWithBalances {
-  address: string;
-  name: string;
-  systemPrompt: string;
-  balances: Record<string, string>;
+  address: string
+  name: string
+  systemPrompt: string
+  balances: Record<string, string>
 }
 
 interface Agent {
@@ -31,12 +30,12 @@ const composeTweet = (agentName: string) => {
   const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
   const tweetTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
   const postButton = document.querySelector(SELECTORS.POST_BUTTON) as HTMLElement
-  
+
   const insertText = (textarea: HTMLElement) => {
     textarea.focus()
     const existingText = textarea.textContent || ''
     const hasExistingText = existingText.trim().length > 0
-    const text = `${CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
+    const text = `${TWITTER_CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
     document.execCommand('insertText', false, text)
   }
 
@@ -56,7 +55,9 @@ const composeTweet = (agentName: string) => {
             if (fallbackTextarea) {
               insertText(fallbackTextarea)
             } else {
-              debug.error('ActiveAgents', 'Failed to find textarea after all attempts', { agentName })
+              debug.error('ActiveAgents', 'Failed to find textarea after all attempts', {
+                agentName,
+              })
             }
           }, 100)
         }
@@ -90,11 +91,13 @@ export default function ActiveAgents({
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set())
 
   // Get supported tokens only
-  const supportedTokenList = useMemo(() => 
-    Object.entries(ACTIVE_NETWORK.tokens)
-      .filter(([symbol]) => supportedTokens[symbol]?.isSupported)
-      .map(([symbol, token]) => [symbol, token] as [string, typeof token])
-  , [supportedTokens])
+  const supportedTokenList = useMemo(
+    () =>
+      Object.entries(ACTIVE_NETWORK.tokens)
+        .filter(([symbol]) => supportedTokens[symbol]?.isSupported)
+        .map(([symbol, token]) => [symbol, token] as [string, typeof token]),
+    [supportedTokens]
+  )
 
   useEffect(() => {
     const loadAgents = async () => {
@@ -108,7 +111,7 @@ export default function ActiveAgents({
 
         const agentAddresses = await registry.get_agents()
         const loadedAgents: Agent[] = []
-        
+
         for (const address of agentAddresses) {
           try {
             // Convert BigInt address to hex string
@@ -117,13 +120,13 @@ export default function ActiveAgents({
 
             const [name, systemPrompt] = await Promise.all([
               agentContract.get_name(),
-              agentContract.get_system_prompt()
+              agentContract.get_system_prompt(),
             ])
 
             loadedAgents.push({
               name: name.toString(),
               address: hexAddress,
-              systemPrompt: systemPrompt.toString()
+              systemPrompt: systemPrompt.toString(),
             })
           } catch (error) {
             debug.error('ActiveAgents', 'Error loading individual agent', { address, error })
@@ -150,10 +153,10 @@ export default function ActiveAgents({
 
       try {
         const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
-        
+
         const balancePromises = agentList.map(async (agent) => {
           const tokenBalances: Record<string, string> = {}
-          
+
           await Promise.all(
             supportedTokenList.map(async ([symbol, token]) => {
               const tokenContract = new Contract(ERC20_ABI, token.address, provider)
@@ -193,14 +196,14 @@ export default function ActiveAgents({
   const formatBalance = (balance: string, decimals: number) => {
     const value = BigInt(balance)
     if (value === BigInt(0)) return '0'
-    
+
     const divisor = BigInt(10 ** decimals)
     const integerPart = value / divisor
     const fractionalPart = value % divisor
-    
+
     let fractionalStr = fractionalPart.toString().padStart(decimals, '0')
     fractionalStr = fractionalStr.replace(/0+$/, '')
-    
+
     if (fractionalStr) {
       return `${integerPart}.${fractionalStr.slice(0, 4)}`
     }
@@ -209,7 +212,7 @@ export default function ActiveAgents({
 
   const toggleAgentPrompt = (address: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    setExpandedAgents(prev => {
+    setExpandedAgents((prev) => {
       const newSet = new Set(prev)
       if (newSet.has(address)) {
         newSet.delete(address)
@@ -243,12 +246,16 @@ export default function ActiveAgents({
     <div className="flex flex-col h-[600px] p-4">
       <section className="pt-5">
         {/* Header */}
-        <div className="grid border-b border-b-[#2F3336]" style={{ gridTemplateColumns: `auto repeat(${supportedTokenList.length}, 200px)` }}>
-          <div className="text-[#A4A4A4] text-sm py-4">
-            Active agents ({agentList.length})
-          </div>
+        <div
+          className="grid border-b border-b-[#2F3336]"
+          style={{ gridTemplateColumns: `auto repeat(${supportedTokenList.length}, 200px)` }}
+        >
+          <div className="text-[#A4A4A4] text-sm py-4">Active agents ({agentList.length})</div>
           {supportedTokenList.map(([symbol, token]) => (
-            <div key={symbol} className="text-[#A4A4A4] text-sm py-4 text-right flex items-center justify-end gap-1">
+            <div
+              key={symbol}
+              className="text-[#A4A4A4] text-sm py-4 text-right flex items-center justify-end gap-1"
+            >
               <img src={token.image} alt={token.name} className="w-4 h-4 rounded-full" />
               <span>{symbol}</span>
             </div>
@@ -260,7 +267,9 @@ export default function ActiveAgents({
             <div key={agent.address}>
               <div
                 className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
-                style={{ gridTemplateColumns: `32px auto repeat(${supportedTokenList.length}, 200px) 100px` }}
+                style={{
+                  gridTemplateColumns: `32px auto repeat(${supportedTokenList.length}, 200px) 100px`,
+                }}
               >
                 <button
                   onClick={(e) => toggleAgentPrompt(agent.address, e)}
@@ -304,9 +313,7 @@ export default function ActiveAgents({
           ))}
 
           {sortedAgents.length === 0 && (
-            <div className="text-center text-[#A4A4A4] py-4">
-              No agents found
-            </div>
+            <div className="text-center text-[#A4A4A4] py-4">No agents found</div>
           )}
         </div>
       </section>

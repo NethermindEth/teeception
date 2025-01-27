@@ -74,7 +74,7 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
   return (
     <>
       <div className="fixed top-3 right-3 z-[9999]">
-        <div 
+        <div
           className={`
             bg-black/80 backdrop-blur-sm rounded-[12px] border border-[#2F3336] 
             transition-all duration-300 ease-in-out
@@ -95,13 +95,16 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
 
             <div className="text-[#A4A4A4] text-xs flex items-center gap-4 justify-end flex-1">
               <div className="w-[6px] h-[6px] bg-[#58F083] rounded-full shrink-0"></div>
-              
+
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <button className="flex items-center gap-1.5 shrink-0" onClick={handleCopyAddress}>
+                    <button
+                      className="flex items-center gap-1.5 shrink-0"
+                      onClick={handleCopyAddress}
+                    >
                       <p>{addressDisplay}</p>
-                      <Copy width={12} height={12} className={copied ? "text-[#58F083]" : ""} />
+                      <Copy width={12} height={12} className={copied ? 'text-[#58F083]' : ''} />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -113,7 +116,9 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <p className="shrink-0">{loading ? "..." : `${tokenBalance?.formatted || '0'} STRK`}</p>
+                    <p className="shrink-0">
+                      {loading ? '...' : `${tokenBalance?.formatted || '0'} STRK`}
+                    </p>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Your balance</p>
@@ -122,7 +127,6 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
               </TooltipProvider>
             </div>
           </div>
-          
           <AgentView isShowAgentView={isShowAgentView} />
         </div>
       </div>

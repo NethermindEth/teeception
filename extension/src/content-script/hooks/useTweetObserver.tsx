@@ -4,7 +4,7 @@ import { SELECTORS } from '../constants/selectors'
 import { extractAgentName } from '../utils/twitter'
 import { checkTweetPaid, getAgentAddressByName } from '../utils/contracts'
 import { debug } from '../utils/debug'
-import { CONFIG } from '../config'
+import { TWITTER_CONFIG } from '../config/starknet'
 
 interface TweetData {
   id: string
@@ -46,55 +46,56 @@ export const useTweetObserver = (
   const processingTweets = useRef<Set<string>>(new Set())
   const processTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const processTweet = useCallback(async (tweet: HTMLElement) => {
-    try {
-      // Skip if not a full tweet (e.g. retweet preview)
-      if (!tweet.querySelector(SELECTORS.TWEET_TIME)) return
+  const processTweet = useCallback(
+    async (tweet: HTMLElement) => {
+      try {
+        // Skip if not a full tweet (e.g. retweet preview)
+        if (!tweet.querySelector(SELECTORS.TWEET_TIME)) return
 
-      // Get tweet text and check if it's a challenge tweet
-      const textElement = tweet.querySelector(SELECTORS.TWEET_TEXT)
-      const text = textElement?.textContent || ''
-      
-      if (!text.includes(CONFIG.accountName)) return
-      
-      const agentName = extractAgentName(text)
-      if (!agentName) return
-      
-      // Get tweet ID from time element href
-      const timeElement = tweet.querySelector(SELECTORS.TWEET_TIME)
-      const tweetUrl = timeElement?.closest('a')?.href
-      const tweetId = tweetUrl?.split('/').pop()
-      if (!tweetId) return
+        // Get tweet text and check if it's a challenge tweet
+        const textElement = tweet.querySelector(SELECTORS.TWEET_TEXT)
+        const text = textElement?.textContent || ''
 
-      // Prevent concurrent processing of the same tweet
-      if (processingTweets.current.has(tweetId)) return
-      processingTweets.current.add(tweetId)
+        if (!text.includes(TWITTER_CONFIG.accountName)) return
 
-      // Check if we've already processed this tweet and nothing has changed
-      const cachedTweet = tweetCache.current.get(tweetId)
-      const existingBanner = tweet.nextElementSibling
-      if (cachedTweet && existingBanner?.classList.contains('tweet-challenge-banner')) {
-        processingTweets.current.delete(tweetId)
-        return
-      }
+        const agentName = extractAgentName(text)
+        if (!agentName) return
 
-      // Get agent address and check if tweet is paid
-      const agentAddress = await getAgentAddressByName(agentName)
-      let isPaid = false
-      
-      // Remove any existing banner only if we're going to add a new one
-      if (existingBanner?.classList.contains('tweet-challenge-banner')) {
-        existingBanner.remove()
-      }
+        // Get tweet ID from time element href
+        const timeElement = tweet.querySelector(SELECTORS.TWEET_TIME)
+        const tweetUrl = timeElement?.closest('a')?.href
+        const tweetId = tweetUrl?.split('/').pop()
+        if (!tweetId) return
 
-      if (!agentAddress) {
-        // Agent doesn't exist - show grey banner
-        tweet.style.border = '2px solid rgba(128, 128, 128, 0.1)'
-        tweet.style.borderRadius = '0'
+        // Prevent concurrent processing of the same tweet
+        if (processingTweets.current.has(tweetId)) return
+        processingTweets.current.add(tweetId)
 
-        const banner = document.createElement('div')
-        banner.className = 'tweet-challenge-banner'
-        banner.style.cssText = `
+        // Check if we've already processed this tweet and nothing has changed
+        const cachedTweet = tweetCache.current.get(tweetId)
+        const existingBanner = tweet.nextElementSibling
+        if (cachedTweet && existingBanner?.classList.contains('tweet-challenge-banner')) {
+          processingTweets.current.delete(tweetId)
+          return
+        }
+
+        // Get agent address and check if tweet is paid
+        const agentAddress = await getAgentAddressByName(agentName)
+        let isPaid = false
+
+        // Remove any existing banner only if we're going to add a new one
+        if (existingBanner?.classList.contains('tweet-challenge-banner')) {
+          existingBanner.remove()
+        }
+
+        if (!agentAddress) {
+          // Agent doesn't exist - show grey banner
+          tweet.style.border = '2px solid rgba(128, 128, 128, 0.1)'
+          tweet.style.borderRadius = '0'
+
+          const banner = document.createElement('div')
+          banner.className = 'tweet-challenge-banner'
+          banner.style.cssText = `
           padding: 12px 16px;
           background-color: rgba(128, 128, 128, 0.1);
           border-bottom: 1px solid rgb(128, 128, 128, 0.2);
@@ -105,28 +106,28 @@ export const useTweetObserver = (
           font-size: 14px;
           color: rgb(128, 128, 128);
         `
-        
-        const bannerText = document.createElement('span')
-        bannerText.textContent = 'This tweet references a Teeception agent that does not exist'
-        banner.appendChild(bannerText)
 
-        // Insert banner after the tweet
-        tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
-        
-        processingTweets.current.delete(tweetId)
-        return
-      }
+          const bannerText = document.createElement('span')
+          bannerText.textContent = 'This tweet references a Teeception agent that does not exist'
+          banner.appendChild(bannerText)
 
-      isPaid = await checkTweetPaid(agentAddress, tweetId)
+          // Insert banner after the tweet
+          tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
 
-      if (isPaid) {
-        // Paid tweet - show green banner
-        tweet.style.border = '2px solid rgba(0, 200, 83, 0.1)'
-        tweet.style.borderRadius = '0'
+          processingTweets.current.delete(tweetId)
+          return
+        }
 
-        const banner = document.createElement('div')
-        banner.className = 'tweet-challenge-banner'
-        banner.style.cssText = `
+        isPaid = await checkTweetPaid(agentAddress, tweetId)
+
+        if (isPaid) {
+          // Paid tweet - show green banner
+          tweet.style.border = '2px solid rgba(0, 200, 83, 0.1)'
+          tweet.style.borderRadius = '0'
+
+          const banner = document.createElement('div')
+          banner.className = 'tweet-challenge-banner'
+          banner.style.cssText = `
           padding: 12px 16px;
           background-color: rgba(0, 200, 83, 0.1);
           border-bottom: 1px solid rgb(0, 200, 83, 0.2);
@@ -137,14 +138,14 @@ export const useTweetObserver = (
           font-size: 14px;
           color: rgb(0, 200, 83);
         `
-        
-        const bannerText = document.createElement('span')
-        bannerText.textContent = 'This challenge has been paid for and is being executed'
-        banner.appendChild(bannerText)
 
-        const viewButton = document.createElement('button')
-        viewButton.textContent = 'View Progress'
-        viewButton.style.cssText = `
+          const bannerText = document.createElement('span')
+          bannerText.textContent = 'This challenge has been paid for and is being executed'
+          banner.appendChild(bannerText)
+
+          const viewButton = document.createElement('button')
+          viewButton.textContent = 'View Progress'
+          viewButton.style.cssText = `
           background-color: rgb(0, 200, 83);
           color: white;
           padding: 6px 16px;
@@ -154,19 +155,21 @@ export const useTweetObserver = (
           cursor: pointer;
           border: none;
         `
-        viewButton.addEventListener('click', () => window.open(`https://teeception.ai/tweet/${tweetId}`, '_blank'))
-        banner.appendChild(viewButton)
+          viewButton.addEventListener('click', () =>
+            window.open(`https://teeception.ai/tweet/${tweetId}`, '_blank')
+          )
+          banner.appendChild(viewButton)
 
-        // Insert banner after the tweet
-        tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
-      } else {
-        // Unpaid tweet - show red banner (existing code)
-        tweet.style.border = '2px solid rgba(244, 33, 46, 0.1)'
-        tweet.style.borderRadius = '0'
+          // Insert banner after the tweet
+          tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
+        } else {
+          // Unpaid tweet - show red banner (existing code)
+          tweet.style.border = '2px solid rgba(244, 33, 46, 0.1)'
+          tweet.style.borderRadius = '0'
 
-        const banner = document.createElement('div')
-        banner.className = 'tweet-challenge-banner'
-        banner.style.cssText = `
+          const banner = document.createElement('div')
+          banner.className = 'tweet-challenge-banner'
+          banner.style.cssText = `
           padding: 12px 16px;
           background-color: rgba(244, 33, 46, 0.1);
           border-bottom: 1px solid rgb(244, 33, 46, 0.2);
@@ -177,14 +180,14 @@ export const useTweetObserver = (
           font-size: 14px;
           color: rgb(244, 33, 46);
         `
-        
-        const bannerText = document.createElement('span')
-        bannerText.textContent = 'This tweet initiates a challenge'
-        banner.appendChild(bannerText)
 
-        const payButton = document.createElement('button')
-        payButton.textContent = 'Pay to Challenge'
-        payButton.style.cssText = `
+          const bannerText = document.createElement('span')
+          bannerText.textContent = 'This tweet initiates a challenge'
+          banner.appendChild(bannerText)
+
+          const payButton = document.createElement('button')
+          payButton.textContent = 'Pay to Challenge'
+          payButton.style.cssText = `
           background-color: rgb(244, 33, 46);
           color: white;
           padding: 6px 16px;
@@ -194,37 +197,38 @@ export const useTweetObserver = (
           cursor: pointer;
           border: none;
         `
-        payButton.addEventListener('click', () => onPayClick(tweetId, agentName))
-        banner.appendChild(payButton)
+          payButton.addEventListener('click', () => onPayClick(tweetId, agentName))
+          banner.appendChild(payButton)
 
-        // Insert banner after the tweet
-        tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
+          // Insert banner after the tweet
+          tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
+        }
+
+        // Update cache
+        tweetCache.current.set(tweetId, {
+          id: tweetId,
+          isPaid,
+          agentName,
+        })
+        setTweetCache(tweetCache.current)
+
+        // Double check the tweet is still in the DOM
+        if (!document.contains(tweet)) {
+          return
+        }
+      } catch (error) {
+        debug.error('TweetObserver', 'Error processing tweet', error)
+      } finally {
+        const timeElement = tweet.querySelector(SELECTORS.TWEET_TIME)
+        const tweetUrl = timeElement?.closest('a')?.href
+        const currentTweetId = tweetUrl?.split('/').pop()
+        if (currentTweetId) {
+          processingTweets.current.delete(currentTweetId)
+        }
       }
-
-      // Update cache
-      tweetCache.current.set(tweetId, {
-        id: tweetId,
-        isPaid,
-        agentName
-      })
-      setTweetCache(tweetCache.current)
-
-      // Double check the tweet is still in the DOM
-      if (!document.contains(tweet)) {
-        return
-      }
-
-    } catch (error) {
-      debug.error('TweetObserver', 'Error processing tweet', error)
-    } finally {
-      const timeElement = tweet.querySelector(SELECTORS.TWEET_TIME)
-      const tweetUrl = timeElement?.closest('a')?.href
-      const currentTweetId = tweetUrl?.split('/').pop()
-      if (currentTweetId) {
-        processingTweets.current.delete(currentTweetId)
-      }
-    }
-  }, [currentUser, onPayClick])
+    },
+    [currentUser, onPayClick]
+  )
 
   const processExistingTweets = useCallback(() => {
     // Clear any pending process timeout
@@ -235,7 +239,7 @@ export const useTweetObserver = (
     // Delay processing to let Twitter's UI settle
     processTimeoutRef.current = setTimeout(() => {
       const tweets = document.querySelectorAll(SELECTORS.TWEET)
-      tweets.forEach(tweet => {
+      tweets.forEach((tweet) => {
         if (tweet instanceof HTMLElement) {
           processTweet(tweet)
         }
@@ -246,7 +250,7 @@ export const useTweetObserver = (
   useEffect(() => {
     // Process existing tweets immediately on mount
     const tweets = document.querySelectorAll(SELECTORS.TWEET)
-    tweets.forEach(tweet => {
+    tweets.forEach((tweet) => {
       if (tweet instanceof HTMLElement) {
         processTweet(tweet)
       }
@@ -280,12 +284,12 @@ export const useTweetObserver = (
       if (mutationTimeout) return
 
       let shouldProcessTweets = false
-      
+
       for (const mutation of mutations) {
         // Only process certain types of mutations
         if (mutation.type === 'childList') {
           const addedNodes = Array.from(mutation.addedNodes)
-          const hasRelevantAddition = addedNodes.some(node => {
+          const hasRelevantAddition = addedNodes.some((node) => {
             if (node instanceof HTMLElement) {
               // Only check for actual tweet containers or their direct content
               return (
@@ -305,13 +309,10 @@ export const useTweetObserver = (
 
         // Only check specific attribute changes on tweet elements
         if (
-          mutation.type === 'attributes' && 
+          mutation.type === 'attributes' &&
           mutation.target instanceof HTMLElement &&
           mutation.attributeName === 'data-testid' &&
-          (
-            mutation.target.matches(SELECTORS.TWEET) ||
-            mutation.target.closest(SELECTORS.TWEET)
-          )
+          (mutation.target.matches(SELECTORS.TWEET) || mutation.target.closest(SELECTORS.TWEET))
         ) {
           shouldProcessTweets = true
           break
@@ -330,7 +331,7 @@ export const useTweetObserver = (
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['data-testid']
+      attributeFilter: ['data-testid'],
     })
 
     // Also set up an interval to periodically check for tweets that might have been missed
@@ -358,4 +359,4 @@ export const useTweetObserver = (
   }, [processExistingTweets, processTweet]) // Added processTweet to dependencies
 
   return null
-} 
+}

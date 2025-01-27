@@ -1,7 +1,6 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
-import { CONFIG } from '../../config'
 import { cn } from '@/lib/utils'
 import { AlertTriangle, MessageCircle } from 'lucide-react'
 import { debug } from '../../utils/debug'
@@ -16,8 +15,12 @@ interface ConfirmationModalProps {
 /**
  * Modal component that shows a confirmation dialog when a user mentions a specific account in their tweet
  */
-export const ConfirmationModal = ({ open, onConfirm, onCancel, agentName }: ConfirmationModalProps) => {
-
+export const ConfirmationModal = ({
+  open,
+  onConfirm,
+  onCancel,
+  agentName,
+}: ConfirmationModalProps) => {
   return (
     <Dialog open={open} onClose={onCancel}>
       <div className="space-y-6">

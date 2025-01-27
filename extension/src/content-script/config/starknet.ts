@@ -1,13 +1,13 @@
-import { constants } from 'starknet';
-import { sepolia, mainnet } from "@starknet-react/chains";
-import { debug } from '../utils/debug';
+import { constants } from 'starknet'
+import { sepolia, mainnet } from '@starknet-react/chains'
+import { debug } from '../utils/debug'
 
 interface Token {
-  address: string;
-  name: string;
-  symbol: string;
-  decimals: number;
-  image: string;
+  address: string
+  name: string
+  symbol: string
+  decimals: number
+  image: string
 }
 
 export const STARKNET_CONFIG = {
@@ -60,8 +60,11 @@ export const STARKNET_CONFIG = {
         image: 'https://assets.starknet.io/usdc.svg',
       },
     } as Record<string, Token>,
-  }
-} as const;
+  },
+} as const
 
-export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia;
+export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia
 
+export const TWITTER_CONFIG = {
+  accountName: '@jack_the_ether',
+}
