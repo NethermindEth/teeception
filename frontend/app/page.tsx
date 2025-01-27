@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { MenuItems } from '@/components/MenuItems'
 import clsx from 'clsx'
 import { useAgents } from '@/hooks/useAgents'
+import { Footer } from '@/components/Footer'
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -332,6 +333,16 @@ export default function Home() {
             </Tabs>
           </div>
         </div>
+        <div className="text-[#B8B8B8] text-sm text-center px-3 mb-12">
+          <p className="mb-3 text-white md:text-[#B8B8B8]">Disclaimer</p>
+
+          <p>
+            This platform is for educational purposes and responsible red teaming. Use your powers
+            for good, and happy hacking!
+          </p>
+        </div>
+
+        <Footer />
       </div>
     </div>
   )
