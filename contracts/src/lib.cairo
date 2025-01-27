@@ -15,6 +15,7 @@ struct PendingPrompt {
 
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
+    fn get_agent(self: @TContractState, idx: u64) -> ContractAddress;
     fn get_agents(self: @TContractState) -> Array<ContractAddress>;
     fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
     fn get_tee(self: @TContractState) -> ContractAddress;
@@ -212,6 +213,10 @@ pub mod AgentRegistry {
                 );
 
             deployed_address
+        }
+
+        fn get_agent(self: @ContractState, idx: u64) -> ContractAddress {
+            self.agents.at(idx).read()
         }
 
         fn get_agents(self: @ContractState) -> Array<ContractAddress> {

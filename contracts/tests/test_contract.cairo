@@ -105,6 +105,9 @@ fn test_register_agent() {
     assert(agents.len() == 1, 'Should have 1 agent');
     assert(*agents[0] == agent_address, 'Agent should be in the list');
 
+    let agent = setup.registry.get_agent(0);
+    assert(agent == agent_address, 'Agent should be in the list');
+
     let agent_dispatcher = IAgentDispatcher { contract_address: agent_address };
     assert(agent_dispatcher.get_name() == name.clone(), 'Wrong agent name');
     assert(agent_dispatcher.get_system_prompt() == system_prompt.clone(), 'Wrong system prompt');
