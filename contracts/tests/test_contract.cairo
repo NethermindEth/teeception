@@ -165,8 +165,8 @@ fn test_pay_for_prompt() {
 
     start_cheat_caller_address(agent_address, user);
     // Pay for prompt
-    let twitter_message_id = 12345_u64;
-    let prompt_id = agent.pay_for_prompt(twitter_message_id);
+    let tweet_id = 12345_u64;
+    let prompt_id = agent.pay_for_prompt(tweet_id);
     stop_cheat_caller_address(agent_address);
 
     // Verify event was emitted
@@ -179,7 +179,7 @@ fn test_pay_for_prompt() {
                         Agent::PromptPaid {
                             user: user,
                             prompt_id: prompt_id,
-                            twitter_message_id: twitter_message_id,
+                            tweet_id: tweet_id,
                             amount: setup.prompt_price,
                         },
                     ),
@@ -583,6 +583,11 @@ fn test_prompt_lifecycle() {
     stop_cheat_caller_address(setup.registry_address);
 
     assert(agent.get_prompt_count() == initial_count, 'Prompt count mismatch');
+    assert(agent.get_user_tweet_prompt(user, 123, 0) == prompt_id, 'Prompt not consumed');
+
+    let prompts = agent.get_user_tweet_prompts(user, 123);
+    assert(prompts.len() == 1, 'Prompt not consumed');
+    assert(*prompts[0] == prompt_id, 'Prompt not consumed');
 }
 
 #[test]
