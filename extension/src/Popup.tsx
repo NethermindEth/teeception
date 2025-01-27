@@ -19,7 +19,7 @@ const Popup = () => {
                 Connect your wallet by heading to x.com and you will see connet wallet button at the
                 top
               </p>
-              <Button onClick={() => {}} className="w-full">
+              <Button onClick={() => {}} className="w-full" variant="default" size="default">
                 Connect Wallet
               </Button>
             </div>
