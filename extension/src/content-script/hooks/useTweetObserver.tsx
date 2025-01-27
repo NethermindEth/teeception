@@ -1,5 +1,4 @@
 import { useEffect, useCallback, useRef } from 'react'
-import ReactDOM from 'react-dom'
 import { SELECTORS } from '../constants/selectors'
 import { extractAgentName } from '../utils/twitter'
 import { checkTweetPaid, getAgentAddressByName } from '../utils/contracts'

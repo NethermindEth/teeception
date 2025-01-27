@@ -24,7 +24,6 @@ const ContentApp = () => {
     const text = getTweetText()
 
     if (text && text.includes(TWITTER_CONFIG.accountName)) {
-      console.log('Tweet text', text)
       const agentName = extractAgentName(text)
       if (agentName) {
         setCurrentAgentName(agentName)

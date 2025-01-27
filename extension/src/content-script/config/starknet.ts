@@ -1,6 +1,5 @@
 import { constants } from 'starknet'
 import { sepolia, mainnet } from '@starknet-react/chains'
-import { debug } from '../utils/debug'
 
 interface Token {
   address: string
