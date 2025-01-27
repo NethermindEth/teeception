@@ -1,9 +1,16 @@
-use core::starknet::ContractAddress;
+use core::starknet::{ContractAddress, ClassHash};
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 pub struct TokenParams {
     min_prompt_price: u256,
     min_initial_balance: u256,
+}
+
+#[derive(Drop, Copy, Serde, starknet::Store)]
+struct PendingPrompt {
+    reclaimer: ContractAddress,
+    amount: u256,
+    timestamp: u64,
 }
 
 #[starknet::interface]
@@ -31,6 +38,8 @@ pub trait IAgentRegistry<TContractState> {
     fn remove_supported_token(ref self: TContractState, token: ContractAddress);
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
     fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
+    fn get_tee(self: @TContractState) -> ContractAddress;
+    fn get_agent_class_hash(self: @TContractState) -> ClassHash;
 }
 
 #[starknet::interface]
@@ -40,6 +49,10 @@ pub trait IAgent<TContractState> {
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
     fn get_token(self: @TContractState) -> ContractAddress;
+    fn get_registry(self: @TContractState) -> ContractAddress;
+    fn get_next_prompt_id(self: @TContractState) -> u64;
+    fn get_pending_prompt(self: @TContractState, prompt_id: u64) -> PendingPrompt;
+    fn get_prompt_count(self: @TContractState) -> u64;
     fn transfer(ref self: TContractState, recipient: ContractAddress);
     fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
     fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
@@ -248,6 +261,14 @@ pub mod AgentRegistry {
         fn get_token_params(self: @ContractState, token: ContractAddress) -> TokenParams {
             self.token_params.read(token)
         }
+
+        fn get_tee(self: @ContractState) -> ContractAddress {
+            self.tee.read()
+        }
+
+        fn get_agent_class_hash(self: @ContractState) -> ClassHash {
+            self.agent_class_hash.read()
+        }
     }
 }
 
@@ -265,6 +286,8 @@ pub mod Agent {
     use openzeppelin::security::{
         pausable::PausableComponent, interface::{IPausableDispatcher, IPausableDispatcherTrait},
     };
+
+    use super::PendingPrompt;
 
     #[derive(Drop, starknet::Event)]
     pub struct Deposit {
@@ -313,13 +336,6 @@ pub mod Agent {
         pub prompt_id: u64,
         pub amount: u256,
         pub reclaimer: ContractAddress,
-    }
-
-    #[derive(Drop, Copy, Serde, starknet::Store)]
-    struct PendingPrompt {
-        reclaimer: ContractAddress,
-        amount: u256,
-        timestamp: u64,
     }
 
     #[storage]
@@ -373,6 +389,22 @@ pub mod Agent {
 
         fn get_token(self: @ContractState) -> ContractAddress {
             self.token.read()
+        }
+
+        fn get_registry(self: @ContractState) -> ContractAddress {
+            self.registry.read()
+        }
+
+        fn get_next_prompt_id(self: @ContractState) -> u64 {
+            self.next_prompt_id.read()
+        }
+
+        fn get_pending_prompt(self: @ContractState, prompt_id: u64) -> PendingPrompt {
+            self.pending_prompts.read(prompt_id)
+        }
+
+        fn get_prompt_count(self: @ContractState) -> u64 {
+            self.next_prompt_id.read() - 1
         }
 
         fn transfer(ref self: ContractState, recipient: ContractAddress) {
