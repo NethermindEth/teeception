@@ -219,7 +219,7 @@ fn test_register_multiple_agents() {
 }
 
 #[test]
-#[should_panic(expected: ('Only tee can transfer',))]
+#[should_panic(expected: ('Only tee can consume',))]
 fn test_unauthorized_transfer() {
     let setup = setup();
 
@@ -236,11 +236,11 @@ fn test_unauthorized_transfer() {
     stop_cheat_caller_address(setup.registry.contract_address);
 
     // Should fail as we're not the TEE
-    setup.registry.transfer(agent_address, starknet::contract_address_const::<0x789>());
+    setup.registry.consume_prompt(agent_address, 1, starknet::contract_address_const::<0x789>());
 }
 
 #[test]
-#[should_panic(expected: ('Only registry can transfer',))]
+#[should_panic(expected: ('Only registry can consume',))]
 fn test_direct_agent_transfer_unauthorized() {
     let setup = setup();
 
@@ -259,7 +259,7 @@ fn test_direct_agent_transfer_unauthorized() {
     let agent = IAgentDispatcher { contract_address: agent_address };
 
     // Should fail as we're not the registry
-    agent.transfer(starknet::contract_address_const::<0x789>());
+    agent.consume_prompt(1, starknet::contract_address_const::<0x789>());
 }
 
 #[test]
@@ -303,30 +303,51 @@ fn test_authorized_token_transfer() {
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
-    let amount: u256 = 100;
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Setup user with tokens and approve spending
     start_cheat_caller_address(setup.token.contract_address, setup.creator);
-    setup.token.transfer(agent_address, amount);
+    setup.token.transfer(user, setup.prompt_price);
     stop_cheat_caller_address(setup.token.contract_address);
 
-    assert(
-        setup.token.balance_of(agent_address) == amount + setup.initial_balance,
-        'Wrong initial balance',
-    );
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Pay for prompt
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
 
     let recipient = starknet::contract_address_const::<0x456>();
-    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
-    setup.registry.transfer(agent_address, recipient);
-    stop_cheat_caller_address(setup.token.contract_address);
 
+    // Record initial balances
+    let initial_agent_balance = setup.token.balance_of(agent_address);
+    let initial_recipient_balance = setup.token.balance_of(recipient);
+
+    // Calculate expected fee splits
+    let creator_fee = (setup.prompt_price * agent.CREATOR_REWARD_BPS().into())
+        / agent.BPS_DENOMINATOR().into();
+    let protocol_fee = (setup.prompt_price * agent.PROTOCOL_FEE_BPS().into())
+        / agent.BPS_DENOMINATOR().into();
+    let expected_recipient_amount = initial_agent_balance - creator_fee - protocol_fee;
+
+    // Consume prompt through TEE
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup.registry.consume_prompt(agent_address, prompt_id, recipient);
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    // Verify final balances
     assert(setup.token.balance_of(agent_address) == 0, 'Agent should have 0');
     assert(
-        setup.token.balance_of(recipient) == amount + setup.initial_balance,
+        setup.token.balance_of(recipient) == initial_recipient_balance + expected_recipient_amount,
         'Recipient wrong balance',
     );
 }
 
 #[test]
-#[should_panic(expected: ('Only tee can transfer',))]
+#[should_panic(expected: ('Only tee can consume',))]
 fn test_unauthorized_token_transfer() {
     let setup = setup();
 
@@ -349,7 +370,7 @@ fn test_unauthorized_token_transfer() {
 
     let unauthorized = starknet::contract_address_const::<0x123>();
     start_cheat_caller_address(setup.registry.contract_address, unauthorized);
-    setup.registry.transfer(agent_address, unauthorized);
+    setup.registry.consume_prompt(agent_address, 1, unauthorized);
     stop_cheat_caller_address(setup.registry.contract_address);
 }
 
@@ -428,7 +449,7 @@ fn test_fee_distribution() {
     stop_cheat_caller_address(agent_address);
 
     start_cheat_caller_address(setup.registry.contract_address, setup.tee);
-    setup.registry.consume_prompt(agent_address, prompt_id);
+    setup.registry.consume_prompt(agent_address, prompt_id, agent_address);
     stop_cheat_caller_address(setup.registry.contract_address);
 
     // Check creator received 20% (20 tokens)
@@ -526,32 +547,6 @@ fn test_token_management() {
 }
 
 #[test]
-fn test_agent_transfer() {
-    let setup = setup();
-
-    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
-    let agent_address = setup
-        .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000);
-    stop_cheat_caller_address(setup.registry.contract_address);
-
-    let new_owner = starknet::contract_address_const::<0x999>();
-
-    // Transfer initial balance to agent
-    start_cheat_caller_address(setup.token.contract_address, setup.creator);
-    setup.token.transfer(agent_address, 1000);
-    stop_cheat_caller_address(setup.token.contract_address);
-
-    let initial_balance = setup.token.balance_of(agent_address);
-
-    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
-    setup.registry.transfer(agent_address, new_owner);
-    stop_cheat_caller_address(setup.registry.contract_address);
-
-    assert(setup.token.balance_of(new_owner) == initial_balance, 'Transfer failed');
-}
-
-#[test]
 fn test_prompt_lifecycle() {
     let setup = setup();
 
@@ -582,7 +577,7 @@ fn test_prompt_lifecycle() {
 
     // Consume prompt
     start_cheat_caller_address(setup.registry_address, setup.tee);
-    setup.registry.consume_prompt(agent_address, prompt_id);
+    setup.registry.consume_prompt(agent_address, prompt_id, agent_address);
     stop_cheat_caller_address(setup.registry_address);
 
     assert(agent.get_prompt_count() == initial_count, 'Prompt count mismatch');
@@ -651,5 +646,5 @@ fn test_unauthorized_consumption() {
     let hacker = starknet::contract_address_const::<0x456>();
 
     start_cheat_caller_address(setup.registry.contract_address, hacker);
-    setup.registry.consume_prompt(agent_address, 1); // Should panic
+    setup.registry.consume_prompt(agent_address, 1, hacker); // Should panic
 }

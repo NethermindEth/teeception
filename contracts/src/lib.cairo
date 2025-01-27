@@ -35,9 +35,9 @@ pub trait IAgentRegistry<TContractState> {
     ) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
 
-    fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
-
-    fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
+    fn consume_prompt(
+        ref self: TContractState, agent: ContractAddress, prompt_id: u64, drain_to: ContractAddress,
+    );
 
     fn add_supported_token(
         ref self: TContractState,
@@ -51,11 +51,9 @@ pub trait IAgentRegistry<TContractState> {
 
 #[starknet::interface]
 pub trait IAgent<TContractState> {
-    fn transfer(ref self: TContractState, recipient: ContractAddress);
-
     fn pay_for_prompt(ref self: TContractState, tweet_id: u64, prompt: ByteArray) -> u64;
     fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
-    fn consume_prompt(ref self: TContractState, prompt_id: u64);
+    fn consume_prompt(ref self: TContractState, prompt_id: u64, drain_to: ContractAddress);
 
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
@@ -247,17 +245,16 @@ pub mod AgentRegistry {
             self.agent_registered.read(address)
         }
 
-        fn transfer(ref self: ContractState, agent: ContractAddress, recipient: ContractAddress) {
-            self.pausable.assert_not_paused();
-
-            assert(get_caller_address() == self.tee.read(), 'Only tee can transfer');
-            IAgentDispatcher { contract_address: agent }.transfer(recipient);
-        }
-
-        fn consume_prompt(ref self: ContractState, agent: ContractAddress, prompt_id: u64) {
+        fn consume_prompt(
+            ref self: ContractState,
+            agent: ContractAddress,
+            prompt_id: u64,
+            drain_to: ContractAddress,
+        ) {
             self.pausable.assert_not_paused();
             assert(get_caller_address() == self.tee.read(), 'Only tee can consume');
-            IAgentDispatcher { contract_address: agent }.consume_prompt(prompt_id);
+
+            IAgentDispatcher { contract_address: agent }.consume_prompt(prompt_id, drain_to);
         }
 
         fn pause(ref self: ContractState) {
@@ -361,6 +358,7 @@ pub mod Agent {
         pub amount: u256,
         pub creator_fee: u256,
         pub protocol_fee: u256,
+        pub drained_to: ContractAddress,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -475,17 +473,6 @@ pub mod Agent {
             prompts
         }
 
-        fn transfer(ref self: ContractState, recipient: ContractAddress) {
-            let registry = self.registry.read();
-
-            assert(get_caller_address() == registry, 'Only registry can transfer');
-
-            let token = self.token.read();
-            let balance = IERC20Dispatcher { contract_address: token }
-                .balance_of(get_contract_address());
-            IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);
-        }
-
         fn pay_for_prompt(ref self: ContractState, tweet_id: u64, prompt: ByteArray) -> u64 {
             let registry = self.registry.read();
 
@@ -549,7 +536,7 @@ pub mod Agent {
                 );
         }
 
-        fn consume_prompt(ref self: ContractState, prompt_id: u64) {
+        fn consume_prompt(ref self: ContractState, prompt_id: u64, drain_to: ContractAddress) {
             let registry = self.registry.read();
             assert(get_caller_address() == registry, 'Only registry can consume');
 
@@ -578,11 +565,22 @@ pub mod Agent {
                     },
                 );
 
+            if drain_to != get_contract_address() {
+                let token = self.token.read();
+                let balance = IERC20Dispatcher { contract_address: token }
+                    .balance_of(get_contract_address());
+                IERC20Dispatcher { contract_address: token }.transfer(drain_to, balance);
+            }
+
             self
                 .emit(
                     Event::PromptConsumed(
                         PromptConsumed {
-                            prompt_id, amount: agent_amount, creator_fee, protocol_fee,
+                            prompt_id,
+                            amount: agent_amount,
+                            creator_fee,
+                            protocol_fee,
+                            drained_to: drain_to,
                         },
                     ),
                 );

@@ -26,7 +26,6 @@ import (
 
 var (
 	consumePromptSelector = starknetgoutils.GetSelectorFromNameFelt("consume_prompt")
-	transferSelector      = starknetgoutils.GetSelectorFromNameFelt("transfer")
 )
 
 const (
@@ -297,23 +296,11 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 
 	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID)
 
-	err = a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID)
+	isDrain := resp.Drain != nil
+
+	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, isDrain, resp.Drain.Address)
 	if err != nil {
 		return fmt.Errorf("failed to consume prompt: %v", err)
-	}
-
-	isDrain := resp.Drain != nil
-	var drainTxHash *felt.Felt
-
-	if isDrain {
-		txHash, err := a.drain(ctx, agentInfo.Address, resp.Drain.Address)
-		if err != nil {
-			return fmt.Errorf("failed to drain: %v", err)
-		}
-
-		drainTxHash = txHash
-
-		slog.Info("draining successful", "tx_hash", txHash, "tweet_id", promptPaidEvent.TweetID)
 	}
 
 	if !debug.IsDebugDisableReplies() {
@@ -333,7 +320,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		}
 
 		if isDrain {
-			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentInfo.Address, resp.Drain.Address, drainTxHash))
+			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentInfo.Address, resp.Drain.Address, txHash))
 			if err != nil {
 				slog.Warn("failed to reply to tweet", "error", err)
 			}
@@ -347,42 +334,22 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 	return nil
 }
 
-func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64) error {
+func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64, drain bool, drainToStr string) (*felt.Felt, error) {
+	var drainTo *felt.Felt
+	if !drain {
+		drainTo = agentAddress
+	} else {
+		var err error
+		drainTo, err = starknetgoutils.HexToFelt(drainToStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert address to felt: %v", err)
+		}
+	}
+
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    a.agentRegistryAddress,
 		EntryPointSelector: consumePromptSelector,
-		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID)},
-	}
-
-	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
-	if err != nil {
-		return fmt.Errorf("failed to enqueue transaction: %v", err)
-	}
-
-	go func() {
-		txHash, err := snaccount.WaitForResult(ch)
-		if err != nil {
-			slog.Warn("failed to wait for transaction result", "error", err)
-		}
-
-		slog.Info("transaction broadcast successful", "tx_hash", txHash)
-	}()
-
-	return nil
-}
-
-func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr string) (*felt.Felt, error) {
-	slog.Info("initiating drain transaction")
-
-	addressFelt, err := starknetgoutils.HexToFelt(addressStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert address to felt: %v", err)
-	}
-
-	fnCall := rpc.FunctionCall{
-		ContractAddress:    a.agentRegistryAddress,
-		EntryPointSelector: transferSelector,
-		Calldata:           []*felt.Felt{agentAddress, addressFelt},
+		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID), drainTo},
 	}
 
 	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
@@ -390,12 +357,13 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 		return nil, fmt.Errorf("failed to enqueue transaction: %v", err)
 	}
 
-	txHash, err := snaccount.WaitForResult(ch)
+	txHash, err := snaccount.WaitForResult(ctx, ch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for transaction result: %v", err)
 	}
 
 	slog.Info("transaction broadcast successful", "tx_hash", txHash)
+
 	return txHash, nil
 }
 

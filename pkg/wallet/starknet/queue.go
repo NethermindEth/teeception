@@ -350,13 +350,17 @@ func (q *TxQueue) notifySingle(item *TxQueueItem, txHash *felt.Felt, err error) 
 
 // WaitForResult is a helper function that can be used by the caller to wait
 // for a transaction. It returns the transaction hash (if successful) or an error.
-func WaitForResult(ch chan *TxQueueResult) (*felt.Felt, error) {
-	res, ok := <-ch
-	if !ok {
-		return nil, errors.New("result channel closed unexpectedly")
+func WaitForResult(ctx context.Context, ch chan *TxQueueResult) (*felt.Felt, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res, ok := <-ch:
+		if !ok {
+			return nil, errors.New("result channel closed unexpectedly")
+		}
+		if res.Err != nil {
+			return nil, res.Err
+		}
+		return res.TransactionHash, nil
 	}
-	if res.Err != nil {
-		return nil, res.Err
-	}
-	return res.TransactionHash, nil
 }
