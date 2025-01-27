@@ -113,7 +113,7 @@ if [ -z "$AGENT_CLASS_HASH" ] || [ -z "$REGISTRY_CLASS_HASH" ]; then
     sleep "$SLEEP_TIME"
 fi
 
-echo "$STRK, $MIN_PROMPT_PRICE, $MIN_INITIAL_BALANCE"
+sleep $SLEEP_TIME
 
 log "Deploying Registry contract..."
 REGISTRY_DEPLOY_RESP=$(sncast deploy \
