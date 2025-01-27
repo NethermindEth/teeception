@@ -9,9 +9,12 @@ import { ACTIVE_AGENTS_DATA, AGENTS_RANKING_DATA, TOP_ATTACKERS_DATA } from '@/m
 import { useState } from 'react'
 import { MenuItems } from '@/components/MenuItems'
 import clsx from 'clsx'
+import { useAgents } from '@/hooks/useAgents'
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { agents, loading, error } = useAgents()
+  console.log({ agents, loading, error })
   const handleInstallExtension = () => {
     //TODO: add chrome line
     console.log('install extension handler called')
