@@ -82,7 +82,7 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 
 type PromptPaidEvent struct {
 	User     *felt.Felt
-	PromptID *felt.Felt
+	PromptID uint64
 	TweetID  uint64
 	Amount   *big.Int
 }
@@ -93,7 +93,7 @@ func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 	}
 
 	user := e.Raw.Keys[1]
-	promptID := e.Raw.Keys[2]
+	promptID := e.Raw.Keys[2].Uint64()
 	tweetID := e.Raw.Keys[3].Uint64()
 	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
 
@@ -168,8 +168,9 @@ func (e *Event) ToTransferEvent() (*TransferEvent, bool) {
 }
 
 type TokenAddedEvent struct {
-	Token          *felt.Felt
-	MinPromptPrice *big.Int
+	Token             *felt.Felt
+	MinPromptPrice    *big.Int
+	MinInitialBalance *big.Int
 }
 
 func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
@@ -182,7 +183,7 @@ func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 		return nil, false
 	}
 
-	if len(e.Raw.Data) != 2 {
+	if len(e.Raw.Data) != 4 {
 		slog.Warn("invalid token added event", "data", e.Raw.Data)
 		return nil, false
 	}
@@ -190,10 +191,12 @@ func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 	token := e.Raw.Keys[1]
 
 	minPromptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+	minInitialBalance := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[2:4]))
 
 	return &TokenAddedEvent{
-		Token:          token,
-		MinPromptPrice: minPromptPrice,
+		Token:             token,
+		MinPromptPrice:    minPromptPrice,
+		MinInitialBalance: minInitialBalance,
 	}, true
 }
 
@@ -246,6 +249,7 @@ type EventWatcherConfig struct {
 	Client          starknet.ProviderWrapper
 	SafeBlockDelta  uint64
 	TickRate        time.Duration
+	StartupTickRate time.Duration
 	IndexChunkSize  uint
 	RegistryAddress *felt.Felt
 	InitialState    *EventWatcherInitialState
@@ -254,11 +258,13 @@ type EventWatcherConfig struct {
 // EventWatcher fetches events from Starknet in block ranges, parses them, and
 // distributes them to subscribers (AgentRegistered, Transfer, PromptPaid, etc.).
 type EventWatcher struct {
-	client           starknet.ProviderWrapper
-	lastIndexedBlock uint64
-	safeBlockDelta   uint64
-	tickRate         time.Duration
-	indexChunkSize   uint
+	client             starknet.ProviderWrapper
+	lastIndexedBlock   uint64
+	safeBlockDelta     uint64
+	tickRate           time.Duration
+	startupTickRate    time.Duration
+	indexChunkSize     uint
+	initializedAtBlock uint64
 
 	// Subscribers for specific event types
 	mu        sync.RWMutex
@@ -275,12 +281,14 @@ func NewEventWatcher(cfg *EventWatcherConfig) *EventWatcher {
 	}
 
 	return &EventWatcher{
-		client:           cfg.Client,
-		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
-		safeBlockDelta:   cfg.SafeBlockDelta,
-		tickRate:         cfg.TickRate,
-		indexChunkSize:   cfg.IndexChunkSize,
-		subs:             make(map[EventType][]*EventSubscriber),
+		client:             cfg.Client,
+		lastIndexedBlock:   cfg.InitialState.LastIndexedBlock,
+		safeBlockDelta:     cfg.SafeBlockDelta,
+		tickRate:           cfg.TickRate,
+		startupTickRate:    cfg.StartupTickRate,
+		indexChunkSize:     cfg.IndexChunkSize,
+		initializedAtBlock: 0,
+		subs:               make(map[EventType][]*EventSubscriber),
 	}
 }
 
@@ -334,12 +342,26 @@ func (w *EventWatcher) Run(ctx context.Context) error {
 func (w *EventWatcher) run(ctx context.Context) error {
 	slog.Info("starting EventWatcher")
 
+	var err error
+	if err := w.client.Do(func(provider rpc.RpcProvider) error {
+		w.initializedAtBlock, err = provider.BlockNumber(ctx)
+		return err
+	}); err != nil {
+		return fmt.Errorf("failed to get current block number: %v", snaccount.FormatRpcError(err))
+	}
+
+	tickDuration := w.startupTickRate
+
 	evs := w.allocEventLists()
 	for {
+		if w.lastIndexedBlock >= w.initializedAtBlock {
+			tickDuration = w.tickRate
+		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(w.tickRate):
+		case <-time.After(tickDuration):
 			if err := w.indexBlocks(ctx, evs); err != nil {
 				slog.Error("indexBlocks failed", "error", err)
 				// continue attempting on next tick

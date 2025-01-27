@@ -21,6 +21,7 @@ import (
 )
 
 type AgentBalance struct {
+	Pending         bool
 	Token           *felt.Felt
 	Amount          *big.Int
 	AmountUpdatedAt uint64
@@ -174,6 +175,7 @@ func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
 	defer i.mu.Unlock()
 
 	i.balances[addr.Bytes()] = &AgentBalance{
+		Pending:         true,
 		Token:           nil,
 		Amount:          big.NewInt(0),
 		AmountUpdatedAt: 0,
@@ -293,6 +295,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 	currentInfo, ok := i.GetBalance(agent)
 	if !ok {
 		currentInfo = &AgentBalance{
+			Pending:         true,
 			Token:           nil,
 			Amount:          big.NewInt(0),
 			AmountUpdatedAt: 0,
@@ -342,6 +345,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
+	currentInfo.Pending = false
 	currentInfo.Amount = amount
 	currentInfo.AmountUpdatedAt = blockNum
 	i.balances[agent.Bytes()] = currentInfo
@@ -355,9 +359,6 @@ func (i *AgentBalanceIndexer) GetBalance(agent *felt.Felt) (*AgentBalance, bool)
 	defer i.mu.RUnlock()
 
 	bal, ok := i.balances[agent.Bytes()]
-	if bal.Token == nil || bal.Amount == nil {
-		return nil, false
-	}
 
 	return bal, ok
 }

@@ -15,7 +15,8 @@ import (
 
 // TokenPriceUpdate is a struct that contains the token price and its update block
 type TokenInfo struct {
-	MinPromptPrice *big.Int
+	MinPromptPrice    *big.Int
+	MinInitialBalance *big.Int
 
 	Rate     *big.Int
 	RateTime time.Time
@@ -157,7 +158,8 @@ func (i *TokenIndexer) onTokenAdded(ev *Event) {
 	}
 
 	i.tokens[tokenAddedEv.Token.Bytes()] = &TokenInfo{
-		MinPromptPrice: tokenAddedEv.MinPromptPrice,
+		MinPromptPrice:    tokenAddedEv.MinPromptPrice,
+		MinInitialBalance: tokenAddedEv.MinInitialBalance,
 	}
 }
 
@@ -187,6 +189,19 @@ func (i *TokenIndexer) GetTokenMinPromptPrice(token *felt.Felt) (*big.Int, bool)
 	}
 
 	return tokenInfo.MinPromptPrice, true
+}
+
+// GetTokenMinInitialBalance returns a token's minimum initial balance, if it exists.
+func (i *TokenIndexer) GetTokenMinInitialBalance(token *felt.Felt) (*big.Int, bool) {
+	i.tokensMu.RLock()
+	defer i.tokensMu.RUnlock()
+
+	tokenInfo, ok := i.tokens[token.Bytes()]
+	if !ok {
+		return nil, false
+	}
+
+	return tokenInfo.MinInitialBalance, true
 }
 
 // GetTokenRate returns a token's rate, if it exists.

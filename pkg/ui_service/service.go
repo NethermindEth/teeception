@@ -18,12 +18,16 @@ import (
 )
 
 type UIServiceConfig struct {
-	Client          starknet.ProviderWrapper
-	PageSize        int
-	ServerAddr      string
-	RegistryAddress *felt.Felt
-	StartingBlock   uint64
-	TokenRates      map[[32]byte]*big.Int
+	Client               starknet.ProviderWrapper
+	PageSize             int
+	ServerAddr           string
+	RegistryAddress      *felt.Felt
+	StartingBlock        uint64
+	TokenRates           map[[32]byte]*big.Int
+	BalanceTickRate      time.Duration
+	PriceTickRate        time.Duration
+	EventTickRate        time.Duration
+	EventStartupTickRate time.Duration
 }
 
 type UIService struct {
@@ -47,7 +51,8 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          config.Client,
 		SafeBlockDelta:  0,
-		TickRate:        2 * time.Second,
+		TickRate:        config.EventTickRate,
+		StartupTickRate: config.EventStartupTickRate,
 		IndexChunkSize:  1000,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.EventWatcherInitialState{
@@ -73,7 +78,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
 	tokenIndexer := indexer.NewTokenIndexer(&indexer.TokenIndexerConfig{
 		PriceFeed:       priceFeed,
-		PriceTickRate:   5 * time.Second,
+		PriceTickRate:   config.PriceTickRate,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.TokenIndexerInitialState{
 			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
@@ -84,7 +89,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		Client:          config.Client,
 		AgentIdx:        agentIndexer,
 		MetaIdx:         agentMetadataIndexer,
-		TickRate:        5 * time.Second,
+		TickRate:        config.BalanceTickRate,
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
@@ -135,8 +140,9 @@ func (s *UIService) Run(ctx context.Context) error {
 func (s *UIService) startServer(ctx context.Context) error {
 	router := gin.Default()
 
-	router.GET("/agents", s.HandleGetAgents)
+	router.GET("/leaderboard", s.HandleGetLeaderboard)
 	router.GET("/agent/:address", s.HandleGetAgent)
+	router.GET("/user/agents", s.HandleGetUserAgents)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
@@ -158,13 +164,14 @@ func (s *UIService) startServer(ctx context.Context) error {
 }
 
 type AgentData struct {
+	Pending bool   `json:"pending"`
 	Address string `json:"address"`
 	Token   string `json:"token"`
 	Name    string `json:"name"`
 	Balance string `json:"balance"`
 }
 
-type AgentLeaderboardResponse struct {
+type AgentPageResponse struct {
 	Agents    []*AgentData `json:"agents"`
 	Total     int          `json:"total"`
 	Page      int          `json:"page"`
@@ -172,13 +179,13 @@ type AgentLeaderboardResponse struct {
 	LastBlock int          `json:"last_block"`
 }
 
-func (s *UIService) HandleGetAgents(c *gin.Context) {
+func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
-		page = 1
+		page = 0
 	}
 
-	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page-1)*uint64(s.pageSize), uint64(page)*uint64(s.pageSize))
+	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(s.pageSize), uint64(page+1)*uint64(s.pageSize))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})
 		return
@@ -202,6 +209,7 @@ func (s *UIService) HandleGetAgents(c *gin.Context) {
 		}
 
 		agentDatas = append(agentDatas, &AgentData{
+			Pending: balance.Pending,
 			Address: agentAddr.String(),
 			Name:    info.Name,
 			Token:   balance.Token.String(),
@@ -209,7 +217,7 @@ func (s *UIService) HandleGetAgents(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, &AgentLeaderboardResponse{
+	c.JSON(http.StatusOK, &AgentPageResponse{
 		Agents:    agentDatas,
 		Total:     int(agents.AgentCount),
 		Page:      page,
@@ -239,9 +247,63 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &AgentData{
+		Pending: balance.Pending,
 		Address: agentAddr.String(),
 		Name:    info.Name,
 		Token:   balance.Token.String(),
 		Balance: balance.Amount.String(),
+	})
+}
+
+func (s *UIService) HandleGetUserAgents(c *gin.Context) {
+	userAddrStr := c.Query("user")
+	if userAddrStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user address required"})
+		return
+	}
+
+	userAddr, err := new(felt.Felt).SetString(userAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Errorf("invalid user address: %w", err).Error()})
+		return
+	}
+
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		page = 0
+	}
+
+	start := uint64(page) * uint64(s.pageSize)
+	limit := uint64(s.pageSize)
+
+	agents, ok := s.agentIndexer.GetAgentsByCreator(c.Request.Context(), userAddr, start, limit)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no agents found for user"})
+		return
+	}
+
+	agentDatas := make([]*AgentData, 0, len(agents.Agents))
+	for _, info := range agents.Agents {
+		balance, ok := s.agentBalanceIndexer.GetBalance(info.Address)
+		if !ok {
+			slog.Error("failed to get agent balance", "agent", info.Address)
+			continue
+		}
+
+		agentDatas = append(agentDatas, &AgentData{
+			Pending: balance.Pending,
+			Address: info.Address.String(),
+			Name:    info.Name,
+			Token:   balance.Token.String(),
+			Balance: balance.Amount.String(),
+		})
+	}
+
+	c.JSON(http.StatusOK, &AgentPageResponse{
+		Agents:    agentDatas,
+		Total:     int(agents.AgentCount),
+		Page:      page,
+		PageSize:  s.pageSize,
+		LastBlock: int(agents.LastBlock),
 	})
 }

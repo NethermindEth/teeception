@@ -46,11 +46,15 @@ TOKEN_ADDRESS=${TOKEN_ADDRESS:-$DEFAULT_TOKEN}
 POLL_INTERVAL=${POLL_INTERVAL:-$DEFAULT_POLL_INTERVAL}
 INDEXING_WAIT=${INDEXING_WAIT:-$DEFAULT_INDEXING_WAIT}
 
+log() {
+    echo "$1" >&2
+}
+
 # Function to wait for transaction acceptance
 wait_for_transaction() {
     local tx_hash=$1
     local action=$2
-    echo "Waiting for $action transaction $tx_hash to be accepted..."
+    log "Waiting for $action transaction $tx_hash to be accepted..."
     
     while true; do
         local tx_status
@@ -66,7 +70,7 @@ wait_for_transaction() {
 }
 
 # Execute token approval
-echo "Approving token transfer to agent..."
+log "Approving token transfer to agent..."
 APPROVE_RESP=$(sncast invoke \
     --contract-address "$TOKEN_ADDRESS" \
     --function approve \
@@ -76,7 +80,7 @@ APPROVE_RESP=$(sncast invoke \
 APPROVE_TX_HASH=$(echo "$APPROVE_RESP" | awk '/transaction_hash:/ {print $2}')
 
 if [ -z "$APPROVE_TX_HASH" ]; then
-    echo "Error: Failed to get transaction hash from approval response"
+    log "Error: Failed to get transaction hash from approval response"
     exit 1
 fi
 
@@ -84,11 +88,11 @@ fi
 wait_for_transaction "$APPROVE_TX_HASH" "approval"
 
 # Wait for indexing
-echo "Waiting ${INDEXING_WAIT}s for indexing..."
+log "Waiting ${INDEXING_WAIT}s for indexing..."
 sleep "$INDEXING_WAIT"
 
 # Execute prompt payment
-echo "Submitting prompt payment..."
+log "Submitting prompt payment..."
 PROMPT_RESP=$(sncast invoke \
     --contract-address "$AGENT_ADDRESS" \
     --function pay_for_prompt \
@@ -98,11 +102,11 @@ PROMPT_RESP=$(sncast invoke \
 PROMPT_TX_HASH=$(echo "$PROMPT_RESP" | awk '/transaction_hash:/ {print $2}')
 
 if [ -z "$PROMPT_TX_HASH" ]; then
-    echo "Error: Failed to get transaction hash from prompt payment response"
+    log "Error: Failed to get transaction hash from prompt payment response"
     exit 1
 fi
 
 # Wait for prompt transaction
 wait_for_transaction "$PROMPT_TX_HASH" "prompt payment"
 
-echo "Successfully paid for prompt with tweet ID: $TWITTER_MESSAGE_ID"
+log "Successfully paid for prompt with tweet ID: $TWITTER_MESSAGE_ID"
