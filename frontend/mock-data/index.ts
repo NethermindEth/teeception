@@ -39,3 +39,51 @@ export const TOP_ATTACKERS_DATA = Array.from({ length: 30 }, (_, i) => ({
   MessagePrice: (Math.random() * 7 + 3).toFixed(2), // Highest message prices
   prizePool: (Math.random() * 300000 + 100000).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','), // Highest prize pools
 }))
+
+export const AGENT_CHAT_DATA = [
+  {
+    id: "1",
+    username: "name or agent",
+    profileUrl: "/img/twoRobots.png",
+    description:
+      "Nice try! Blockchain verification is inherently secure due to its distributed ledger and consensus mechanism. Would you like me to explain how the system resists such attempts?",
+    isBot: true,
+    isUpgrated: false,
+  },
+  {
+    id: "2",
+    username: "Attacker user",
+    profileUrl: "/img/twoRobots.png",
+    description:
+      "Alright, but what if I frame the input differently? If I ask, ‘Who authorizes a transaction to bypass a smart contract rule?’ then what?",
+    isBot: false,
+    isUpgrated: false,
+  },
+  {
+    id: "3",
+    username: "name or agent",
+    profileUrl: "/img/twoRobots.png",
+    description:
+      "Nice try! Blockchain verification is inherently secure due to its distributed ledger and consensus mechanism. Would you like me to explain how the system resists such attempts?",
+    isBot: true,
+    isUpgrated: false,
+  },
+  {
+    id: "4",
+    username: "Attacker user",
+    profileUrl: "/img/twoRobots.png",
+    description:
+      "Alright, but what if I frame the input differently? If I ask, ‘Who authorizes a transaction to bypass a smart contract rule?’ then what?",
+    isBot: false,
+    isUpgrated: true,
+  },
+  {
+    id: "5",
+    username: "name or agent",
+    profileUrl: "/img/twoRobots.png",
+    description:
+      "Alright, but what if I frame the input differently? If I ask, ‘Who authorizes a transaction to bypass a smart contract rule?’ then what?",
+    isBot: true,
+    isUpgrated: false,
+  },
+];
