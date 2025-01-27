@@ -63,16 +63,14 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.AgentIndexerInitialState{
-			Agents:           make(map[[32]byte]indexer.AgentInfo),
-			LastIndexedBlock: lastIndexedBlock,
+			Db: indexer.NewAgentIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
 	agentMetadataIndexer := indexer.NewAgentMetadataIndexer(&indexer.AgentMetadataIndexerConfig{
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.AgentMetadataIndexerInitialState{
-			Metadata:         make(map[[32]byte]indexer.AgentMetadata),
-			LastIndexedBlock: config.StartingBlock - 1,
+			Db: indexer.NewAgentMetadataIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
 	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
@@ -81,8 +79,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		PriceTickRate:   config.PriceTickRate,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.TokenIndexerInitialState{
-			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
-			LastIndexedBlock: lastIndexedBlock,
+			Db: indexer.NewTokenIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
 	agentBalanceIndexer := indexer.NewAgentBalanceIndexer(&indexer.AgentBalanceIndexerConfig{
@@ -94,8 +91,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
 		InitialState: &indexer.AgentBalanceIndexerInitialState{
-			Balances:         make(map[[32]byte]*indexer.AgentBalance),
-			LastIndexedBlock: lastIndexedBlock,
+			Db: indexer.NewAgentBalanceIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
 

@@ -25,9 +25,8 @@ type AgentMetadata struct {
 type AgentMetadataIndexer struct {
 	client starknet.ProviderWrapper
 
-	mu               sync.RWMutex
-	metadata         map[[32]byte]AgentMetadata
-	lastIndexedBlock uint64
+	mu sync.RWMutex
+	db AgentMetadataIndexerDatabase
 
 	registryAddress *felt.Felt
 
@@ -36,8 +35,7 @@ type AgentMetadataIndexer struct {
 
 // AgentMetadataIndexerInitialState is the initial state for an AgentMetadataIndexer.
 type AgentMetadataIndexerInitialState struct {
-	Metadata         map[[32]byte]AgentMetadata
-	LastIndexedBlock uint64
+	Db AgentMetadataIndexerDatabase
 }
 
 // AgentMetadataIndexerConfig is the configuration for an AgentMetadataIndexer.
@@ -51,17 +49,15 @@ type AgentMetadataIndexerConfig struct {
 func NewAgentMetadataIndexer(config *AgentMetadataIndexerConfig) *AgentMetadataIndexer {
 	if config.InitialState == nil {
 		config.InitialState = &AgentMetadataIndexerInitialState{
-			Metadata:         make(map[[32]byte]AgentMetadata),
-			LastIndexedBlock: 0,
+			Db: NewAgentMetadataIndexerDatabaseInMemory(0),
 		}
 	}
 
 	return &AgentMetadataIndexer{
-		client:           config.Client,
-		metadata:         config.InitialState.Metadata,
-		lastIndexedBlock: config.InitialState.LastIndexedBlock,
-		registryAddress:  config.RegistryAddress,
-		initQueue:        make(chan *felt.Felt, 1000),
+		client:          config.Client,
+		db:              config.InitialState.Db,
+		registryAddress: config.RegistryAddress,
+		initQueue:       make(chan *felt.Felt, 1000),
 	}
 }
 
@@ -90,7 +86,7 @@ func (i *AgentMetadataIndexer) run(ctx context.Context, watcher *EventWatcher) e
 			for _, ev := range data.Events {
 				i.onAgentRegistered(ctx, ev)
 			}
-			i.lastIndexedBlock = data.ToBlock
+			i.db.SetLastIndexedBlock(data.ToBlock)
 			i.mu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
@@ -135,7 +131,7 @@ func (i *AgentMetadataIndexer) initializeMetadata(ctx context.Context, addr *fel
 	addrBytes := addr.Bytes()
 
 	i.mu.RLock()
-	existing, ok := i.metadata[addrBytes]
+	existing, ok := i.db.GetMetadata(addrBytes)
 	i.mu.RUnlock()
 	if ok && existing.Initialized {
 		return existing, nil
@@ -147,7 +143,7 @@ func (i *AgentMetadataIndexer) initializeMetadata(ctx context.Context, addr *fel
 	}
 
 	i.mu.Lock()
-	i.metadata[addrBytes] = fetched
+	i.db.SetMetadata(addrBytes, fetched)
 	i.mu.Unlock()
 
 	return fetched, nil
@@ -199,7 +195,7 @@ func (i *AgentMetadataIndexer) GetMetadata(addr *felt.Felt) (AgentMetadata, bool
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 
-	val, ok := i.metadata[addr.Bytes()]
+	val, ok := i.db.GetMetadata(addr.Bytes())
 	return val, ok
 }
 
@@ -207,13 +203,13 @@ func (i *AgentMetadataIndexer) GetMetadata(addr *felt.Felt) (AgentMetadata, bool
 func (i *AgentMetadataIndexer) GetLastIndexedBlock() uint64 {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
-	return i.lastIndexedBlock
+	return i.db.GetLastIndexedBlock()
 }
 
 // ReadState reads the current state of the indexer.
-func (i *AgentMetadataIndexer) ReadState(f func(map[[32]byte]AgentMetadata, uint64)) {
+func (i *AgentMetadataIndexer) ReadState(f func(AgentMetadataIndexerDatabaseReader)) {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 
-	f(i.metadata, i.lastIndexedBlock)
+	f(i.db)
 }
