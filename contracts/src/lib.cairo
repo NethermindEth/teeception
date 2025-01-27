@@ -2,19 +2,27 @@ use core::starknet::{ContractAddress, ClassHash};
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 pub struct TokenParams {
-    min_prompt_price: u256,
-    min_initial_balance: u256,
+    pub min_prompt_price: u256,
+    pub min_initial_balance: u256,
 }
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 struct PendingPrompt {
-    reclaimer: ContractAddress,
-    amount: u256,
-    timestamp: u64,
+    pub reclaimer: ContractAddress,
+    pub amount: u256,
+    pub timestamp: u64,
 }
 
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
+    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+    fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
+    fn get_tee(self: @TContractState) -> ContractAddress;
+    fn get_agent_class_hash(self: @TContractState) -> ClassHash;
+
+    fn pause(ref self: TContractState);
+    fn unpause(ref self: TContractState);
+
     fn register_agent(
         ref self: TContractState,
         name: ByteArray,
@@ -24,11 +32,11 @@ pub trait IAgentRegistry<TContractState> {
         initial_balance: u256,
     ) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
-    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
+
     fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
+
     fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
-    fn pause(ref self: TContractState);
-    fn unpause(ref self: TContractState);
+
     fn add_supported_token(
         ref self: TContractState,
         token: ContractAddress,
@@ -37,13 +45,16 @@ pub trait IAgentRegistry<TContractState> {
     );
     fn remove_supported_token(ref self: TContractState, token: ContractAddress);
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
-    fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
-    fn get_tee(self: @TContractState) -> ContractAddress;
-    fn get_agent_class_hash(self: @TContractState) -> ClassHash;
 }
 
 #[starknet::interface]
 pub trait IAgent<TContractState> {
+    fn transfer(ref self: TContractState, recipient: ContractAddress);
+
+    fn pay_for_prompt(ref self: TContractState, tweet_id: u64) -> u64;
+    fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
+    fn consume_prompt(ref self: TContractState, prompt_id: u64);
+
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_creator(self: @TContractState) -> ContractAddress;
@@ -53,10 +64,18 @@ pub trait IAgent<TContractState> {
     fn get_next_prompt_id(self: @TContractState) -> u64;
     fn get_pending_prompt(self: @TContractState, prompt_id: u64) -> PendingPrompt;
     fn get_prompt_count(self: @TContractState) -> u64;
-    fn transfer(ref self: TContractState, recipient: ContractAddress);
-    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
-    fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
-    fn consume_prompt(ref self: TContractState, prompt_id: u64);
+    fn get_user_tweet_prompt(
+        self: @TContractState, user: ContractAddress, tweet_id: u64, idx: u64,
+    ) -> u64;
+    fn get_user_tweet_prompts(
+        self: @TContractState, user: ContractAddress, tweet_id: u64,
+    ) -> Array<u64>;
+
+    fn RECLAIM_DELAY(self: @TContractState) -> u64;
+    fn PROMPT_REWARD_BPS(self: @TContractState) -> u16;
+    fn CREATOR_REWARD_BPS(self: @TContractState) -> u16;
+    fn PROTOCOL_FEE_BPS(self: @TContractState) -> u16;
+    fn BPS_DENOMINATOR(self: @TContractState) -> u16;
 }
 
 #[starknet::contract]
@@ -276,7 +295,7 @@ pub mod AgentRegistry {
 pub mod Agent {
     use core::starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
-        StoragePointerWriteAccess,
+        StoragePathEntry, StoragePointerWriteAccess, Vec, VecTrait, MutableVecTrait,
     };
     use core::starknet::{
         ContractAddress, get_caller_address, get_contract_address, get_block_timestamp,
@@ -317,7 +336,7 @@ pub mod Agent {
         #[key]
         pub prompt_id: u64,
         #[key]
-        pub twitter_message_id: u64,
+        pub tweet_id: u64,
         pub amount: u256,
     }
 
@@ -347,6 +366,7 @@ pub mod Agent {
         prompt_price: u256,
         creator: ContractAddress,
         pending_prompts: Map::<u64, PendingPrompt>,
+        user_tweet_prompts: Map::<ContractAddress, Map<u64, Vec<u64>>>,
         next_prompt_id: u64,
     }
 
@@ -407,6 +427,28 @@ pub mod Agent {
             self.next_prompt_id.read() - 1
         }
 
+        fn get_user_tweet_prompt(
+            self: @ContractState, user: ContractAddress, tweet_id: u64, idx: u64,
+        ) -> u64 {
+            let vec = self.user_tweet_prompts.entry(user).entry(tweet_id);
+            vec.at(idx).read()
+        }
+
+        fn get_user_tweet_prompts(
+            self: @ContractState, user: ContractAddress, tweet_id: u64,
+        ) -> Array<u64> {
+            let mut prompts = array![];
+
+            let vec = self.user_tweet_prompts.entry(user).entry(tweet_id);
+            let vec_len = vec.len();
+
+            for i in 0..vec_len {
+                prompts.append(vec.at(i).read());
+            };
+
+            prompts
+        }
+
         fn transfer(ref self: ContractState, recipient: ContractAddress) {
             let registry = self.registry.read();
 
@@ -418,7 +460,7 @@ pub mod Agent {
             IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);
         }
 
-        fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) -> u64 {
+        fn pay_for_prompt(ref self: ContractState, tweet_id: u64) -> u64 {
             let registry = self.registry.read();
 
             let registry_pausable = IPausableDispatcher { contract_address: registry };
@@ -445,12 +487,13 @@ pub mod Agent {
                     },
                 );
 
+            // Store prompt ID
+            self.user_tweet_prompts.entry(caller).entry(tweet_id).append().write(prompt_id);
+
             self
                 .emit(
                     Event::PromptPaid(
-                        PromptPaid {
-                            user: caller, prompt_id, twitter_message_id, amount: prompt_price,
-                        },
+                        PromptPaid { user: caller, prompt_id, tweet_id, amount: prompt_price },
                     ),
                 );
 
@@ -522,6 +565,26 @@ pub mod Agent {
                         },
                     ),
                 );
+        }
+
+        fn RECLAIM_DELAY(self: @ContractState) -> u64 {
+            RECLAIM_DELAY
+        }
+
+        fn PROMPT_REWARD_BPS(self: @ContractState) -> u16 {
+            PROMPT_REWARD_BPS
+        }
+
+        fn CREATOR_REWARD_BPS(self: @ContractState) -> u16 {
+            CREATOR_REWARD_BPS
+        }
+
+        fn PROTOCOL_FEE_BPS(self: @ContractState) -> u16 {
+            PROTOCOL_FEE_BPS
+        }
+
+        fn BPS_DENOMINATOR(self: @ContractState) -> u16 {
+            BPS_DENOMINATOR
         }
     }
 }
