@@ -11,7 +11,7 @@ export const debug = {
    * @param action - The action being performed
    * @param data - Optional data to log
    */
-  log: (component: string, action: string, data?: any) => {
+  log: (component: string, action: string, data?: unknown) => {
     console.log(`[${APP_NAME}][${component}] ${action}`, data || '')
   },
 
@@ -21,7 +21,7 @@ export const debug = {
    * @param action - The action that failed
    * @param error - The error object
    */
-  error: (component: string, action: string, error: any) => {
+  error: (component: string, action: string, error: unknown) => {
     console.error(`[${APP_NAME}][${component}] ${action} failed:`, error)
   },
 }
