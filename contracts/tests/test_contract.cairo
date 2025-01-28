@@ -259,7 +259,7 @@ fn test_unauthorized_transfer() {
 }
 
 #[test]
-#[should_panic(expected: ('Only registry can consume',))]
+#[should_panic(expected: ('Only registry can call',))]
 fn test_direct_agent_transfer_unauthorized() {
     let setup = setup();
 
@@ -361,7 +361,7 @@ fn test_authorized_token_transfer() {
     stop_cheat_caller_address(setup.registry.contract_address);
 
     // Verify final balances
-    assert(setup.token.balance_of(agent_address) == 0, 'Agent should have 0');
+    assert(setup.token.balance_of(agent_address) == 0, 'Agent wrong balance');
     assert(
         setup.token.balance_of(recipient) == initial_recipient_balance + expected_recipient_amount,
         'Recipient wrong balance',
@@ -710,11 +710,12 @@ fn test_withdraw() {
     agent.pay_for_prompt(123, "test prompt");
     stop_cheat_caller_address(agent_address);
 
-    // Move time past end_time + reclaim delay
-    start_cheat_block_timestamp_global(setup.end_time + agent.RECLAIM_DELAY() + 1);
+    // Move time past end_time
+    start_cheat_block_timestamp_global(setup.end_time + 1);
 
     let initial_creator_balance = setup.token.balance_of(setup.creator);
     let agent_balance = setup.token.balance_of(agent_address);
+    let pool_prize = agent.get_prize_pool();
 
     // Creator withdraws funds
     start_cheat_caller_address(agent_address, setup.creator);
@@ -722,17 +723,20 @@ fn test_withdraw() {
     stop_cheat_caller_address(agent_address);
 
     // Verify balances
-    assert(setup.token.balance_of(agent_address) == 0, 'Agent should have 0');
     assert(
-        setup.token.balance_of(setup.creator) == initial_creator_balance + agent_balance,
+        setup.token.balance_of(agent_address) == agent_balance - pool_prize, 'Agent wrong balance',
+    );
+    assert(
+        setup.token.balance_of(setup.creator) == initial_creator_balance + pool_prize,
         'Creator wrong balance',
     );
+    assert(agent.get_is_drained(), 'Should be drained');
 
     stop_cheat_block_timestamp_global();
 }
 
 #[test]
-#[should_panic(expected: ('Too early to withdraw',))]
+#[should_panic(expected: ('Agent not been finalized',))]
 fn test_early_withdraw() {
     let setup = setup();
 
@@ -786,7 +790,7 @@ fn test_unauthorized_withdraw() {
 }
 
 #[test]
-#[should_panic(expected: ('Agent has expired',))]
+#[should_panic(expected: ('Agent already been finalized',))]
 fn test_pay_after_end() {
     let setup = setup();
 
@@ -822,4 +826,155 @@ fn test_pay_after_end() {
     // Try to pay after end_time
     start_cheat_caller_address(agent_address, user);
     agent.pay_for_prompt(123, "test prompt"); // Should fail
+}
+
+#[test]
+fn test_is_finalized() {
+    let setup = setup();
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test",
+            "test",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+
+    // Initially not finalized
+    assert(!agent.is_finalized(), 'Should not be finalized');
+    assert(!agent.get_is_drained(), 'Should not be drained');
+
+    // Move time past end_time
+    start_cheat_block_timestamp_global(setup.end_time + 1);
+    assert(agent.is_finalized(), 'Should be finalized by time');
+    stop_cheat_block_timestamp_global();
+
+    let user = starknet::contract_address_const::<0x456>();
+
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, 100);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, 100);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Reset time and drain
+    start_cheat_block_timestamp_global(setup.end_time - 1000);
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup
+        .registry
+        .consume_prompt(agent_address, prompt_id, starknet::contract_address_const::<0x789>());
+    stop_cheat_caller_address(setup.registry.contract_address);
+    assert(agent.is_finalized(), 'Should be finalized by drain');
+    assert(agent.get_is_drained(), 'Should be drained');
+}
+
+#[test]
+#[should_panic(expected: ('Agent already been finalized',))]
+fn test_consume_after_drain() {
+    let setup = setup();
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test",
+            "test",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Fund user and create prompt
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, 200);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, 100);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Drain the agent
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup
+        .registry
+        .consume_prompt(agent_address, prompt_id, starknet::contract_address_const::<0x789>());
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    // Try to consume another prompt after drain
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup
+        .registry
+        .consume_prompt(
+            agent_address, 2, starknet::contract_address_const::<0x789>(),
+        ); // Should fail
+}
+
+#[test]
+fn test_withdraw_after_drain() {
+    let setup = setup();
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test",
+            "test",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Fund user and create prompt
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, 200);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, 100);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Drain the agent
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup
+        .registry
+        .consume_prompt(agent_address, prompt_id, starknet::contract_address_const::<0x789>());
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    assert(agent.get_is_drained(), 'Should be drained');
+    assert(agent.is_finalized(), 'Should be finalized');
+
+    // Creator should be able to withdraw after drain
+    start_cheat_caller_address(agent_address, setup.creator);
+    agent.withdraw(); // Should succeed
 }
