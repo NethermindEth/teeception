@@ -15,5 +15,6 @@ var (
 	getTokenSelector          = starknetgoutils.GetSelectorFromNameFelt("get_token")
 	getNameSelector           = starknetgoutils.GetSelectorFromNameFelt("get_name")
 
-	balanceOfSelector = starknetgoutils.GetSelectorFromNameFelt("balanceOf")
+	balanceOfSelector    = starknetgoutils.GetSelectorFromNameFelt("balanceOf")
+	getPrizePoolSelector = starknetgoutils.GetSelectorFromNameFelt("get_prize_pool")
 )

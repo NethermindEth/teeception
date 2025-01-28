@@ -286,15 +286,14 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 
 	if err := i.client.Do(func(provider rpc.RpcProvider) error {
 		balanceResp, err = provider.Call(ctx, rpc.FunctionCall{
-			ContractAddress:    currentInfo.Token,
-			EntryPointSelector: balanceOfSelector,
-			Calldata:           []*felt.Felt{agent},
+			ContractAddress:    agent,
+			EntryPointSelector: getPrizePoolSelector,
+			Calldata:           []*felt.Felt{},
 		}, rpc.WithBlockNumber(blockNum))
 
 		return err
 	}); err != nil {
-		snaccount.LogRpcError(err)
-		return fmt.Errorf("balanceOf call failed: %v", err)
+		return fmt.Errorf("get_prize_pool call failed: %v", snaccount.FormatRpcError(err))
 	}
 
 	var amount *big.Int
