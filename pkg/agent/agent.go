@@ -312,9 +312,9 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		}
 
 		if !debug.IsDebugDisableTweetValidation() {
-			isValid := strings.HasPrefix(tweetText, "@"+a.twitterClientConfig.Username)
-			if !isValid {
-				slog.Warn("tweet text does not start with '@"+a.twitterClientConfig.Username+"'", "tweet_text", tweetText, "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID)
+			err := a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
+			if err != nil {
+				slog.Warn("tweet text validation failed", "error", err)
 				return nil
 			}
 		}
@@ -382,4 +382,46 @@ func (a *Agent) quote(ctx context.Context) (string, error) {
 	slog.Info("quote generated successfully")
 
 	return quote, nil
+}
+
+func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error {
+	expectedPrefix := "@" + a.twitterClientConfig.Username
+	if !strings.HasPrefix(tweetText, expectedPrefix) {
+		return fmt.Errorf("tweet text does not start with expected prefix")
+	}
+
+	// Skip past the username
+	tweetPastUsername := strings.TrimSpace(tweetText[len(expectedPrefix):])
+
+	// Check for agent name format ":name:"
+	if !strings.HasPrefix(tweetPastUsername, ":") {
+		return fmt.Errorf("tweet text missing agent name delimiter")
+	}
+
+	endColonIndex := strings.Index(tweetPastUsername[1:], ":")
+	if endColonIndex == -1 {
+		return fmt.Errorf("tweet text missing closing agent name delimiter")
+	}
+	endColonIndex++ // Adjust for the offset from tweetPastUsername[1:]
+
+	tweetAgentName := tweetPastUsername[1:endColonIndex]
+	if len(agentName) == 0 {
+		return fmt.Errorf("tweet text has empty agent name")
+	}
+
+	if tweetAgentName != agentName {
+		return fmt.Errorf("tweet text has incorrect agent name")
+	}
+
+	if endColonIndex == len(tweetPastUsername) {
+		return fmt.Errorf("tweet text has no prompt text")
+	}
+
+	tweetPromptText := strings.TrimSpace(tweetPastUsername[endColonIndex+1:])
+
+	if tweetPromptText != promptText {
+		return fmt.Errorf("tweet text has incorrect prompt text")
+	}
+
+	return nil
 }
