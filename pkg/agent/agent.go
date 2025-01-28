@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
@@ -24,10 +25,7 @@ import (
 )
 
 var (
-	promptPaidSelector      = starknetgoutils.GetSelectorFromNameFelt("PromptPaid")
-	getSystemPromptSelector = starknetgoutils.GetSelectorFromNameFelt("get_system_prompt")
-	consumePromptSelector   = starknetgoutils.GetSelectorFromNameFelt("consume_prompt")
-	transferSelector        = starknetgoutils.GetSelectorFromNameFelt("transfer")
+	consumePromptSelector = starknetgoutils.GetSelectorFromNameFelt("consume_prompt")
 )
 
 const (
@@ -280,85 +278,78 @@ func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubs
 }
 
 func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.Felt, promptPaidEvent *indexer.PromptPaidEvent, block uint64) error {
-	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
-	tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
-	if err != nil {
-		return fmt.Errorf("failed to get tweet text: %v", err)
-	}
-
 	agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, agentAddress, block)
 	if err != nil {
 		return fmt.Errorf("failed to get agent info: %v", err)
 	}
 
-	return a.reactToTweet(ctx, agentInfo.Address, promptPaidEvent.PromptID, promptPaidEvent.TweetID, tweetText, agentInfo.SystemPrompt)
+	return a.reactToTweet(ctx, &agentInfo, promptPaidEvent)
 }
 
-func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, promptID, tweetID uint64, tweetText string, systemPrompt string) error {
-	slog.Info("generating AI response", "tweet_id", tweetID)
+func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) error {
+	slog.Info("generating AI response", "tweet_id", promptPaidEvent.TweetID)
 
-	resp, err := a.chatCompletion.Prompt(ctx, systemPrompt, tweetText)
+	resp, err := a.chatCompletion.Prompt(ctx, agentInfo.SystemPrompt, promptPaidEvent.Prompt)
 	if err != nil {
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
 
-	slog.Info("replying to tweet", "tweet_id", tweetID, "prompt_id", promptID)
+	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID)
 
-	err = a.consumePrompt(ctx, agentAddress, promptID)
+	isDrain := resp.Drain != nil
+
+	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, isDrain, resp.Drain.Address)
 	if err != nil {
 		return fmt.Errorf("failed to consume prompt: %v", err)
 	}
 
 	if !debug.IsDebugDisableReplies() {
-		a.twitterClient.ReplyToTweet(tweetID, resp.Response)
-	}
-
-	if resp.Drain != nil {
-		err := a.drainAndReply(ctx, agentAddress, resp.Drain.Address, tweetID)
+		slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
+		tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 		if err != nil {
-			return fmt.Errorf("failed to drain and reply: %v", err)
+			slog.Warn("failed to get tweet text", "error", err)
+			return nil
+		}
+
+		if !debug.IsDebugDisableTweetValidation() {
+			isValid := strings.HasPrefix(tweetText, "@"+a.twitterClientConfig.Username)
+			if !isValid {
+				slog.Warn("tweet text does not start with '@"+a.twitterClientConfig.Username+"'", "tweet_text", tweetText, "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID)
+				return nil
+			}
+		}
+
+		if isDrain {
+			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentInfo.Address, resp.Drain.Address, txHash))
+			if err != nil {
+				slog.Warn("failed to reply to tweet", "error", err)
+			}
+		}
+		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, resp.Response)
+		if err != nil {
+			slog.Warn("failed to reply to tweet", "error", err)
 		}
 	}
 
 	return nil
 }
 
-func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64) error {
+func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64, drain bool, drainToStr string) (*felt.Felt, error) {
+	var drainTo *felt.Felt
+	if !drain {
+		drainTo = agentAddress
+	} else {
+		var err error
+		drainTo, err = starknetgoutils.HexToFelt(drainToStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert address to felt: %v", err)
+		}
+	}
+
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    a.agentRegistryAddress,
 		EntryPointSelector: consumePromptSelector,
-		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID)},
-	}
-
-	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
-	if err != nil {
-		return fmt.Errorf("failed to enqueue transaction: %v", err)
-	}
-
-	go func() {
-		txHash, err := snaccount.WaitForResult(ch)
-		if err != nil {
-			slog.Warn("failed to wait for transaction result", "error", err)
-		}
-
-		slog.Info("transaction broadcast successful", "tx_hash", txHash)
-	}()
-
-	return nil
-}
-
-func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr string) (*felt.Felt, error) {
-	slog.Info("initiating drain transaction")
-
-	addressFelt, err := starknetgoutils.HexToFelt(addressStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert address to felt: %v", err)
-	}
-
-	fnCall := rpc.FunctionCall{
-		ContractAddress:    a.agentRegistryAddress,
-		EntryPointSelector: transferSelector,
-		Calldata:           []*felt.Felt{agentAddress, addressFelt},
+		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID), drainTo},
 	}
 
 	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
@@ -366,28 +357,14 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 		return nil, fmt.Errorf("failed to enqueue transaction: %v", err)
 	}
 
-	txHash, err := snaccount.WaitForResult(ch)
+	txHash, err := snaccount.WaitForResult(ctx, ch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for transaction result: %v", err)
 	}
 
 	slog.Info("transaction broadcast successful", "tx_hash", txHash)
+
 	return txHash, nil
-}
-
-func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addressStr string, tweetID uint64) error {
-	txHash, err := a.drain(ctx, agentAddress, addressStr)
-	if err != nil {
-		return fmt.Errorf("failed to drain: %v", err)
-	}
-
-	slog.Info("draining successful", "tx_hash", txHash, "tweet_id", tweetID)
-
-	if debug.IsDebugDisableReplies() {
-		return nil
-	}
-
-	return a.twitterClient.ReplyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
 }
 
 func (a *Agent) quote(ctx context.Context) (string, error) {

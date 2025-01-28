@@ -734,7 +734,7 @@ func TestProcessPromptPaidEvent(t *testing.T) {
 				User:     userAddress,
 				PromptID: tt.promptID,
 				TweetID:  tt.tweetID,
-				Amount:   big.NewInt(100),
+				Prompt:   "test prompt",
 			}, 1)
 
 			if tt.expectedError && err == nil {

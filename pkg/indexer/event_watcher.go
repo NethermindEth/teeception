@@ -52,15 +52,42 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 		return nil, false
 	}
 
+	if len(e.Raw.Keys) != 3 {
+		slog.Warn("invalid agent registered event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
+	validateDataBounds := func(idx uint64) bool {
+		if idx >= uint64(len(e.Raw.Data)) {
+			slog.Warn("invalid agent registered event", "data", e.Raw.Data, "idx", idx)
+			return false
+		}
+		return true
+	}
+
 	agent := e.Raw.Keys[1]
 	creator := e.Raw.Keys[2]
 
 	namePos := uint64(0)
+
+	if !validateDataBounds(namePos) {
+		return nil, false
+	}
+
 	nameCount := e.Raw.Data[namePos].Uint64()
 	nameSize := 3 + nameCount
 	systemPromptPos := namePos + nameSize
+
+	if !validateDataBounds(systemPromptPos) {
+		return nil, false
+	}
+
 	systemPromptCount := e.Raw.Data[systemPromptPos].Uint64()
 	systemPromptSize := 3 + systemPromptCount
+
+	if !validateDataBounds(systemPromptPos + systemPromptSize - 1) {
+		return nil, false
+	}
 
 	name, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data[namePos : namePos+nameSize])
 	if err != nil {
@@ -84,7 +111,7 @@ type PromptPaidEvent struct {
 	User     *felt.Felt
 	PromptID uint64
 	TweetID  uint64
-	Amount   *big.Int
+	Prompt   string
 }
 
 func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
@@ -92,16 +119,26 @@ func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 		return nil, false
 	}
 
+	if len(e.Raw.Keys) != 4 {
+		slog.Warn("invalid prompt paid event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
 	user := e.Raw.Keys[1]
 	promptID := e.Raw.Keys[2].Uint64()
 	tweetID := e.Raw.Keys[3].Uint64()
-	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+
+	prompt, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data)
+	if err != nil {
+		slog.Warn("invalid prompt paid event", "data", e.Raw.Data)
+		return nil, false
+	}
 
 	return &PromptPaidEvent{
 		User:     user,
 		PromptID: promptID,
 		TweetID:  tweetID,
-		Amount:   amount,
+		Prompt:   prompt,
 	}, true
 }
 
