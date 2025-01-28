@@ -27,6 +27,7 @@ struct TestSetup {
     token_address: ContractAddress,
     registry: IAgentRegistryDispatcher,
     token: IERC20Dispatcher,
+    end_time: u64,
 }
 
 fn setup() -> TestSetup {
@@ -34,6 +35,7 @@ fn setup() -> TestSetup {
     let creator = starknet::contract_address_const::<0x123>();
     let prompt_price: u256 = 100;
     let initial_balance: u256 = 1000;
+    let end_time = get_block_timestamp() + 3600; // 1 hour from now
 
     let agent_contract = declare("Agent").unwrap().contract_class();
     let registry_contract = declare("AgentRegistry").unwrap().contract_class();
@@ -69,6 +71,7 @@ fn setup() -> TestSetup {
         token_address,
         registry,
         token,
+        end_time,
     }
 }
 
@@ -96,6 +99,7 @@ fn test_register_agent() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -146,6 +150,7 @@ fn test_pay_for_prompt() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -200,13 +205,23 @@ fn test_register_multiple_agents() {
     let agent1_address = setup
         .registry
         .register_agent(
-            "agent_1", "Prompt 1", setup.token_address, setup.prompt_price, setup.initial_balance,
+            "agent_1",
+            "Prompt 1",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
         );
 
     let agent2_address = setup
         .registry
         .register_agent(
-            "agent_2", "Prompt 2", setup.token_address, setup.prompt_price, setup.initial_balance,
+            "agent_2",
+            "Prompt 2",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
         );
 
     stop_cheat_caller_address(setup.registry.contract_address);
@@ -232,6 +247,7 @@ fn test_unauthorized_transfer() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -253,6 +269,7 @@ fn test_direct_agent_transfer_unauthorized() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -278,6 +295,7 @@ fn test_get_agent_details() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -300,6 +318,7 @@ fn test_authorized_token_transfer() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -360,6 +379,7 @@ fn test_unauthorized_token_transfer() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -389,6 +409,7 @@ fn test_pay_for_prompt_without_approval() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -414,6 +435,7 @@ fn test_is_agent_registered() {
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
+            setup.end_time,
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 
@@ -427,7 +449,7 @@ fn test_fee_distribution() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000);
+        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -464,7 +486,7 @@ fn test_early_reclaim() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000);
+        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -529,7 +551,9 @@ fn test_unsupported_token_registration() {
     let fake_token = deploy_test_token(setup.creator);
 
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
-    setup.registry.register_agent("test", "test", fake_token, 100, 1000); // Should panic
+    setup
+        .registry
+        .register_agent("test", "test", fake_token, 100, 1000, setup.end_time); // Should panic
 }
 
 #[test]
@@ -553,7 +577,7 @@ fn test_prompt_lifecycle() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000);
+        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -595,7 +619,7 @@ fn test_reclaim_after_delay() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000);
+        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -640,11 +664,159 @@ fn test_unauthorized_consumption() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000);
+        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let hacker = starknet::contract_address_const::<0x456>();
 
     start_cheat_caller_address(setup.registry.contract_address, hacker);
     setup.registry.consume_prompt(agent_address, 1, hacker); // Should panic
+}
+
+#[test]
+fn test_withdraw() {
+    let setup = setup();
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test",
+            "test",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Fund user
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, 200);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Pay for prompt
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, 100);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(agent_address, user);
+    agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Move time past end_time + reclaim delay
+    start_cheat_block_timestamp_global(setup.end_time + agent.RECLAIM_DELAY() + 1);
+
+    let initial_creator_balance = setup.token.balance_of(setup.creator);
+    let agent_balance = setup.token.balance_of(agent_address);
+
+    // Creator withdraws funds
+    start_cheat_caller_address(agent_address, setup.creator);
+    agent.withdraw();
+    stop_cheat_caller_address(agent_address);
+
+    // Verify balances
+    assert(setup.token.balance_of(agent_address) == 0, 'Agent should have 0');
+    assert(
+        setup.token.balance_of(setup.creator) == initial_creator_balance + agent_balance,
+        'Creator wrong balance',
+    );
+
+    stop_cheat_block_timestamp_global();
+}
+
+#[test]
+#[should_panic(expected: ('Too early to withdraw',))]
+fn test_early_withdraw() {
+    let setup = setup();
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test",
+            "test",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+
+    // Try to withdraw before end_time + reclaim delay
+    start_cheat_caller_address(agent_address, setup.creator);
+    agent.withdraw(); // Should fail
+}
+
+#[test]
+#[should_panic(expected: ('Only creator can withdraw',))]
+fn test_unauthorized_withdraw() {
+    let setup = setup();
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test",
+            "test",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let unauthorized = starknet::contract_address_const::<0x456>();
+
+    // Move time past end_time + reclaim delay
+    start_cheat_block_timestamp_global(setup.end_time + agent.RECLAIM_DELAY() + 1);
+
+    // Try to withdraw as unauthorized user
+    start_cheat_caller_address(agent_address, unauthorized);
+    agent.withdraw(); // Should fail
+}
+
+#[test]
+#[should_panic(expected: ('Agent has expired',))]
+fn test_pay_after_end() {
+    let setup = setup();
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test",
+            "test",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Fund user
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, 200);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Approve spending
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, 100);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Move time past end_time
+    start_cheat_block_timestamp_global(setup.end_time + 1);
+
+    // Try to pay after end_time
+    start_cheat_caller_address(agent_address, user);
+    agent.pay_for_prompt(123, "test prompt"); // Should fail
 }

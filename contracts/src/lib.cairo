@@ -32,6 +32,7 @@ pub trait IAgentRegistry<TContractState> {
         token: ContractAddress,
         prompt_price: u256,
         initial_balance: u256,
+        end_time: u64,
     ) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
 
@@ -54,6 +55,7 @@ pub trait IAgent<TContractState> {
     fn pay_for_prompt(ref self: TContractState, tweet_id: u64, prompt: ByteArray) -> u64;
     fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
     fn consume_prompt(ref self: TContractState, prompt_id: u64, drain_to: ContractAddress);
+    fn withdraw(ref self: TContractState);
 
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
@@ -64,6 +66,7 @@ pub trait IAgent<TContractState> {
     fn get_next_prompt_id(self: @TContractState) -> u64;
     fn get_pending_prompt(self: @TContractState, prompt_id: u64) -> PendingPrompt;
     fn get_prompt_count(self: @TContractState) -> u64;
+    fn get_end_time(self: @TContractState) -> u64;
     fn get_user_tweet_prompt(
         self: @TContractState, user: ContractAddress, tweet_id: u64, idx: u64,
     ) -> u64;
@@ -176,6 +179,7 @@ pub mod AgentRegistry {
             token: ContractAddress,
             prompt_price: u256,
             initial_balance: u256,
+            end_time: u64,
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
 
@@ -195,6 +199,7 @@ pub mod AgentRegistry {
             token.serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
             creator.serialize(ref constructor_calldata);
+            end_time.serialize(ref constructor_calldata);
 
             let (deployed_address, _) = deploy_syscall(
                 self.agent_class_hash.read(), 0, constructor_calldata.span(), false,
@@ -380,6 +385,7 @@ pub mod Agent {
         pending_prompts: Map::<u64, PendingPrompt>,
         user_tweet_prompts: Map::<ContractAddress, Map<u64, Vec<u64>>>,
         next_prompt_id: u64,
+        end_time: u64,
     }
 
     #[constructor]
@@ -391,6 +397,7 @@ pub mod Agent {
         token: ContractAddress,
         prompt_price: u256,
         creator: ContractAddress,
+        end_time: u64,
     ) {
         self.registry.write(registry);
         self.name.write(name);
@@ -399,6 +406,7 @@ pub mod Agent {
         self.prompt_price.write(prompt_price);
         self.creator.write(creator);
         self.next_prompt_id.write(1_u64);
+        self.end_time.write(end_time);
     }
 
     #[abi(embed_v0)]
@@ -473,9 +481,28 @@ pub mod Agent {
             prompts
         }
 
-        fn pay_for_prompt(ref self: ContractState, tweet_id: u64, prompt: ByteArray) -> u64 {
-            let registry = self.registry.read();
+        fn get_end_time(self: @ContractState) -> u64 {
+            self.end_time.read()
+        }
 
+        fn withdraw(ref self: ContractState) {
+            let caller = get_caller_address();
+            assert(caller == self.creator.read(), 'Only creator can withdraw');
+
+            let current_time = get_block_timestamp();
+            let end_time = self.end_time.read();
+            assert(current_time > end_time + RECLAIM_DELAY, 'Too early to withdraw');
+
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+            let balance = token.balance_of(get_contract_address());
+            token.transfer(caller, balance);
+        }
+
+        fn pay_for_prompt(ref self: ContractState, tweet_id: u64, prompt: ByteArray) -> u64 {
+            let current_time = get_block_timestamp();
+            assert(current_time <= self.end_time.read(), 'Agent has expired');
+
+            let registry = self.registry.read();
             let registry_pausable = IPausableDispatcher { contract_address: registry };
             assert(!registry_pausable.is_paused(), PausableComponent::Errors::PAUSED);
 
@@ -496,7 +523,7 @@ pub mod Agent {
                 .write(
                     prompt_id,
                     PendingPrompt {
-                        reclaimer: caller, amount: prompt_price, timestamp: get_block_timestamp(),
+                        reclaimer: caller, amount: prompt_price, timestamp: current_time,
                     },
                 );
 

@@ -8,6 +8,7 @@ DEFAULT_INITIAL_BALANCE="10000000000000000000"
 DEFAULT_REGISTRY="0x065cbb44cfdc88bc93f252355494490bd971b0f826df8c37d9466ea483dc4d0d"
 DEFAULT_TOKEN="0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"
 DEFAULT_POLL_INTERVAL=2
+DEFAULT_END_TIME=$(($(date +%s) + 3600))
 
 # Help function
 show_help() {
@@ -21,6 +22,7 @@ show_help() {
     echo "  -b, --balance AMOUNT   Initial balance in wei (default: $DEFAULT_INITIAL_BALANCE)"
     echo "  -r, --registry ADDR    Registry contract address (default: $DEFAULT_REGISTRY)"
     echo "  -t, --token ADDR       Token address (default: $DEFAULT_TOKEN)"
+    echo "  -e, --end TIME         End time in seconds (default: current time + 1 hour)"
     echo "  -i, --interval SECS    Transaction poll interval in seconds (default: $DEFAULT_POLL_INTERVAL)"
     echo "  -h, --help             Show this help message"
 }
@@ -34,6 +36,7 @@ while [[ $# -gt 0 ]]; do
         -b|--balance) INITIAL_BALANCE="$2"; shift 2 ;;
         -r|--registry) REGISTRY_CONTRACT_ADDRESS="$2"; shift 2 ;;
         -t|--token) TOKEN_ADDRESS="$2"; shift 2 ;;
+        -e|--end) END_TIME="$2"; shift 2 ;;
         -i|--interval) POLL_INTERVAL="$2"; shift 2 ;;
         -h|--help) show_help; exit 0 ;;
         *) echo "Unknown option: $1"; show_help; exit 1 ;;
@@ -48,6 +51,7 @@ INITIAL_BALANCE=${INITIAL_BALANCE:-$DEFAULT_INITIAL_BALANCE}
 REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS:-$DEFAULT_REGISTRY}
 TOKEN_ADDRESS=${TOKEN_ADDRESS:-$DEFAULT_TOKEN}
 POLL_INTERVAL=${POLL_INTERVAL:-$DEFAULT_POLL_INTERVAL}
+END_TIME=${END_TIME:-$DEFAULT_END_TIME}
 
 log() {
     echo "$1" >&2
@@ -121,7 +125,7 @@ sleep 30
 REGISTER_RESP=$(sncast invoke \
     --contract-address "$REGISTRY_CONTRACT_ADDRESS" \
     --function register_agent \
-    --arguments "\"$AGENT_NAME\", \"$SYSTEM_PROMPT\", $TOKEN_ADDRESS, $PROMPT_PRICE, $INITIAL_BALANCE" \
+    --arguments "\"$AGENT_NAME\", \"$SYSTEM_PROMPT\", $TOKEN_ADDRESS, $PROMPT_PRICE, $INITIAL_BALANCE, $END_TIME" \
     --fee-token strk)
 
 # Extract transaction hash
