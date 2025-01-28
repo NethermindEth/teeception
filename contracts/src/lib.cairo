@@ -61,6 +61,7 @@ pub trait IAgent<TContractState> {
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
+    fn get_prize_pool(self: @TContractState) -> u256;
     fn get_token(self: @TContractState) -> ContractAddress;
     fn get_registry(self: @TContractState) -> ContractAddress;
     fn get_next_prompt_id(self: @TContractState) -> u64;
@@ -392,6 +393,7 @@ pub mod Agent {
         name: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
+        prize_pool: u256,
         creator: ContractAddress,
         pending_prompts: Map::<u64, PendingPrompt>,
         user_tweet_prompts: Map::<ContractAddress, Map<u64, Vec<u64>>>,
@@ -432,6 +434,10 @@ pub mod Agent {
 
         fn get_prompt_price(self: @ContractState) -> u256 {
             self.prompt_price.read()
+        }
+
+        fn get_prize_pool(self: @ContractState) -> u256 {
+            self.prize_pool.read()
         }
 
         fn get_creator(self: @ContractState) -> ContractAddress {
@@ -505,8 +511,11 @@ pub mod Agent {
             assert(current_time > end_time + RECLAIM_DELAY, 'Too early to withdraw');
 
             let token = IERC20Dispatcher { contract_address: self.token.read() };
-            let balance = token.balance_of(get_contract_address());
-            token.transfer(caller, balance);
+            
+            let prize_pool = self.prize_pool.read();
+            self.prize_pool.write(0);
+
+            token.transfer(caller, prize_pool);
         }
 
         fn pay_for_prompt(ref self: ContractState, tweet_id: u64, prompt: ByteArray) -> u64 {
@@ -592,6 +601,8 @@ pub mod Agent {
             // Transfer fees
             token.transfer(self.creator.read(), creator_fee);
             token.transfer(registry, protocol_fee);
+
+            self.prize_pool.write(self.prize_pool.read() + agent_amount);
 
             // Clear pending prompt
             self
