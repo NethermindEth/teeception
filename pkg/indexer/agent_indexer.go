@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -19,6 +20,9 @@ type AgentInfo struct {
 	Creator      *felt.Felt
 	Name         string
 	SystemPrompt string
+	PromptPrice  *big.Int
+	TokenAddress *felt.Felt
+	EndTime      uint64
 }
 
 // AgentIndexer processes AgentRegistered events and tracks known agents.
@@ -103,6 +107,9 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		Creator:      agentRegisteredEv.Creator,
 		Name:         agentRegisteredEv.Name,
 		SystemPrompt: agentRegisteredEv.SystemPrompt,
+		PromptPrice:  agentRegisteredEv.PromptPrice,
+		TokenAddress: agentRegisteredEv.TokenAddress,
+		EndTime:      agentRegisteredEv.EndTime,
 	})
 }
 

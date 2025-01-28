@@ -43,6 +43,9 @@ type Event struct {
 type AgentRegisteredEvent struct {
 	Agent        *felt.Felt
 	Creator      *felt.Felt
+	PromptPrice  *big.Int
+	TokenAddress *felt.Felt
+	EndTime      uint64
 	Name         string
 	SystemPrompt string
 }
@@ -57,6 +60,11 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 		return nil, false
 	}
 
+	if len(e.Raw.Data) < 10 {
+		slog.Warn("invalid agent registered event", "data", e.Raw.Data)
+		return nil, false
+	}
+
 	validateDataBounds := func(idx uint64) bool {
 		if idx >= uint64(len(e.Raw.Data)) {
 			slog.Warn("invalid agent registered event", "data", e.Raw.Data, "idx", idx)
@@ -68,7 +76,11 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 	agent := e.Raw.Keys[1]
 	creator := e.Raw.Keys[2]
 
-	namePos := uint64(0)
+	promptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+	token := e.Raw.Keys[3]
+	endTime := e.Raw.Data[4].Uint64()
+
+	namePos := uint64(5)
 
 	if !validateDataBounds(namePos) {
 		return nil, false
@@ -104,6 +116,9 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 		Creator:      creator,
 		Name:         name,
 		SystemPrompt: systemPrompt,
+		PromptPrice:  promptPrice,
+		TokenAddress: token,
+		EndTime:      endTime,
 	}, true
 }
 

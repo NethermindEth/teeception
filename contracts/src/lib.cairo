@@ -127,6 +127,9 @@ pub mod AgentRegistry {
         pub agent: ContractAddress,
         #[key]
         pub creator: ContractAddress,
+        pub prompt_price: u256,
+        pub token: ContractAddress,
+        pub end_time: u64,
         pub name: ByteArray,
         pub system_prompt: ByteArray,
     }
@@ -215,7 +218,15 @@ pub mod AgentRegistry {
             self
                 .emit(
                     Event::AgentRegistered(
-                        AgentRegistered { agent: deployed_address, creator, name, system_prompt },
+                        AgentRegistered {
+                            agent: deployed_address,
+                            creator,
+                            name,
+                            system_prompt,
+                            token,
+                            prompt_price,
+                            end_time,
+                        },
                     ),
                 );
 

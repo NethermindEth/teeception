@@ -31,11 +31,10 @@ type UIServiceConfig struct {
 }
 
 type UIService struct {
-	eventWatcher         *indexer.EventWatcher
-	agentIndexer         *indexer.AgentIndexer
-	agentMetadataIndexer *indexer.AgentMetadataIndexer
-	agentBalanceIndexer  *indexer.AgentBalanceIndexer
-	tokenIndexer         *indexer.TokenIndexer
+	eventWatcher        *indexer.EventWatcher
+	agentIndexer        *indexer.AgentIndexer
+	agentBalanceIndexer *indexer.AgentBalanceIndexer
+	tokenIndexer        *indexer.TokenIndexer
 
 	registryAddress *felt.Felt
 
@@ -66,13 +65,6 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 			Db: indexer.NewAgentIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
-	agentMetadataIndexer := indexer.NewAgentMetadataIndexer(&indexer.AgentMetadataIndexerConfig{
-		Client:          config.Client,
-		RegistryAddress: config.RegistryAddress,
-		InitialState: &indexer.AgentMetadataIndexerInitialState{
-			Db: indexer.NewAgentMetadataIndexerDatabaseInMemory(lastIndexedBlock),
-		},
-	})
 	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
 	tokenIndexer := indexer.NewTokenIndexer(&indexer.TokenIndexerConfig{
 		PriceFeed:       priceFeed,
@@ -85,7 +77,6 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	agentBalanceIndexer := indexer.NewAgentBalanceIndexer(&indexer.AgentBalanceIndexerConfig{
 		Client:          config.Client,
 		AgentIdx:        agentIndexer,
-		MetaIdx:         agentMetadataIndexer,
 		TickRate:        config.BalanceTickRate,
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
@@ -96,11 +87,10 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	})
 
 	return &UIService{
-		eventWatcher:         eventWatcher,
-		agentIndexer:         agentIndexer,
-		agentMetadataIndexer: agentMetadataIndexer,
-		agentBalanceIndexer:  agentBalanceIndexer,
-		tokenIndexer:         tokenIndexer,
+		eventWatcher:        eventWatcher,
+		agentIndexer:        agentIndexer,
+		agentBalanceIndexer: agentBalanceIndexer,
+		tokenIndexer:        tokenIndexer,
 
 		registryAddress: config.RegistryAddress,
 
@@ -117,9 +107,6 @@ func (s *UIService) Run(ctx context.Context) error {
 	})
 	g.Go(func() error {
 		return s.agentIndexer.Run(ctx, s.eventWatcher)
-	})
-	g.Go(func() error {
-		return s.agentMetadataIndexer.Run(ctx, s.eventWatcher)
 	})
 	g.Go(func() error {
 		return s.agentBalanceIndexer.Run(ctx, s.eventWatcher)

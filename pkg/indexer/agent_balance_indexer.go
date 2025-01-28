@@ -32,7 +32,6 @@ type AgentBalanceIndexerPriceCache interface {
 type AgentBalanceIndexer struct {
 	client   starknet.ProviderWrapper
 	agentIdx *AgentIndexer
-	metaIdx  *AgentMetadataIndexer
 
 	mu sync.RWMutex
 
@@ -57,7 +56,6 @@ type AgentBalanceIndexerInitialState struct {
 type AgentBalanceIndexerConfig struct {
 	Client          starknet.ProviderWrapper
 	AgentIdx        *AgentIndexer
-	MetaIdx         *AgentMetadataIndexer
 	TickRate        time.Duration
 	SafeBlockDelta  uint64
 	RegistryAddress *felt.Felt
@@ -76,7 +74,6 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 	return &AgentBalanceIndexer{
 		client:          config.Client,
 		agentIdx:        config.AgentIdx,
-		metaIdx:         config.MetaIdx,
 		registryAddress: config.RegistryAddress,
 		db:              config.InitialState.Db,
 		priceCache:      config.PriceCache,
@@ -259,17 +256,17 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 
 	if currentInfo.Token == nil {
 		// We need the token address from metadata
-		meta, ok := i.metaIdx.GetMetadata(agent)
+		info, ok := i.agentIdx.GetAgentInfo(agent)
 		if !ok {
 			slog.Error("failed to get metadata for balance update", "agent", agent)
 			return fmt.Errorf("failed to get metadata for balance update")
 		}
-		if meta.Token == nil {
+		if info.TokenAddress == nil {
 			slog.Error("agent has no token in metadata", "agent", agent)
 			return fmt.Errorf("agent has no token in metadata")
 		}
 
-		currentInfo.Token = meta.Token
+		currentInfo.Token = info.TokenAddress
 	}
 
 	var balanceResp []*felt.Felt
