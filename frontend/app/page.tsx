@@ -165,7 +165,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="px-4 md:px-8 py-8 md:py-20 max-w-[1560px] mx-auto">
+        <div className="px-4 md:px-8 py-8 md:py-20 max-w-[1560px] mx-auto" id='how_it_works'>
           <p className="text-5xl font-bold text-center uppercase mb-3 leading-none">
             Joining the arena
           </p>

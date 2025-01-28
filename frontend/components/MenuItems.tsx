@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import Link from "next/link";
 
 export const MenuItems = () => {
   return (
@@ -9,10 +9,10 @@ export const MenuItems = () => {
         </Link>
       </li>
       <li className="px-6">
-        <Link href="/" className="hover:text-white">
+        <Link href="#how_it_works" className="hover:text-white">
           How it works
         </Link>
       </li>
     </ul>
-  )
-}
+  );
+};
