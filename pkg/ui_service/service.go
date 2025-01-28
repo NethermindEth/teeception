@@ -171,6 +171,7 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 
 	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(s.pageSize), uint64(page+1)*uint64(s.pageSize))
 	if err != nil {
+		slog.Error("error fetching agent leaderboard", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})
 		return
 	}

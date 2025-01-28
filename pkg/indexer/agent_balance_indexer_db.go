@@ -14,6 +14,7 @@ import (
 // AgentBalanceIndexerDatabaseReader is the reader for an AgentBalanceIndexerDatabase.
 type AgentBalanceIndexerDatabaseReader interface {
 	GetLeaderboard(start, end uint64, priceCache AgentBalanceIndexerPriceCache) (*AgentLeaderboardResponse, error)
+	GetLeaderboardCount() uint64
 	GetAgentExists(addr [32]byte) bool
 	GetAgentBalance(addr [32]byte) (*AgentBalance, bool)
 	GetLastIndexedBlock() uint64
@@ -133,7 +134,11 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 	}
 
 	if start >= uint64(db.sortedAgents.Len()) {
-		return nil, fmt.Errorf("start index out of bounds: %d", start)
+		return &AgentLeaderboardResponse{
+			Agents:     make([][32]byte, 0),
+			AgentCount: uint64(db.sortedAgents.Len()),
+			LastBlock:  db.lastIndexedBlock,
+		}, nil
 	}
 
 	if end > uint64(db.sortedAgents.Len()) {
@@ -147,9 +152,14 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 
 	leaderboard := &AgentLeaderboardResponse{
 		Agents:     agents,
-		AgentCount: uint64(len(agents)),
+		AgentCount: uint64(db.sortedAgents.Len()),
 		LastBlock:  db.lastIndexedBlock,
 	}
 
 	return leaderboard, nil
+}
+
+// GetLeaderboardCount returns the number of agents in the leaderboard.
+func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboardCount() uint64 {
+	return uint64(db.sortedAgents.Len())
 }

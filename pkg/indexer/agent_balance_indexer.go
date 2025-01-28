@@ -326,6 +326,11 @@ func (i *AgentBalanceIndexer) GetBalance(agent *felt.Felt) (*AgentBalance, bool)
 	return bal, ok
 }
 
+// GetAgentLeaderboardCount returns the number of agents in the leaderboard.
+func (i *AgentBalanceIndexer) GetAgentLeaderboardCount() uint64 {
+	return i.db.GetLeaderboardCount()
+}
+
 type AgentLeaderboardResponse struct {
 	Agents     [][32]byte
 	AgentCount uint64
