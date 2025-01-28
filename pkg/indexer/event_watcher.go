@@ -77,10 +77,10 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 	creator := e.Raw.Keys[2]
 
 	promptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
-	token := e.Raw.Keys[3]
-	endTime := e.Raw.Data[4].Uint64()
+	token := e.Raw.Data[2]
+	endTime := e.Raw.Data[3].Uint64()
 
-	namePos := uint64(5)
+	namePos := uint64(4)
 
 	if !validateDataBounds(namePos) {
 		return nil, false
