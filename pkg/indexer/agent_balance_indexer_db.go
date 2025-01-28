@@ -6,6 +6,7 @@ import (
 	"maps"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/NethermindEth/teeception/pkg/indexer/utils"
 )
@@ -91,9 +92,15 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 		db.sortedAgents.Add(slices.Collect(maps.Keys(db.balances))...)
 	}
 
+	currentTime := uint64(time.Now().Unix())
+
 	db.sortedAgents.Sort(func(a, b [32]byte) int {
 		balA := db.balances[a]
 		balB := db.balances[b]
+
+		if (balA.EndTime >= currentTime) != (balB.EndTime >= currentTime) {
+			return 0
+		}
 
 		if balA.Token == balB.Token {
 			return -balA.Amount.Cmp(balB.Amount)

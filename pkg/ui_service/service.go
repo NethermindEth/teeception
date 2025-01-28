@@ -152,6 +152,7 @@ type AgentData struct {
 	Token   string `json:"token"`
 	Name    string `json:"name"`
 	Balance string `json:"balance"`
+	EndTime string `json:"end_time"`
 }
 
 type AgentPageResponse struct {
@@ -197,6 +198,7 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			Name:    info.Name,
 			Token:   balance.Token.String(),
 			Balance: balance.Amount.String(),
+			EndTime: strconv.FormatUint(balance.EndTime, 10),
 		})
 	}
 

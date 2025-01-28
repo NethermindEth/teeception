@@ -22,6 +22,7 @@ type AgentBalance struct {
 	Token           *felt.Felt
 	Amount          *big.Int
 	AmountUpdatedAt uint64
+	EndTime         uint64
 }
 
 type AgentBalanceIndexerPriceCache interface {
@@ -165,6 +166,7 @@ func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
 		Token:           nil,
 		Amount:          big.NewInt(0),
 		AmountUpdatedAt: 0,
+		EndTime:         0,
 	})
 }
 
@@ -226,8 +228,16 @@ func (i *AgentBalanceIndexer) processQueue(ctx context.Context, blockNumber uint
 		slog.Debug("processing balance update", "address", addr.String())
 
 		// If not an agent, skip
-		if _, ok := i.agentIdx.GetAgentInfo(addr); !ok {
+		info, ok := i.agentIdx.GetAgentInfo(addr)
+		if !ok {
 			slog.Warn("agent not found in agent index", "address", addr.String())
+			continue
+		}
+
+		currentTime := time.Now().Unix()
+
+		if info.EndTime < uint64(currentTime) {
+			slog.Debug("agent has expired", "address", addr.String(), "end_time", info.EndTime, "block", blockNumber)
 			continue
 		}
 
@@ -251,6 +261,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 			Token:           nil,
 			Amount:          big.NewInt(0),
 			AmountUpdatedAt: 0,
+			EndTime:         0,
 		}
 	}
 
@@ -267,6 +278,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 		}
 
 		currentInfo.Token = info.TokenAddress
+		currentInfo.EndTime = info.EndTime
 	}
 
 	var balanceResp []*felt.Felt
