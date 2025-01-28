@@ -281,7 +281,9 @@ export default function Home() {
         </div>
         <div className="px-2 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto md:mt-20">
           <div className="mb-20">
-            <p className="text-4xl md:text-[48px] font-bold text-center uppercase ">Leaderboard</p>
+            <p className="text-4xl md:text-[48px] font-bold text-center uppercase"
+            id="leaderboard"
+            >Leaderboard</p>
 
             <div className="flex max-w-[800px] mx-auto my-3 md:my-6">
               <div className="white-gradient-border"></div>

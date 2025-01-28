@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { DOTS, usePagination } from '@/hooks/usePagination'
 import { ACTIVE_AGENTS_DATA, AGENTS_RANKING_DATA, TOP_ATTACKERS_DATA } from '@/mock-data'
+import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 
 export enum TabType {
   AgentRanking = 'AGENT_RANKING',
@@ -70,6 +71,9 @@ export const AgentTabs = ({ tabType }: AgentTabContentProps) => {
 
   return (
     <>
+      {true ? (
+        <LeaderboardSkeleton />
+      ) : (
       <div className="text-xs flex flex-col gap-1 whitespace-nowrap overflow-x-auto">
         <div className="grid grid-cols-12 bg-[#2E40494D] backdrop-blur-xl min-w-[680px] min-h-10 p-3 rounded-lg mb-2">
           <div className="col-span-5 md:col-span-3 grid grid-cols-12 items-center">
@@ -107,6 +111,7 @@ export const AgentTabs = ({ tabType }: AgentTabContentProps) => {
           </div>
         ))}
       </div>
+    )}
 
       <div className="flex gap-1 mx-auto text-[#B8B8B8] text-xs w-fit mt-6 items-center">
         <button
