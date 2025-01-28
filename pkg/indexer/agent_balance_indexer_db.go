@@ -49,6 +49,7 @@ func NewAgentBalanceIndexerDatabaseInMemory(initialBlock uint64) *AgentBalanceIn
 	return &AgentBalanceIndexerDatabaseInMemory{
 		balances:         make(map[[32]byte]*AgentBalance),
 		lastIndexedBlock: initialBlock,
+		sortedAgents:     utils.NewLazySortedList[[32]byte](),
 	}
 }
 
