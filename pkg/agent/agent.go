@@ -262,7 +262,17 @@ func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubs
 						"from_address", promptPaidEvent.User,
 						"tweet_id", promptPaidEvent.TweetID)
 
-					err := a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
+					isPromptConsumed, err := a.isPromptConsumed(ctx, ev.Raw.FromAddress, promptPaidEvent.PromptID)
+					if err != nil {
+						slog.Warn("failed to check if prompt is consumed", "error", err)
+					}
+
+					if isPromptConsumed {
+						slog.Info("prompt already consumed", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
+						return
+					}
+
+					err = a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
 					if err != nil {
 						slog.Warn("failed to process prompt paid event", "error", err)
 					}
@@ -424,4 +434,34 @@ func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error
 	}
 
 	return nil
+}
+
+func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, promptID uint64) (bool, error) {
+	fnCall := rpc.FunctionCall{
+		ContractAddress:    agentAddress,
+		EntryPointSelector: starknetgoutils.GetSelectorFromNameFelt("get_pending_prompt"),
+		Calldata:           []*felt.Felt{new(felt.Felt).SetUint64(promptID)},
+	}
+
+	var resp []*felt.Felt
+	var err error
+
+	if err := a.starknetClient.Do(func(provider rpc.RpcProvider) error {
+		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
+		snaccount.LogRpcError(err)
+		return false, fmt.Errorf("failed to call get_pending_prompt: %v", err)
+	}
+
+	// The pending prompt struct has 3 fields:
+	// - reclaimer: ContractAddress
+	// - amount: u256 (2 felts)
+	// - timestamp: u64
+	if len(resp) < 4 {
+		return false, fmt.Errorf("invalid response length: got %d, want at least 4", len(resp))
+	}
+
+	// Check if reclaimer is zero address (indicating consumed)
+	return resp[0].IsZero(), nil
 }
