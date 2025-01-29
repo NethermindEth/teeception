@@ -549,6 +549,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 				{
 					agentRegisteredSelector,
 					promptPaidSelector,
+					promptConsumedSelector,
 					transferSelector,
 					tokenAddedSelector,
 					tokenRemovedSelector,
