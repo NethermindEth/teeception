@@ -561,6 +561,8 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 			return fmt.Errorf("failed to get events from %v to %v: %v", from, toBlock, err)
 		}
 
+		slog.Info("got events", "count", len(events))
+
 		// Parse each event into our local struct and broadcast.
 		for _, rawEvent := range events {
 			parsedEvent, ok := w.parseEvent(rawEvent)
