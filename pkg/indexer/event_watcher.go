@@ -491,8 +491,7 @@ func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) 
 			})
 			return err
 		}); err != nil {
-			snaccount.LogRpcError(err)
-			return nil, fmt.Errorf("failed to get events from %v to %v: %v", filter.FromBlock, filter.ToBlock, err)
+			return nil, fmt.Errorf("failed to get events from %v to %v: %s", filter.FromBlock, filter.ToBlock, snaccount.FormatRpcError(err))
 		}
 
 		continuationToken = eventsResp.ContinuationToken
@@ -519,8 +518,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 		currentBlock, err = provider.BlockNumber(ctx)
 		return err
 	}); err != nil {
-		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get current block number: %v", err)
+		return fmt.Errorf("failed to get current block number: %s", snaccount.FormatRpcError(err))
 	}
 
 	safeBlock := currentBlock - w.safeBlockDelta
@@ -557,8 +555,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 			},
 		})
 		if err != nil {
-			snaccount.LogRpcError(err)
-			return fmt.Errorf("failed to get events from %v to %v: %v", from, toBlock, err)
+			return fmt.Errorf("failed to get events from %v to %v: %s", from, toBlock, snaccount.FormatRpcError(err))
 		}
 
 		slog.Info("got events", "count", len(events))

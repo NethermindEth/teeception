@@ -411,12 +411,13 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
 
-	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID)
-
 	isDrain := resp.Drain != nil
+
+	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID, "is_drain", isDrain, "reply", resp.Response)
 
 	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, isDrain, resp.Drain.Address)
 	if err != nil {
+		slog.Warn("failed to consume prompt", "error", snaccount.FormatRpcError(err))
 		return fmt.Errorf("failed to consume prompt: %v", err)
 	}
 
@@ -557,8 +558,7 @@ func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, p
 		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("latest"))
 		return err
 	}); err != nil {
-		snaccount.LogRpcError(err)
-		return false, fmt.Errorf("failed to call get_pending_prompt: %v", err)
+		return false, fmt.Errorf("failed to call get_pending_prompt: %v", snaccount.FormatRpcError(err))
 	}
 
 	// The pending prompt struct has 3 fields:
