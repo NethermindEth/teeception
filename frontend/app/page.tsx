@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MenuIcon, Plus, Search } from 'lucide-react'
 import { AgentsList, TabType } from '@/components/AgentsList'
 import { ACTIVE_AGENTS_DATA, AGENTS_RANKING_DATA, TOP_ATTACKERS_DATA } from '@/mock-data'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { MenuItems } from '@/components/MenuItems'
 import clsx from 'clsx'
 import { useAgents } from '@/hooks/useAgents'
@@ -14,7 +14,13 @@ import { Footer } from '@/components/Footer'
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false)
-  const { agents, loading: isFetchingAgents, error } = useAgents({ start: 0, end: 1000 })
+  const { agents = [], loading: isFetchingAgents, error } = useAgents({ start: 0, end: 1000 })
+
+  const activeAgents = useMemo(() => agents.filter((agent) => !agent.isFinalized), [agents])
+  const topAttackers = useMemo(
+    () => agents.sort((agent1, agent2) => +agent2.prizePool - +agent1.prizePool),
+    [agents]
+  )
   console.log({ agents, isFetchingAgents, error })
   const handleInstallExtension = () => {
     //TODO: add chrome line
@@ -300,13 +306,13 @@ export default function Home() {
               <div className="flex flex-col md:flex-row items-center justify-between mb-6">
                 <TabsList className="flex w-full">
                   <TabsTrigger value={TabType.AgentRanking}>
-                    Agents ranking ({AGENTS_RANKING_DATA.length})
+                    Agents ranking ({agents.length})
                   </TabsTrigger>
                   <TabsTrigger value={TabType.ActiveAgents}>
-                    Active agents ({ACTIVE_AGENTS_DATA.length})
+                    Active agents ({activeAgents.length})
                   </TabsTrigger>
                   <TabsTrigger value={TabType.TopAttackers}>
-                    Top attackers ({TOP_ATTACKERS_DATA.length})
+                    Top attackers ({topAttackers.length})
                   </TabsTrigger>
                 </TabsList>
 
@@ -327,10 +333,10 @@ export default function Home() {
                 <AgentsList agents={agents} isFetchingAgents={isFetchingAgents} />
               </TabsContent>
               <TabsContent value={TabType.ActiveAgents}>
-                <AgentsList agents={agents} isFetchingAgents={isFetchingAgents} />
+                <AgentsList agents={activeAgents} isFetchingAgents={isFetchingAgents} />
               </TabsContent>
               <TabsContent value={TabType.TopAttackers}>
-                <AgentsList agents={agents} isFetchingAgents={isFetchingAgents} />
+                <AgentsList agents={topAttackers} isFetchingAgents={isFetchingAgents} />
               </TabsContent>
             </Tabs>
           </div>
