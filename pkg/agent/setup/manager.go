@@ -14,50 +14,53 @@ import (
 )
 
 type SetupManager struct {
-	twitterAccount       string
-	twitterPassword      string
-	protonEmail          string
-	protonPassword       string
-	twitterAppKey        string
-	twitterAppSecret     string
-	starknetRpcUrls      []string
-	agentRegistryAddress string
-	openAiKey            string
-	loginServerIp        string
-	loginServerPort      string
-	dstackTappdEndpoint  string
+	twitterAccount               string
+	twitterPassword              string
+	protonEmail                  string
+	protonPassword               string
+	twitterAppKey                string
+	twitterAppSecret             string
+	starknetRpcUrls              []string
+	agentRegistryAddress         string
+	agentRegistryDeploymentBlock uint64
+	openAiKey                    string
+	loginServerIp                string
+	loginServerPort              string
+	dstackTappdEndpoint          string
 }
 
 type SetupOutput struct {
-	TwitterUsername          string     `json:"twitter_username"`
-	TwitterPassword          string     `json:"twitter_password"`
-	ProtonPassword           string     `json:"proton_password"`
-	TwitterConsumerKey       string     `json:"twitter_consumer_key"`
-	TwitterConsumerSecret    string     `json:"twitter_consumer_secret"`
-	TwitterAuthTokens        string     `json:"twitter_auth_tokens"`
-	TwitterAccessToken       string     `json:"twitter_access_token"`
-	TwitterAccessTokenSecret string     `json:"twitter_access_token_secret"`
-	StarknetPrivateKeySeed   []byte     `json:"starknet_private_key_seed"`
-	StarknetRpcUrls          []string   `json:"starknet_rpc_urls"`
-	AgentRegistryAddress     *felt.Felt `json:"agent_registry_address"`
-	OpenAIKey                string     `json:"openai_key"`
-	DstackTappdEndpoint      string     `json:"dstack_tappd_endpoint"`
+	TwitterUsername              string     `json:"twitter_username"`
+	TwitterPassword              string     `json:"twitter_password"`
+	ProtonPassword               string     `json:"proton_password"`
+	TwitterConsumerKey           string     `json:"twitter_consumer_key"`
+	TwitterConsumerSecret        string     `json:"twitter_consumer_secret"`
+	TwitterAuthTokens            string     `json:"twitter_auth_tokens"`
+	TwitterAccessToken           string     `json:"twitter_access_token"`
+	TwitterAccessTokenSecret     string     `json:"twitter_access_token_secret"`
+	StarknetPrivateKeySeed       []byte     `json:"starknet_private_key_seed"`
+	StarknetRpcUrls              []string   `json:"starknet_rpc_urls"`
+	AgentRegistryAddress         *felt.Felt `json:"agent_registry_address"`
+	AgentRegistryDeploymentBlock uint64     `json:"agent_registry_deployment_block"`
+	OpenAIKey                    string     `json:"openai_key"`
+	DstackTappdEndpoint          string     `json:"dstack_tappd_endpoint"`
 }
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
 	setupManager := &SetupManager{
-		twitterAccount:       envGetTwitterAccount(),
-		twitterPassword:      envGetTwitterPassword(),
-		protonEmail:          envGetProtonEmail(),
-		protonPassword:       envGetProtonPassword(),
-		twitterAppKey:        envGetTwitterAppKey(),
-		twitterAppSecret:     envGetTwitterAppSecret(),
-		starknetRpcUrls:      envGetStarknetRpcUrls(),
-		agentRegistryAddress: envGetAgentRegistryAddress(),
-		openAiKey:            envGetOpenAiKey(),
-		loginServerIp:        envGetLoginServerIp(),
-		loginServerPort:      envGetLoginServerPort(),
-		dstackTappdEndpoint:  envGetDstackTappdEndpoint(),
+		twitterAccount:               envGetTwitterAccount(),
+		twitterPassword:              envGetTwitterPassword(),
+		protonEmail:                  envGetProtonEmail(),
+		protonPassword:               envGetProtonPassword(),
+		twitterAppKey:                envGetTwitterAppKey(),
+		twitterAppSecret:             envGetTwitterAppSecret(),
+		starknetRpcUrls:              envGetStarknetRpcUrls(),
+		agentRegistryAddress:         envGetAgentRegistryAddress(),
+		agentRegistryDeploymentBlock: envGetAgentRegistryDeploymentBlock(),
+		openAiKey:                    envGetOpenAiKey(),
+		loginServerIp:                envGetLoginServerIp(),
+		loginServerPort:              envGetLoginServerPort(),
+		dstackTappdEndpoint:          envGetDstackTappdEndpoint(),
 	}
 
 	if err := setupManager.Validate(); err != nil {

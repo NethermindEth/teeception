@@ -35,16 +35,17 @@ const (
 )
 
 type AgentConfigParams struct {
-	TwitterClientMode      string
-	TwitterClientConfig    *twitter.TwitterClientConfig
-	OpenAIKey              string
-	DstackTappdEndpoint    string
-	StarknetRpcUrls        []string
-	StarknetPrivateKeySeed []byte
-	AgentRegistryAddress   *felt.Felt
-	TaskConcurrency        int
-	TickRate               time.Duration
-	SafeBlockDelta         uint64
+	TwitterClientMode            string
+	TwitterClientConfig          *twitter.TwitterClientConfig
+	OpenAIKey                    string
+	DstackTappdEndpoint          string
+	StarknetRpcUrls              []string
+	StarknetPrivateKeySeed       []byte
+	AgentRegistryAddress         *felt.Felt
+	AgentRegistryDeploymentBlock uint64
+	TaskConcurrency              int
+	TickRate                     time.Duration
+	SafeBlockDelta               uint64
 }
 
 type AgentConfig struct {
@@ -65,6 +66,7 @@ type AgentConfig struct {
 
 	StartupBlockNumber   uint64
 	AgentRegistryAddress *felt.Felt
+	AgentRegistryBlock   uint64
 }
 
 func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
@@ -116,15 +118,21 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          starknetClient,
 		SafeBlockDelta:  params.SafeBlockDelta,
-		TickRate:        1 * time.Second,
+		TickRate:        5 * time.Second,
 		StartupTickRate: 1 * time.Second,
 		IndexChunkSize:  1000,
 		RegistryAddress: params.AgentRegistryAddress,
+		InitialState: &indexer.EventWatcherInitialState{
+			LastIndexedBlock: max(params.AgentRegistryDeploymentBlock, 1) - 1,
+		},
 	})
 
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          starknetClient,
 		RegistryAddress: params.AgentRegistryAddress,
+		InitialState: &indexer.AgentIndexerInitialState{
+			Db: indexer.NewAgentIndexerDatabaseInMemory(max(params.AgentRegistryDeploymentBlock, 1) - 1),
+		},
 	})
 
 	privateKey := snaccount.NewPrivateKey(params.StarknetPrivateKeySeed)
@@ -171,6 +179,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 
 		StartupBlockNumber:   startupBlockNumber,
 		AgentRegistryAddress: params.AgentRegistryAddress,
+		AgentRegistryBlock:   params.AgentRegistryDeploymentBlock,
 	}, nil
 }
 
@@ -192,6 +201,7 @@ type Agent struct {
 
 	startupBlockNumber   uint64
 	agentRegistryAddress *felt.Felt
+	agentRegistryBlock   uint64
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
@@ -214,6 +224,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 		startupBlockNumber:   config.StartupBlockNumber,
 		agentRegistryAddress: config.AgentRegistryAddress,
+		agentRegistryBlock:   config.AgentRegistryBlock,
 	}, nil
 }
 
