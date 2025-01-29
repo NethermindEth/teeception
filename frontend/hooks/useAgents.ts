@@ -13,7 +13,7 @@ interface AgentDetails {
   balance: string
 }
 
-export const useAgents = () => {
+export const useAgents = (start = 0, end: number = 10) => {
   const [agents, setAgents] = useState<AgentDetails[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -24,11 +24,11 @@ export const useAgents = () => {
         const provider = new RpcProvider({ nodeUrl: RPC_NODE_URL })
         const registry = new Contract(AGENT_REGISTRY_COPY_ABI, AGENT_REGISTRY_ADDRESS, provider)
 
-        const tokenAddressRaw = await registry.get_token()
-        const tokenAddress = `0x${BigInt(tokenAddressRaw).toString(16)}`
-        const tokenContract = new Contract(ERC20_ABI, tokenAddress, provider)
+        // const tokenAddressRaw = await registry.get_token()
+        // const tokenAddress = `0x${BigInt(tokenAddressRaw).toString(16)}`
+        // const tokenContract = new Contract(ERC20_ABI, tokenAddress, provider)
 
-        const rawAgentAddresses = await registry.get_agents()
+        const rawAgentAddresses = await registry.get_agents(start, end)
         const agentAddresses = rawAgentAddresses.map((address: string) => {
           return `0x${BigInt(address).toString(16)}`
         })
@@ -38,30 +38,51 @@ export const useAgents = () => {
             try {
               const agent = new Contract(AGENT_ABI, address, provider)
 
-              const [nameResult, systemPromptResult, balanceResult, promptPriceResult] =
-                await Promise.all([
-                  agent.get_name().catch((e: any) => {
-                    debug.error('useAgents', 'Error fetching name', { address, error: e })
-                    return 'Unknown'
-                  }),
-                  agent.get_system_prompt().catch((e: any) => {
-                    debug.error('useAgents', 'Error fetching system prompt', { address, error: e })
-                    return 'Error fetching system prompt'
-                  }),
-                  tokenContract.balance_of(address).catch((e: any) => {
-                    debug.error('useAgents', 'Error fetching token balance', { address, error: e })
-                    return { low: 0, high: 0 }
-                  }),
-                  agent.get_prompt_price().catch((e: any) => {
-                    debug.error('useAgents', 'Error fetching promt price', { address, error: e })
-                    return 'Unknown'
-                  }),
-                ])
+              const [
+                nameResult,
+                systemPromptResult,
+                promptPriceResult,
+                prizePool,
+                endTime,
+                isFinalized,
+              ] = await Promise.all([
+                agent.get_name().catch((e: any) => {
+                  debug.error('useAgents', 'Error fetching name', { address, error: e })
+                  return 'Unknown'
+                }),
 
-              const balanceValue =
-                balanceResult.low !== undefined
-                  ? BigInt(balanceResult.low) + (BigInt(balanceResult.high || 0) << BigInt(128))
-                  : BigInt(0)
+                agent.get_system_prompt().catch((e: any) => {
+                  debug.error('useAgents', 'Error fetching system prompt', { address, error: e })
+                  return 'Error fetching system prompt'
+                }),
+
+                // tokenContract.balance_of(address).catch((e: any) => {
+                //   debug.error('useAgents', 'Error fetching token balance', { address, error: e })
+                //   return { low: 0, high: 0 }
+                // }),
+
+                agent.get_prompt_price().catch((e: any) => {
+                  debug.error('useAgents', 'Error fetching promt price', { address, error: e })
+                  return 'Unknown'
+                }),
+                agent.get_prize_pool().catch((e: any) => {
+                  debug.error('useAgents', 'Error fetching price pool', { address, error: e })
+                  return 'Unknown'
+                }),
+                agent.get_end_time().catch((e: any) => {
+                  debug.error('useAgents', 'Error fetching end time', { address, error: e })
+                  return 'Unknown'
+                }),
+                agent.is_finalized().catch((e: any) => {
+                  debug.error('useAgents', 'Error fetching is finalized', { address, error: e })
+                  return 'Unknown'
+                }),
+              ])
+
+              // const balanceValue =
+              //   balanceResult.low !== undefined
+              //     ? BigInt(balanceResult.low) + (BigInt(balanceResult.high || 0) << BigInt(128))
+              //     : BigInt(0)
 
               const promptPrice =
                 promptPriceResult.low !== undefined
@@ -73,8 +94,11 @@ export const useAgents = () => {
                 address,
                 name: nameResult?.toString() || 'Unknown',
                 systemPrompt: systemPromptResult?.toString() || 'Error fetching system prompt',
-                balance: balanceValue.toString(),
+                // balance: balanceValue.toString(),
                 promptPrice: promptPrice.toString(),
+                prizePool,
+                endTime,
+                isFinalized,
               }
 
               return result
