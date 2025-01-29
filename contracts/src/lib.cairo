@@ -562,10 +562,6 @@ pub mod Agent {
             prompt_id
         }
 
-        fn is_prompt_paid(self: @ContractState, prompt_id: u64) -> bool {
-            self.pending_prompts.read(prompt_id).reclaimer != contract_address_const::<0>()
-        }
-
         fn reclaim_prompt(ref self: ContractState, prompt_id: u64) {
             let pending = self.pending_prompts.read(prompt_id);
             let caller = get_caller_address();
