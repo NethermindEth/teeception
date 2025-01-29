@@ -155,7 +155,9 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 	}
 
 	return &AgentConfig{
-		TwitterClient:  twitterClient,
+		TwitterClient:       twitterClient,
+		TwitterClientConfig: params.TwitterClientConfig,
+
 		ChatCompletion: openaiClient,
 		StarknetClient: starknetClient,
 		Quoter:         quoter,
