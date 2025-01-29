@@ -102,6 +102,8 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		return
 	}
 
+	slog.Info("agent registered", "address", agentRegisteredEv.Agent.String(), "creator", agentRegisteredEv.Creator.String(), "name", agentRegisteredEv.Name)
+
 	i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
 		Address:      agentRegisteredEv.Agent,
 		Creator:      agentRegisteredEv.Creator,
