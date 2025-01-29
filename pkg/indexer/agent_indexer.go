@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -19,23 +20,22 @@ type AgentInfo struct {
 	Creator      *felt.Felt
 	Name         string
 	SystemPrompt string
+	PromptPrice  *big.Int
+	TokenAddress *felt.Felt
+	EndTime      uint64
 }
 
 // AgentIndexer processes AgentRegistered events and tracks known agents.
 type AgentIndexer struct {
-	agentsMu           sync.RWMutex
-	agents             map[[32]byte]AgentInfo
-	addressesByCreator map[[32]byte][][32]byte
-	addresses          []*felt.Felt
-	registryAddress    *felt.Felt
-	lastIndexedBlock   uint64
-	client             starknet.ProviderWrapper
+	agentsMu        sync.RWMutex
+	db              AgentIndexerDatabase
+	registryAddress *felt.Felt
+	client          starknet.ProviderWrapper
 }
 
 // AgentIndexerInitialState is the initial state for an AgentIndexer.
 type AgentIndexerInitialState struct {
-	Agents           map[[32]byte]AgentInfo
-	LastIndexedBlock uint64
+	Db AgentIndexerDatabase
 }
 
 // AgentIndexerConfig is the configuration for an AgentIndexer.
@@ -49,17 +49,14 @@ type AgentIndexerConfig struct {
 func NewAgentIndexer(cfg *AgentIndexerConfig) *AgentIndexer {
 	if cfg.InitialState == nil {
 		cfg.InitialState = &AgentIndexerInitialState{
-			Agents:           make(map[[32]byte]AgentInfo),
-			LastIndexedBlock: 0,
+			Db: NewAgentIndexerDatabaseInMemory(0),
 		}
 	}
 
 	return &AgentIndexer{
-		agents:             cfg.InitialState.Agents,
-		addressesByCreator: make(map[[32]byte][][32]byte),
-		lastIndexedBlock:   cfg.InitialState.LastIndexedBlock,
-		registryAddress:    cfg.RegistryAddress,
-		client:             cfg.Client,
+		db:              cfg.InitialState.Db,
+		registryAddress: cfg.RegistryAddress,
+		client:          cfg.Client,
 	}
 }
 
@@ -85,7 +82,7 @@ func (i *AgentIndexer) run(ctx context.Context, watcher *EventWatcher) error {
 			for _, ev := range data.Events {
 				i.onAgentRegistered(ev)
 			}
-			i.lastIndexedBlock = data.ToBlock
+			i.db.SetLastIndexedBlock(data.ToBlock)
 			i.agentsMu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
@@ -105,18 +102,17 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		return
 	}
 
-	info := AgentInfo{
+	slog.Info("agent registered", "address", agentRegisteredEv.Agent.String(), "creator", agentRegisteredEv.Creator.String(), "name", agentRegisteredEv.Name)
+
+	i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
 		Address:      agentRegisteredEv.Agent,
 		Creator:      agentRegisteredEv.Creator,
 		Name:         agentRegisteredEv.Name,
 		SystemPrompt: agentRegisteredEv.SystemPrompt,
-	}
-	i.agents[agentRegisteredEv.Agent.Bytes()] = info
-	i.addresses = append(i.addresses, agentRegisteredEv.Agent)
-
-	// Index by creator
-	creatorBytes := agentRegisteredEv.Creator.Bytes()
-	i.addressesByCreator[creatorBytes] = append(i.addressesByCreator[creatorBytes], agentRegisteredEv.Agent.Bytes())
+		PromptPrice:  agentRegisteredEv.PromptPrice,
+		TokenAddress: agentRegisteredEv.TokenAddress,
+		EndTime:      agentRegisteredEv.EndTime,
+	})
 }
 
 // GetAgentInfo returns an agent's info, if it exists.
@@ -124,7 +120,7 @@ func (i *AgentIndexer) GetAgentInfo(addr *felt.Felt) (AgentInfo, bool) {
 	i.agentsMu.RLock()
 	defer i.agentsMu.RUnlock()
 
-	info, ok := i.agents[addr.Bytes()]
+	info, ok := i.db.GetAgentInfo(addr.Bytes())
 	return info, ok
 }
 
@@ -141,7 +137,7 @@ func (i *AgentIndexer) GetAgentsByCreator(ctx context.Context, creator *felt.Fel
 	i.agentsMu.RLock()
 	defer i.agentsMu.RUnlock()
 
-	agents := i.addressesByCreator[creator.Bytes()]
+	agents := i.db.GetAddressesByCreator(creator.Bytes())
 	if uint64(len(agents)) <= start {
 		return nil, false
 	}
@@ -153,30 +149,38 @@ func (i *AgentIndexer) GetAgentsByCreator(ctx context.Context, creator *felt.Fel
 
 	agentInfos := make([]AgentInfo, end-start)
 	for idx, addr := range agents[start:end] {
-		agentInfos[idx] = i.agents[addr]
+		var ok bool
+		agentInfos[idx], ok = i.db.GetAgentInfo(addr)
+
+		if !ok {
+			slog.Error("agent not found", "address", addr)
+		}
 	}
 
 	return &AgentsByCreatorResult{
 		Agents:     agentInfos,
 		AgentCount: uint64(len(agents)),
-		LastBlock:  i.lastIndexedBlock,
+		LastBlock:  i.db.GetLastIndexedBlock(),
 	}, true
 }
 
 // GetOrFetchAgentInfoAtBlock returns an agent's info if it exists.
 func (i *AgentIndexer) GetOrFetchAgentInfo(ctx context.Context, addr *felt.Felt, block uint64) (AgentInfo, error) {
 	i.agentsMu.RLock()
-	info, ok := i.agents[addr.Bytes()]
-	if !ok {
-		if i.lastIndexedBlock >= block {
-			return AgentInfo{}, fmt.Errorf("agent not found")
-		}
-	}
 	defer i.agentsMu.RUnlock()
 
-	info, err := i.fetchAgentInfo(ctx, addr)
-	if err != nil {
-		return AgentInfo{}, err
+	info, ok := i.db.GetAgentInfo(addr.Bytes())
+	if !ok {
+		if i.db.GetLastIndexedBlock() >= block {
+			return AgentInfo{}, fmt.Errorf("agent not found")
+		}
+
+		info, err := i.fetchAgentInfo(ctx, addr)
+		if err != nil {
+			return AgentInfo{}, err
+		}
+
+		return info, nil
 	}
 
 	return info, nil
@@ -245,28 +249,18 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 	}, nil
 }
 
-// GetAllAgentAddresses returns all known agent addresses.
-func (i *AgentIndexer) GetAllAgentAddresses() []*felt.Felt {
-	i.agentsMu.RLock()
-	defer i.agentsMu.RUnlock()
-
-	copied := make([]*felt.Felt, len(i.addresses))
-	copy(copied, i.addresses)
-	return copied
-}
-
 // GetLastIndexedBlock returns the last indexed block.
 func (i *AgentIndexer) GetLastIndexedBlock() uint64 {
 	i.agentsMu.RLock()
 	defer i.agentsMu.RUnlock()
 
-	return i.lastIndexedBlock
+	return i.db.GetLastIndexedBlock()
 }
 
 // ReadState reads the current state of the indexer.
-func (i *AgentIndexer) ReadState(f func(map[[32]byte]AgentInfo, uint64)) {
+func (i *AgentIndexer) ReadState(f func(AgentIndexerDatabaseReader)) {
 	i.agentsMu.RLock()
 	defer i.agentsMu.RUnlock()
 
-	f(i.agents, i.lastIndexedBlock)
+	f(i.db)
 }

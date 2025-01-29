@@ -7,12 +7,13 @@ DEFAULT_INDEXING_WAIT=10
 
 # Help function
 show_help() {
-    echo "Usage: $0 [OPTIONS] --agent ADDR --tweet-id ID"
+    echo "Usage: $0 [OPTIONS] --agent ADDR --tweet-id ID --prompt TEXT"
     echo "Pay for and submit a prompt to an AI agent on StarkNet"
     echo
     echo "Required:"
     echo "  -a, --agent ADDR      Agent contract address"
     echo "  -m, --tweet-id ID     Twitter message ID"
+    echo "  -p, --prompt TEXT     Prompt text to send to the agent"
     echo
     echo "Optional:"
     echo "  -t, --token ADDR      Token address (default: $DEFAULT_TOKEN)"
@@ -26,6 +27,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         -a|--agent) AGENT_ADDRESS="$2"; shift 2 ;;
         -m|--tweet-id) TWITTER_MESSAGE_ID="$2"; shift 2 ;;
+        -p|--prompt) PROMPT_TEXT="$2"; shift 2 ;;
         -t|--token) TOKEN_ADDRESS="$2"; shift 2 ;;
         -i|--interval) POLL_INTERVAL="$2"; shift 2 ;;
         -w|--wait) INDEXING_WAIT="$2"; shift 2 ;;
@@ -35,8 +37,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate required parameters
-if [ -z "$AGENT_ADDRESS" ] || [ -z "$TWITTER_MESSAGE_ID" ]; then
-    echo "Error: Agent address and Twitter message ID are required"
+if [ -z "$AGENT_ADDRESS" ] || [ -z "$TWITTER_MESSAGE_ID" ] || [ -z "$PROMPT_TEXT" ]; then
+    echo "Error: Agent address, Twitter message ID, and prompt text are required"
     show_help
     exit 1
 fi
@@ -96,7 +98,7 @@ log "Submitting prompt payment..."
 PROMPT_RESP=$(sncast invoke \
     --contract-address "$AGENT_ADDRESS" \
     --function pay_for_prompt \
-    --arguments "$TWITTER_MESSAGE_ID" \
+    --arguments "$TWITTER_MESSAGE_ID, \"$PROMPT_TEXT\"" \
     --fee-token strk)
 
 PROMPT_TX_HASH=$(echo "$PROMPT_RESP" | awk '/transaction_hash:/ {print $2}')

@@ -520,7 +520,6 @@ func NewMockAgentConfig(config *MockAgentConfigConfig) (*agent.AgentConfig, erro
 		AgentIndexer: agentIndexer,
 		EventWatcher: eventWatcher,
 
-		TickRate:             config.MockTickRate,
 		AgentRegistryAddress: config.MockAgentRegistryAddress,
 	}, nil
 }
@@ -734,7 +733,7 @@ func TestProcessPromptPaidEvent(t *testing.T) {
 				User:     userAddress,
 				PromptID: tt.promptID,
 				TweetID:  tt.tweetID,
-				Amount:   big.NewInt(100),
+				Prompt:   "test prompt",
 			}, 1)
 
 			if tt.expectedError && err == nil {

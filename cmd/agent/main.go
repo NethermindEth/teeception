@@ -34,14 +34,15 @@ func main() {
 			AccessToken:       output.TwitterAccessToken,
 			AccessTokenSecret: output.TwitterAccessTokenSecret,
 		},
-		OpenAIKey:              output.OpenAIKey,
-		StarknetRpcUrls:        output.StarknetRpcUrls,
-		DstackTappdEndpoint:    output.DstackTappdEndpoint,
-		StarknetPrivateKeySeed: output.StarknetPrivateKeySeed,
-		AgentRegistryAddress:   output.AgentRegistryAddress,
-		TaskConcurrency:        10,
-		TickRate:               10 * time.Second,
-		SafeBlockDelta:         0,
+		OpenAIKey:                    output.OpenAIKey,
+		StarknetRpcUrls:              output.StarknetRpcUrls,
+		DstackTappdEndpoint:          output.DstackTappdEndpoint,
+		StarknetPrivateKeySeed:       output.StarknetPrivateKeySeed,
+		AgentRegistryAddress:         output.AgentRegistryAddress,
+		AgentRegistryDeploymentBlock: output.AgentRegistryDeploymentBlock,
+		TaskConcurrency:              10,
+		TickRate:                     10 * time.Second,
+		SafeBlockDelta:               0,
 	})
 	if err != nil {
 		slog.Error("failed to create agent config", "error", err)

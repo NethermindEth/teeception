@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
@@ -24,10 +25,7 @@ import (
 )
 
 var (
-	promptPaidSelector      = starknetgoutils.GetSelectorFromNameFelt("PromptPaid")
-	getSystemPromptSelector = starknetgoutils.GetSelectorFromNameFelt("get_system_prompt")
-	consumePromptSelector   = starknetgoutils.GetSelectorFromNameFelt("consume_prompt")
-	transferSelector        = starknetgoutils.GetSelectorFromNameFelt("transfer")
+	consumePromptSelector = starknetgoutils.GetSelectorFromNameFelt("consume_prompt")
 )
 
 const (
@@ -37,16 +35,17 @@ const (
 )
 
 type AgentConfigParams struct {
-	TwitterClientMode      string
-	TwitterClientConfig    *twitter.TwitterClientConfig
-	OpenAIKey              string
-	DstackTappdEndpoint    string
-	StarknetRpcUrls        []string
-	StarknetPrivateKeySeed []byte
-	AgentRegistryAddress   *felt.Felt
-	TaskConcurrency        int
-	TickRate               time.Duration
-	SafeBlockDelta         uint64
+	TwitterClientMode            string
+	TwitterClientConfig          *twitter.TwitterClientConfig
+	OpenAIKey                    string
+	DstackTappdEndpoint          string
+	StarknetRpcUrls              []string
+	StarknetPrivateKeySeed       []byte
+	AgentRegistryAddress         *felt.Felt
+	AgentRegistryDeploymentBlock uint64
+	TaskConcurrency              int
+	TickRate                     time.Duration
+	SafeBlockDelta               uint64
 }
 
 type AgentConfig struct {
@@ -65,8 +64,9 @@ type AgentConfig struct {
 
 	Pool pond.Pool
 
-	TickRate             time.Duration
+	StartupBlockNumber   uint64
 	AgentRegistryAddress *felt.Felt
+	AgentRegistryBlock   uint64
 }
 
 func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
@@ -118,15 +118,21 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          starknetClient,
 		SafeBlockDelta:  params.SafeBlockDelta,
-		TickRate:        1 * time.Second,
+		TickRate:        5 * time.Second,
 		StartupTickRate: 1 * time.Second,
 		IndexChunkSize:  1000,
 		RegistryAddress: params.AgentRegistryAddress,
+		InitialState: &indexer.EventWatcherInitialState{
+			LastIndexedBlock: max(params.AgentRegistryDeploymentBlock, 1) - 1,
+		},
 	})
 
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          starknetClient,
 		RegistryAddress: params.AgentRegistryAddress,
+		InitialState: &indexer.AgentIndexerInitialState{
+			Db: indexer.NewAgentIndexerDatabaseInMemory(max(params.AgentRegistryDeploymentBlock, 1) - 1),
+		},
 	})
 
 	privateKey := snaccount.NewPrivateKey(params.StarknetPrivateKeySeed)
@@ -144,8 +150,22 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		SubmissionInterval: 20 * time.Second,
 	})
 
+	var startupBlockNumber uint64
+	if err := starknetClient.Do(func(provider rpc.RpcProvider) error {
+		blockNumber, err := provider.BlockNumber(context.Background())
+		if err != nil {
+			return err
+		}
+		startupBlockNumber = blockNumber
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to get startup block number: %v", err)
+	}
+
 	return &AgentConfig{
-		TwitterClient:  twitterClient,
+		TwitterClient:       twitterClient,
+		TwitterClientConfig: params.TwitterClientConfig,
+
 		ChatCompletion: openaiClient,
 		StarknetClient: starknetClient,
 		Quoter:         quoter,
@@ -157,8 +177,9 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 
 		Pool: pond.NewPool(params.TaskConcurrency),
 
-		TickRate:             params.TickRate,
+		StartupBlockNumber:   startupBlockNumber,
 		AgentRegistryAddress: params.AgentRegistryAddress,
+		AgentRegistryBlock:   params.AgentRegistryDeploymentBlock,
 	}, nil
 }
 
@@ -178,12 +199,12 @@ type Agent struct {
 
 	pool pond.Pool
 
-	tickRate             time.Duration
+	startupBlockNumber   uint64
 	agentRegistryAddress *felt.Felt
+	agentRegistryBlock   uint64
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
-
 	slog.Info("agent initialized successfully", "account_address", config.Account.Address())
 
 	return &Agent{
@@ -201,8 +222,9 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 		pool: config.Pool,
 
-		tickRate:             config.TickRate,
+		startupBlockNumber:   config.StartupBlockNumber,
 		agentRegistryAddress: config.AgentRegistryAddress,
+		agentRegistryBlock:   config.AgentRegistryBlock,
 	}, nil
 }
 
@@ -234,23 +256,91 @@ func (a *Agent) Run(ctx context.Context) error {
 	subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, promptPaidCh)
 	defer a.eventWatcher.Unsubscribe(subID)
 
-	slog.Info("entering main loop")
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-time.After(a.tickRate):
-			err := a.Tick(ctx, promptPaidCh)
-			if err != nil {
-				slog.Warn("failed to tick", "error", err)
-			}
-		}
+	promptConsumedCh := make(chan *indexer.EventSubscriptionData, 1000)
+	subID = a.eventWatcher.Subscribe(indexer.EventPromptConsumed, promptConsumedCh)
+	defer a.eventWatcher.Unsubscribe(subID)
+
+	return a.ProcessEvents(ctx, promptPaidCh, promptConsumedCh)
+}
+
+type agentEventStartupController struct {
+	startupTasks       map[uint64]func()
+	finishedStartup    bool
+	startupBlockNumber uint64
+}
+
+func (a *agentEventStartupController) clearStartupTask(promptID uint64) {
+	a.startupTasks[promptID] = nil
+}
+
+func (a *agentEventStartupController) addStartupTask(promptID uint64, task func()) {
+	_, ok := a.startupTasks[promptID]
+	if !ok {
+		a.startupTasks[promptID] = task
 	}
 }
 
-func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData) error {
-	go func() {
-		for data := range promptPaidCh {
+func (a *agentEventStartupController) isStartup(block uint64) bool {
+	return block <= a.startupBlockNumber && !a.finishedStartup
+}
+
+func (a *agentEventStartupController) finishStartup(pool pond.Pool) {
+	for _, task := range a.startupTasks {
+		if task == nil {
+			continue
+		}
+
+		pool.Go(task)
+	}
+
+	a.startupTasks = nil
+	a.finishedStartup = true
+}
+
+func (a *agentEventStartupController) tryAddStartupTask(pool pond.Pool, block, promptID uint64, task func()) bool {
+	if a.finishedStartup {
+		return false
+	}
+
+	if block > a.startupBlockNumber {
+		a.finishStartup(pool)
+	} else {
+		a.addStartupTask(promptID, task)
+	}
+
+	return true
+}
+
+func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData, promptConsumedCh <-chan *indexer.EventSubscriptionData) error {
+	startupController := &agentEventStartupController{
+		startupTasks:       make(map[uint64]func()),
+		finishedStartup:    false,
+		startupBlockNumber: a.startupBlockNumber,
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case data := <-promptConsumedCh:
+			if data.FromBlock > a.startupBlockNumber {
+				continue
+			}
+
+			for _, ev := range data.Events {
+				if ev.Raw.BlockNumber > a.startupBlockNumber {
+					continue
+				}
+
+				promptConsumedEvent, ok := ev.ToPromptConsumedEvent()
+				if !ok {
+					slog.Warn("failed to convert event to prompt consumed event", "event", ev)
+					continue
+				}
+
+				startupController.clearStartupTask(promptConsumedEvent.PromptID)
+			}
+		case data := <-promptPaidCh:
 			for _, ev := range data.Events {
 				promptPaidEvent, ok := ev.ToPromptPaidEvent()
 				if !ok {
@@ -258,107 +348,115 @@ func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubs
 					continue
 				}
 
-				err := a.pool.Go(func() {
+				task := func() {
 					slog.Info("processing prompt paid event",
 						"agent_address", ev.Raw.FromAddress,
 						"from_address", promptPaidEvent.User,
 						"tweet_id", promptPaidEvent.TweetID)
 
-					err := a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
+					isPromptConsumed, err := a.isPromptConsumed(ctx, ev.Raw.FromAddress, promptPaidEvent.PromptID)
+					if err != nil {
+						slog.Warn("failed to check if prompt is consumed", "error", err)
+					}
+
+					if isPromptConsumed {
+						slog.Info("prompt already consumed", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
+						return
+					}
+
+					err = a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
 					if err != nil {
 						slog.Warn("failed to process prompt paid event", "error", err)
 					}
-				})
-				if err != nil {
-					slog.Warn("failed to submit task to pool", "error", err)
+				}
+
+				isStartupTask := startupController.tryAddStartupTask(
+					a.pool,
+					ev.Raw.BlockNumber,
+					promptPaidEvent.PromptID,
+					task,
+				)
+				if !isStartupTask {
+					a.pool.Go(task)
 				}
 			}
 		}
-	}()
-
-	return nil
+	}
 }
 
 func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.Felt, promptPaidEvent *indexer.PromptPaidEvent, block uint64) error {
-	slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
-	tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
-	if err != nil {
-		return fmt.Errorf("failed to get tweet text: %v", err)
-	}
-
 	agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, agentAddress, block)
 	if err != nil {
 		return fmt.Errorf("failed to get agent info: %v", err)
 	}
 
-	return a.reactToTweet(ctx, agentInfo.Address, promptPaidEvent.PromptID, promptPaidEvent.TweetID, tweetText, agentInfo.SystemPrompt)
+	return a.reactToTweet(ctx, &agentInfo, promptPaidEvent)
 }
 
-func (a *Agent) reactToTweet(ctx context.Context, agentAddress *felt.Felt, promptID, tweetID uint64, tweetText string, systemPrompt string) error {
-	slog.Info("generating AI response", "tweet_id", tweetID)
+func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) error {
+	slog.Info("generating AI response", "tweet_id", promptPaidEvent.TweetID)
 
-	resp, err := a.chatCompletion.Prompt(ctx, systemPrompt, tweetText)
+	resp, err := a.chatCompletion.Prompt(ctx, agentInfo.SystemPrompt, promptPaidEvent.Prompt)
 	if err != nil {
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
 
-	slog.Info("replying to tweet", "tweet_id", tweetID, "prompt_id", promptID)
+	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID)
 
-	err = a.consumePrompt(ctx, agentAddress, promptID)
+	isDrain := resp.Drain != nil
+
+	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, isDrain, resp.Drain.Address)
 	if err != nil {
 		return fmt.Errorf("failed to consume prompt: %v", err)
 	}
 
 	if !debug.IsDebugDisableReplies() {
-		a.twitterClient.ReplyToTweet(tweetID, resp.Response)
-	}
-
-	if resp.Drain != nil {
-		err := a.drainAndReply(ctx, agentAddress, resp.Drain.Address, tweetID)
+		slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
+		tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 		if err != nil {
-			return fmt.Errorf("failed to drain and reply: %v", err)
+			slog.Warn("failed to get tweet text", "error", err)
+			return nil
+		}
+
+		if !debug.IsDebugDisableTweetValidation() {
+			err := a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
+			if err != nil {
+				slog.Warn("tweet text validation failed", "error", err)
+				return nil
+			}
+		}
+
+		if isDrain {
+			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentInfo.Address, resp.Drain.Address, txHash))
+			if err != nil {
+				slog.Warn("failed to reply to tweet", "error", err)
+			}
+		}
+		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, resp.Response)
+		if err != nil {
+			slog.Warn("failed to reply to tweet", "error", err)
 		}
 	}
 
 	return nil
 }
 
-func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64) error {
+func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64, drain bool, drainToStr string) (*felt.Felt, error) {
+	var drainTo *felt.Felt
+	if !drain {
+		drainTo = agentAddress
+	} else {
+		var err error
+		drainTo, err = starknetgoutils.HexToFelt(drainToStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert address to felt: %v", err)
+		}
+	}
+
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    a.agentRegistryAddress,
 		EntryPointSelector: consumePromptSelector,
-		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID)},
-	}
-
-	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
-	if err != nil {
-		return fmt.Errorf("failed to enqueue transaction: %v", err)
-	}
-
-	go func() {
-		txHash, err := snaccount.WaitForResult(ch)
-		if err != nil {
-			slog.Warn("failed to wait for transaction result", "error", err)
-		}
-
-		slog.Info("transaction broadcast successful", "tx_hash", txHash)
-	}()
-
-	return nil
-}
-
-func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr string) (*felt.Felt, error) {
-	slog.Info("initiating drain transaction")
-
-	addressFelt, err := starknetgoutils.HexToFelt(addressStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert address to felt: %v", err)
-	}
-
-	fnCall := rpc.FunctionCall{
-		ContractAddress:    a.agentRegistryAddress,
-		EntryPointSelector: transferSelector,
-		Calldata:           []*felt.Felt{agentAddress, addressFelt},
+		Calldata:           []*felt.Felt{agentAddress, new(felt.Felt).SetUint64(promptID), drainTo},
 	}
 
 	ch, err := a.txQueue.Enqueue(ctx, []rpc.FunctionCall{fnCall})
@@ -366,28 +464,14 @@ func (a *Agent) drain(ctx context.Context, agentAddress *felt.Felt, addressStr s
 		return nil, fmt.Errorf("failed to enqueue transaction: %v", err)
 	}
 
-	txHash, err := snaccount.WaitForResult(ch)
+	txHash, err := snaccount.WaitForResult(ctx, ch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to wait for transaction result: %v", err)
 	}
 
 	slog.Info("transaction broadcast successful", "tx_hash", txHash)
+
 	return txHash, nil
-}
-
-func (a *Agent) drainAndReply(ctx context.Context, agentAddress *felt.Felt, addressStr string, tweetID uint64) error {
-	txHash, err := a.drain(ctx, agentAddress, addressStr)
-	if err != nil {
-		return fmt.Errorf("failed to drain: %v", err)
-	}
-
-	slog.Info("draining successful", "tx_hash", txHash, "tweet_id", tweetID)
-
-	if debug.IsDebugDisableReplies() {
-		return nil
-	}
-
-	return a.twitterClient.ReplyToTweet(tweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentAddress, addressStr, txHash))
 }
 
 func (a *Agent) quote(ctx context.Context) (string, error) {
@@ -405,4 +489,76 @@ func (a *Agent) quote(ctx context.Context) (string, error) {
 	slog.Info("quote generated successfully")
 
 	return quote, nil
+}
+
+func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error {
+	expectedPrefix := "@" + a.twitterClientConfig.Username
+	if !strings.HasPrefix(tweetText, expectedPrefix) {
+		return fmt.Errorf("tweet text does not start with expected prefix")
+	}
+
+	// Skip past the username
+	tweetPastUsername := strings.TrimSpace(tweetText[len(expectedPrefix):])
+
+	// Check for agent name format ":name:"
+	if !strings.HasPrefix(tweetPastUsername, ":") {
+		return fmt.Errorf("tweet text missing agent name delimiter")
+	}
+
+	endColonIndex := strings.Index(tweetPastUsername[1:], ":")
+	if endColonIndex == -1 {
+		return fmt.Errorf("tweet text missing closing agent name delimiter")
+	}
+	endColonIndex++ // Adjust for the offset from tweetPastUsername[1:]
+
+	tweetAgentName := tweetPastUsername[1:endColonIndex]
+	if len(agentName) == 0 {
+		return fmt.Errorf("tweet text has empty agent name")
+	}
+
+	if tweetAgentName != agentName {
+		return fmt.Errorf("tweet text has incorrect agent name")
+	}
+
+	if endColonIndex == len(tweetPastUsername) {
+		return fmt.Errorf("tweet text has no prompt text")
+	}
+
+	tweetPromptText := strings.TrimSpace(tweetPastUsername[endColonIndex+1:])
+
+	if tweetPromptText != promptText {
+		return fmt.Errorf("tweet text has incorrect prompt text")
+	}
+
+	return nil
+}
+
+func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, promptID uint64) (bool, error) {
+	fnCall := rpc.FunctionCall{
+		ContractAddress:    agentAddress,
+		EntryPointSelector: starknetgoutils.GetSelectorFromNameFelt("get_pending_prompt"),
+		Calldata:           []*felt.Felt{new(felt.Felt).SetUint64(promptID)},
+	}
+
+	var resp []*felt.Felt
+	var err error
+
+	if err := a.starknetClient.Do(func(provider rpc.RpcProvider) error {
+		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
+		snaccount.LogRpcError(err)
+		return false, fmt.Errorf("failed to call get_pending_prompt: %v", err)
+	}
+
+	// The pending prompt struct has 3 fields:
+	// - reclaimer: ContractAddress
+	// - amount: u256 (2 felts)
+	// - timestamp: u64
+	if len(resp) < 4 {
+		return false, fmt.Errorf("invalid response length: got %d, want at least 4", len(resp))
+	}
+
+	// Check if reclaimer is zero address (indicating consumed)
+	return resp[0].IsZero(), nil
 }

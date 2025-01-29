@@ -24,18 +24,16 @@ type TokenInfo struct {
 
 // TokenIndexer processes token events and tracks token prices.
 type TokenIndexer struct {
-	tokensMu         sync.RWMutex
-	tokens           map[[32]byte]*TokenInfo
-	lastIndexedBlock uint64
-	registryAddress  *felt.Felt
-	priceFeed        price.PriceFeed
-	priceTickRate    time.Duration
+	dbMu            sync.RWMutex
+	db              TokenIndexerDatabase
+	registryAddress *felt.Felt
+	priceFeed       price.PriceFeed
+	priceTickRate   time.Duration
 }
 
 // TokenIndexerInitialState is the initial state for a TokenIndexer.
 type TokenIndexerInitialState struct {
-	Tokens           map[[32]byte]*TokenInfo
-	LastIndexedBlock uint64
+	Db TokenIndexerDatabase
 }
 
 // TokenIndexerConfig is the configuration for a TokenIndexer.
@@ -50,17 +48,15 @@ type TokenIndexerConfig struct {
 func NewTokenIndexer(cfg *TokenIndexerConfig) *TokenIndexer {
 	if cfg.InitialState == nil {
 		cfg.InitialState = &TokenIndexerInitialState{
-			Tokens:           make(map[[32]byte]*TokenInfo),
-			LastIndexedBlock: 0,
+			Db: NewTokenIndexerDatabaseInMemory(0),
 		}
 	}
 
 	return &TokenIndexer{
-		tokens:           cfg.InitialState.Tokens,
-		lastIndexedBlock: cfg.InitialState.LastIndexedBlock,
-		priceFeed:        cfg.PriceFeed,
-		priceTickRate:    cfg.PriceTickRate,
-		registryAddress:  cfg.RegistryAddress,
+		db:              cfg.InitialState.Db,
+		priceFeed:       cfg.PriceFeed,
+		priceTickRate:   cfg.PriceTickRate,
+		registryAddress: cfg.RegistryAddress,
 	}
 }
 
@@ -92,7 +88,7 @@ func (i *TokenIndexer) run(ctx context.Context, watcher *EventWatcher) error {
 	for {
 		select {
 		case data := <-ch:
-			i.tokensMu.Lock()
+			i.dbMu.Lock()
 			for _, ev := range data.Events {
 				switch ev.Type {
 				case EventTokenAdded:
@@ -101,8 +97,8 @@ func (i *TokenIndexer) run(ctx context.Context, watcher *EventWatcher) error {
 					i.onTokenRemoved(ev)
 				}
 			}
-			i.lastIndexedBlock = data.ToBlock
-			i.tokensMu.Unlock()
+			i.db.SetLastIndexedBlock(data.ToBlock)
+			i.dbMu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -116,12 +112,9 @@ func (i *TokenIndexer) updatePricesTask(ctx context.Context) error {
 	for {
 		select {
 		case <-ticker.C:
-			i.tokensMu.RLock()
-			tokens := make(map[[32]byte]*TokenInfo)
-			for token := range i.tokens {
-				tokens[token] = i.tokens[token]
-			}
-			i.tokensMu.RUnlock()
+			i.dbMu.RLock()
+			tokens := i.db.GetTokens()
+			i.dbMu.RUnlock()
 
 			token := new(felt.Felt)
 			for tokenBytes := range tokens {
@@ -135,9 +128,11 @@ func (i *TokenIndexer) updatePricesTask(ctx context.Context) error {
 				tokens[tokenBytes].RateTime = time.Now()
 			}
 
-			i.tokensMu.Lock()
-			i.tokens = tokens
-			i.tokensMu.Unlock()
+			i.dbMu.Lock()
+			for tokenBytes, info := range tokens {
+				i.db.SetTokenInfo(tokenBytes, info)
+			}
+			i.dbMu.Unlock()
 
 		case <-ctx.Done():
 			return ctx.Err()
@@ -157,10 +152,10 @@ func (i *TokenIndexer) onTokenAdded(ev *Event) {
 		return
 	}
 
-	i.tokens[tokenAddedEv.Token.Bytes()] = &TokenInfo{
+	i.db.SetTokenInfo(tokenAddedEv.Token.Bytes(), &TokenInfo{
 		MinPromptPrice:    tokenAddedEv.MinPromptPrice,
 		MinInitialBalance: tokenAddedEv.MinInitialBalance,
-	}
+	})
 }
 
 func (i *TokenIndexer) onTokenRemoved(ev *Event) {
@@ -175,15 +170,15 @@ func (i *TokenIndexer) onTokenRemoved(ev *Event) {
 		return
 	}
 
-	delete(i.tokens, tokenRemovedEv.Token.Bytes())
+	i.db.SetTokenInfo(tokenRemovedEv.Token.Bytes(), nil)
 }
 
 // GetTokenMinPromptPrice returns a token's minimum prompt price, if it exists.
 func (i *TokenIndexer) GetTokenMinPromptPrice(token *felt.Felt) (*big.Int, bool) {
-	i.tokensMu.RLock()
-	defer i.tokensMu.RUnlock()
+	i.dbMu.RLock()
+	defer i.dbMu.RUnlock()
 
-	tokenInfo, ok := i.tokens[token.Bytes()]
+	tokenInfo, ok := i.db.GetTokenInfo(token.Bytes())
 	if !ok {
 		return nil, false
 	}
@@ -193,10 +188,10 @@ func (i *TokenIndexer) GetTokenMinPromptPrice(token *felt.Felt) (*big.Int, bool)
 
 // GetTokenMinInitialBalance returns a token's minimum initial balance, if it exists.
 func (i *TokenIndexer) GetTokenMinInitialBalance(token *felt.Felt) (*big.Int, bool) {
-	i.tokensMu.RLock()
-	defer i.tokensMu.RUnlock()
+	i.dbMu.RLock()
+	defer i.dbMu.RUnlock()
 
-	tokenInfo, ok := i.tokens[token.Bytes()]
+	tokenInfo, ok := i.db.GetTokenInfo(token.Bytes())
 	if !ok {
 		return nil, false
 	}
@@ -206,10 +201,10 @@ func (i *TokenIndexer) GetTokenMinInitialBalance(token *felt.Felt) (*big.Int, bo
 
 // GetTokenRate returns a token's rate, if it exists.
 func (i *TokenIndexer) GetTokenRate(token *felt.Felt) (*big.Int, bool) {
-	i.tokensMu.RLock()
-	defer i.tokensMu.RUnlock()
+	i.dbMu.RLock()
+	defer i.dbMu.RUnlock()
 
-	tokenInfo, ok := i.tokens[token.Bytes()]
+	tokenInfo, ok := i.db.GetTokenInfo(token.Bytes())
 	if !ok {
 		return nil, false
 	}
@@ -223,16 +218,16 @@ func (i *TokenIndexer) GetTokenRate(token *felt.Felt) (*big.Int, bool) {
 
 // GetLastIndexedBlock returns the last indexed block.
 func (i *TokenIndexer) GetLastIndexedBlock() uint64 {
-	i.tokensMu.RLock()
-	defer i.tokensMu.RUnlock()
+	i.dbMu.RLock()
+	defer i.dbMu.RUnlock()
 
-	return i.lastIndexedBlock
+	return i.db.GetLastIndexedBlock()
 }
 
 // ReadState reads the current state of the indexer.
-func (i *TokenIndexer) ReadState(f func(map[[32]byte]*TokenInfo, uint64)) {
-	i.tokensMu.RLock()
-	defer i.tokensMu.RUnlock()
+func (i *TokenIndexer) ReadState(f func(TokenIndexerDatabaseReader)) {
+	i.dbMu.RLock()
+	defer i.dbMu.RUnlock()
 
-	f(i.tokens, i.lastIndexedBlock)
+	f(i.db)
 }

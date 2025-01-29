@@ -20,6 +20,7 @@ services:
       PROTONMAIL_PASSWORD: "your_proton_password"
       STARKNET_RPC_URLS: "your_starknet_rpc_url1 your_starknet_rpc_url2"
       CONTRACT_ADDRESS: "your_contract_address"
+      CONTRACT_DEPLOYMENT_BLOCK: "100"
       OPENAI_API_KEY: "your_openai_api_key"
       X_LOGIN_SERVER_IP: "your_twitter_login_server_ip"
       X_LOGIN_SERVER_PORT: "your_twitter_login_server_port"

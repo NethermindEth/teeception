@@ -31,11 +31,10 @@ type UIServiceConfig struct {
 }
 
 type UIService struct {
-	eventWatcher         *indexer.EventWatcher
-	agentIndexer         *indexer.AgentIndexer
-	agentMetadataIndexer *indexer.AgentMetadataIndexer
-	agentBalanceIndexer  *indexer.AgentBalanceIndexer
-	tokenIndexer         *indexer.TokenIndexer
+	eventWatcher        *indexer.EventWatcher
+	agentIndexer        *indexer.AgentIndexer
+	agentBalanceIndexer *indexer.AgentBalanceIndexer
+	tokenIndexer        *indexer.TokenIndexer
 
 	registryAddress *felt.Felt
 
@@ -63,16 +62,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.AgentIndexerInitialState{
-			Agents:           make(map[[32]byte]indexer.AgentInfo),
-			LastIndexedBlock: lastIndexedBlock,
-		},
-	})
-	agentMetadataIndexer := indexer.NewAgentMetadataIndexer(&indexer.AgentMetadataIndexerConfig{
-		Client:          config.Client,
-		RegistryAddress: config.RegistryAddress,
-		InitialState: &indexer.AgentMetadataIndexerInitialState{
-			Metadata:         make(map[[32]byte]indexer.AgentMetadata),
-			LastIndexedBlock: config.StartingBlock - 1,
+			Db: indexer.NewAgentIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
 	priceFeed := price.NewStaticPriceFeed(config.TokenRates)
@@ -81,30 +71,26 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		PriceTickRate:   config.PriceTickRate,
 		RegistryAddress: config.RegistryAddress,
 		InitialState: &indexer.TokenIndexerInitialState{
-			Tokens:           make(map[[32]byte]*indexer.TokenInfo),
-			LastIndexedBlock: lastIndexedBlock,
+			Db: indexer.NewTokenIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
 	agentBalanceIndexer := indexer.NewAgentBalanceIndexer(&indexer.AgentBalanceIndexerConfig{
 		Client:          config.Client,
 		AgentIdx:        agentIndexer,
-		MetaIdx:         agentMetadataIndexer,
 		TickRate:        config.BalanceTickRate,
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
 		InitialState: &indexer.AgentBalanceIndexerInitialState{
-			Balances:         make(map[[32]byte]*indexer.AgentBalance),
-			LastIndexedBlock: lastIndexedBlock,
+			Db: indexer.NewAgentBalanceIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
 
 	return &UIService{
-		eventWatcher:         eventWatcher,
-		agentIndexer:         agentIndexer,
-		agentMetadataIndexer: agentMetadataIndexer,
-		agentBalanceIndexer:  agentBalanceIndexer,
-		tokenIndexer:         tokenIndexer,
+		eventWatcher:        eventWatcher,
+		agentIndexer:        agentIndexer,
+		agentBalanceIndexer: agentBalanceIndexer,
+		tokenIndexer:        tokenIndexer,
 
 		registryAddress: config.RegistryAddress,
 
@@ -121,9 +107,6 @@ func (s *UIService) Run(ctx context.Context) error {
 	})
 	g.Go(func() error {
 		return s.agentIndexer.Run(ctx, s.eventWatcher)
-	})
-	g.Go(func() error {
-		return s.agentMetadataIndexer.Run(ctx, s.eventWatcher)
 	})
 	g.Go(func() error {
 		return s.agentBalanceIndexer.Run(ctx, s.eventWatcher)
@@ -169,6 +152,7 @@ type AgentData struct {
 	Token   string `json:"token"`
 	Name    string `json:"name"`
 	Balance string `json:"balance"`
+	EndTime string `json:"end_time"`
 }
 
 type AgentPageResponse struct {
@@ -187,6 +171,7 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 
 	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(s.pageSize), uint64(page+1)*uint64(s.pageSize))
 	if err != nil {
+		slog.Error("error fetching agent leaderboard", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})
 		return
 	}
@@ -214,6 +199,7 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			Name:    info.Name,
 			Token:   balance.Token.String(),
 			Balance: balance.Amount.String(),
+			EndTime: strconv.FormatUint(balance.EndTime, 10),
 		})
 	}
 

@@ -2,19 +2,29 @@ use core::starknet::{ContractAddress, ClassHash};
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 pub struct TokenParams {
-    min_prompt_price: u256,
-    min_initial_balance: u256,
+    pub min_prompt_price: u256,
+    pub min_initial_balance: u256,
 }
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 struct PendingPrompt {
-    reclaimer: ContractAddress,
-    amount: u256,
-    timestamp: u64,
+    pub reclaimer: ContractAddress,
+    pub amount: u256,
+    pub timestamp: u64,
 }
 
 #[starknet::interface]
 pub trait IAgentRegistry<TContractState> {
+    fn get_agent(self: @TContractState, idx: u64) -> ContractAddress;
+    fn get_agents_count(self: @TContractState) -> u64;
+    fn get_agents(self: @TContractState, start: u64, end: u64) -> Array<ContractAddress>;
+    fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
+    fn get_tee(self: @TContractState) -> ContractAddress;
+    fn get_agent_class_hash(self: @TContractState) -> ClassHash;
+
+    fn pause(ref self: TContractState);
+    fn unpause(ref self: TContractState);
+
     fn register_agent(
         ref self: TContractState,
         name: ByteArray,
@@ -22,13 +32,14 @@ pub trait IAgentRegistry<TContractState> {
         token: ContractAddress,
         prompt_price: u256,
         initial_balance: u256,
+        end_time: u64,
     ) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
-    fn get_agents(self: @TContractState) -> Array<ContractAddress>;
-    fn transfer(ref self: TContractState, agent: ContractAddress, recipient: ContractAddress);
-    fn consume_prompt(ref self: TContractState, agent: ContractAddress, prompt_id: u64);
-    fn pause(ref self: TContractState);
-    fn unpause(ref self: TContractState);
+
+    fn consume_prompt(
+        ref self: TContractState, agent: ContractAddress, prompt_id: u64, drain_to: ContractAddress,
+    );
+
     fn add_supported_token(
         ref self: TContractState,
         token: ContractAddress,
@@ -37,27 +48,44 @@ pub trait IAgentRegistry<TContractState> {
     );
     fn remove_supported_token(ref self: TContractState, token: ContractAddress);
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
-    fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
-    fn get_tee(self: @TContractState) -> ContractAddress;
-    fn get_agent_class_hash(self: @TContractState) -> ClassHash;
 }
 
 #[starknet::interface]
 pub trait IAgent<TContractState> {
+    fn pay_for_prompt(ref self: TContractState, tweet_id: u64, prompt: ByteArray) -> u64;
+    fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
+    fn consume_prompt(ref self: TContractState, prompt_id: u64, drain_to: ContractAddress);
+    fn withdraw(ref self: TContractState);
+
     fn get_system_prompt(self: @TContractState) -> ByteArray;
     fn get_name(self: @TContractState) -> ByteArray;
     fn get_creator(self: @TContractState) -> ContractAddress;
     fn get_prompt_price(self: @TContractState) -> u256;
+    fn get_prize_pool(self: @TContractState) -> u256;
+    fn get_pending_pool(self: @TContractState) -> u256;
     fn get_token(self: @TContractState) -> ContractAddress;
     fn get_registry(self: @TContractState) -> ContractAddress;
     fn get_next_prompt_id(self: @TContractState) -> u64;
     fn get_pending_prompt(self: @TContractState, prompt_id: u64) -> PendingPrompt;
     fn get_prompt_count(self: @TContractState) -> u64;
-    fn transfer(ref self: TContractState, recipient: ContractAddress);
-    fn pay_for_prompt(ref self: TContractState, twitter_message_id: u64) -> u64;
-    fn is_prompt_paid(self: @TContractState, prompt_id: u64) -> bool;
-    fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
-    fn consume_prompt(ref self: TContractState, prompt_id: u64);
+    fn get_end_time(self: @TContractState) -> u64;
+    fn get_is_drained(self: @TContractState) -> bool;
+    fn get_user_tweet_prompt(
+        self: @TContractState, user: ContractAddress, tweet_id: u64, idx: u64,
+    ) -> u64;
+    fn get_user_tweet_prompts_count(
+        self: @TContractState, user: ContractAddress, tweet_id: u64,
+    ) -> u64;
+    fn get_user_tweet_prompts(
+        self: @TContractState, user: ContractAddress, tweet_id: u64, start: u64, end: u64,
+    ) -> Array<u64>;
+    fn is_finalized(self: @TContractState) -> bool;
+
+    fn RECLAIM_DELAY(self: @TContractState) -> u64;
+    fn PROMPT_REWARD_BPS(self: @TContractState) -> u16;
+    fn CREATOR_REWARD_BPS(self: @TContractState) -> u16;
+    fn PROTOCOL_FEE_BPS(self: @TContractState) -> u16;
+    fn BPS_DENOMINATOR(self: @TContractState) -> u16;
 }
 
 #[starknet::contract]
@@ -103,6 +131,9 @@ pub mod AgentRegistry {
         pub agent: ContractAddress,
         #[key]
         pub creator: ContractAddress,
+        pub prompt_price: u256,
+        pub token: ContractAddress,
+        pub end_time: u64,
         pub name: ByteArray,
         pub system_prompt: ByteArray,
     }
@@ -155,6 +186,7 @@ pub mod AgentRegistry {
             token: ContractAddress,
             prompt_price: u256,
             initial_balance: u256,
+            end_time: u64,
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
 
@@ -174,6 +206,7 @@ pub mod AgentRegistry {
             token.serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
             creator.serialize(ref constructor_calldata);
+            end_time.serialize(ref constructor_calldata);
 
             let (deployed_address, _) = deploy_syscall(
                 self.agent_class_hash.read(), 0, constructor_calldata.span(), false,
@@ -189,16 +222,40 @@ pub mod AgentRegistry {
             self
                 .emit(
                     Event::AgentRegistered(
-                        AgentRegistered { agent: deployed_address, creator, name, system_prompt },
+                        AgentRegistered {
+                            agent: deployed_address,
+                            creator,
+                            name,
+                            system_prompt,
+                            token,
+                            prompt_price,
+                            end_time,
+                        },
                     ),
                 );
 
             deployed_address
         }
 
-        fn get_agents(self: @ContractState) -> Array<ContractAddress> {
+        fn get_agent(self: @ContractState, idx: u64) -> ContractAddress {
+            self.agents.at(idx).read()
+        }
+
+        fn get_agents_count(self: @ContractState) -> u64 {
+            self.agents.len()
+        }
+
+        fn get_agents(self: @ContractState, start: u64, mut end: u64) -> Array<ContractAddress> {
+            let agents_len = self.agents.len();
+
+            assert(start < end, 'Invalid range');
+
+            if end > agents_len {
+                end = agents_len;
+            }
+
             let mut addresses = array![];
-            for i in 0..self.agents.len() {
+            for i in start..end {
                 addresses.append(self.agents.at(i).read());
             };
             addresses
@@ -208,17 +265,16 @@ pub mod AgentRegistry {
             self.agent_registered.read(address)
         }
 
-        fn transfer(ref self: ContractState, agent: ContractAddress, recipient: ContractAddress) {
-            self.pausable.assert_not_paused();
-
-            assert(get_caller_address() == self.tee.read(), 'Only tee can transfer');
-            IAgentDispatcher { contract_address: agent }.transfer(recipient);
-        }
-
-        fn consume_prompt(ref self: ContractState, agent: ContractAddress, prompt_id: u64) {
+        fn consume_prompt(
+            ref self: ContractState,
+            agent: ContractAddress,
+            prompt_id: u64,
+            drain_to: ContractAddress,
+        ) {
             self.pausable.assert_not_paused();
             assert(get_caller_address() == self.tee.read(), 'Only tee can consume');
-            IAgentDispatcher { contract_address: agent }.consume_prompt(prompt_id);
+
+            IAgentDispatcher { contract_address: agent }.consume_prompt(prompt_id, drain_to);
         }
 
         fn pause(ref self: ContractState) {
@@ -277,7 +333,7 @@ pub mod AgentRegistry {
 pub mod Agent {
     use core::starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
-        StoragePointerWriteAccess,
+        StoragePathEntry, StoragePointerWriteAccess, Vec, VecTrait, MutableVecTrait,
     };
     use core::starknet::{
         ContractAddress, get_caller_address, get_contract_address, get_block_timestamp,
@@ -289,13 +345,6 @@ pub mod Agent {
     };
 
     use super::PendingPrompt;
-
-    #[derive(Drop, starknet::Event)]
-    pub struct Deposit {
-        #[key]
-        pub depositor: ContractAddress,
-        pub tweet_id: felt252,
-    }
 
     const PROMPT_REWARD_BPS: u16 = 7000; // 70% goes to agent
     const CREATOR_REWARD_BPS: u16 = 2000; // 20% goes to prompt creator
@@ -318,8 +367,8 @@ pub mod Agent {
         #[key]
         pub prompt_id: u64,
         #[key]
-        pub twitter_message_id: u64,
-        pub amount: u256,
+        pub tweet_id: u64,
+        pub prompt: ByteArray,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -329,6 +378,7 @@ pub mod Agent {
         pub amount: u256,
         pub creator_fee: u256,
         pub protocol_fee: u256,
+        pub drained_to: ContractAddress,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -346,9 +396,13 @@ pub mod Agent {
         name: ByteArray,
         token: ContractAddress,
         prompt_price: u256,
+        pending_pool: u256,
         creator: ContractAddress,
         pending_prompts: Map::<u64, PendingPrompt>,
+        user_tweet_prompts: Map::<ContractAddress, Map<u64, Vec<u64>>>,
         next_prompt_id: u64,
+        end_time: u64,
+        is_drained: bool,
     }
 
     #[constructor]
@@ -360,6 +414,7 @@ pub mod Agent {
         token: ContractAddress,
         prompt_price: u256,
         creator: ContractAddress,
+        end_time: u64,
     ) {
         self.registry.write(registry);
         self.name.write(name);
@@ -368,6 +423,7 @@ pub mod Agent {
         self.prompt_price.write(prompt_price);
         self.creator.write(creator);
         self.next_prompt_id.write(1_u64);
+        self.end_time.write(end_time);
     }
 
     #[abi(embed_v0)]
@@ -382,6 +438,14 @@ pub mod Agent {
 
         fn get_prompt_price(self: @ContractState) -> u256 {
             self.prompt_price.read()
+        }
+
+        fn get_prize_pool(self: @ContractState) -> u256 {
+            self._get_prize_pool(IERC20Dispatcher { contract_address: self.token.read() })
+        }
+
+        fn get_pending_pool(self: @ContractState) -> u256 {
+            self.pending_pool.read()
         }
 
         fn get_creator(self: @ContractState) -> ContractAddress {
@@ -408,22 +472,64 @@ pub mod Agent {
             self.next_prompt_id.read() - 1
         }
 
-        fn transfer(ref self: ContractState, recipient: ContractAddress) {
-            let registry = self.registry.read();
-
-            assert(get_caller_address() == registry, 'Only registry can transfer');
-
-            let token = self.token.read();
-            let balance = IERC20Dispatcher { contract_address: token }
-                .balance_of(get_contract_address());
-            IERC20Dispatcher { contract_address: token }.transfer(recipient, balance);
+        fn get_user_tweet_prompt(
+            self: @ContractState, user: ContractAddress, tweet_id: u64, idx: u64,
+        ) -> u64 {
+            let vec = self.user_tweet_prompts.entry(user).entry(tweet_id);
+            vec.at(idx).read()
         }
 
-        fn pay_for_prompt(ref self: ContractState, twitter_message_id: u64) -> u64 {
-            let registry = self.registry.read();
+        fn get_user_tweet_prompts_count(
+            self: @ContractState, user: ContractAddress, tweet_id: u64,
+        ) -> u64 {
+            self.user_tweet_prompts.entry(user).entry(tweet_id).len()
+        }
 
-            let registry_pausable = IPausableDispatcher { contract_address: registry };
-            assert(!registry_pausable.is_paused(), PausableComponent::Errors::PAUSED);
+        fn get_user_tweet_prompts(
+            self: @ContractState, user: ContractAddress, tweet_id: u64, start: u64, mut end: u64,
+        ) -> Array<u64> {
+            let vec = self.user_tweet_prompts.entry(user).entry(tweet_id);
+            let vec_len = vec.len();
+
+            assert(start < end, 'Invalid range');
+
+            if end > vec_len {
+                end = vec_len;
+            }
+
+            let mut prompts = array![];
+
+            for i in start..end {
+                prompts.append(vec.at(i).read());
+            };
+
+            prompts
+        }
+
+        fn get_end_time(self: @ContractState) -> u64 {
+            self.end_time.read()
+        }
+
+        fn get_is_drained(self: @ContractState) -> bool {
+            self.is_drained.read()
+        }
+
+        fn is_finalized(self: @ContractState) -> bool {
+            self.end_time.read() < get_block_timestamp() || self.is_drained.read()
+        }
+
+        fn withdraw(ref self: ContractState) {
+            let caller = get_caller_address();
+            assert(caller == self.creator.read(), 'Only creator can withdraw');
+
+            self._assert_finalized();
+
+            self._drain(caller);
+        }
+
+        fn pay_for_prompt(ref self: ContractState, tweet_id: u64, prompt: ByteArray) -> u64 {
+            self._assert_not_finalized();
+            self._assert_registry_not_paused();
 
             let caller = get_caller_address();
             let token = IERC20Dispatcher { contract_address: self.token.read() };
@@ -431,6 +537,8 @@ pub mod Agent {
 
             // Transfer tokens to this contract
             token.transfer_from(caller, get_contract_address(), prompt_price);
+
+            self._increment_pending_pool(prompt_price);
 
             // Generate unique prompt ID
             let prompt_id = self.next_prompt_id.read();
@@ -446,14 +554,10 @@ pub mod Agent {
                     },
                 );
 
-            self
-                .emit(
-                    Event::PromptPaid(
-                        PromptPaid {
-                            user: caller, prompt_id, twitter_message_id, amount: prompt_price,
-                        },
-                    ),
-                );
+            // Store prompt ID
+            self.user_tweet_prompts.entry(caller).entry(tweet_id).append().write(prompt_id);
+
+            self.emit(Event::PromptPaid(PromptPaid { user: caller, prompt_id, tweet_id, prompt }));
 
             prompt_id
         }
@@ -470,17 +574,7 @@ pub mod Agent {
                 get_block_timestamp() >= pending.timestamp + RECLAIM_DELAY, 'Too early to reclaim',
             );
 
-            let token = IERC20Dispatcher { contract_address: self.token.read() };
-            token.transfer(pending.reclaimer, pending.amount);
-
-            self
-                .pending_prompts
-                .write(
-                    prompt_id,
-                    PendingPrompt {
-                        reclaimer: contract_address_const::<0>(), amount: 0, timestamp: 0,
-                    },
-                );
+            self._clear_pending_prompt(prompt_id);
 
             self
                 .emit(
@@ -488,11 +582,14 @@ pub mod Agent {
                         PromptReclaimed { prompt_id, amount: pending.amount, reclaimer: caller },
                     ),
                 );
+
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+            token.transfer(pending.reclaimer, pending.amount);
         }
 
-        fn consume_prompt(ref self: ContractState, prompt_id: u64) {
-            let registry = self.registry.read();
-            assert(get_caller_address() == registry, 'Only registry can consume');
+        fn consume_prompt(ref self: ContractState, prompt_id: u64, drain_to: ContractAddress) {
+            self._assert_caller_is_registry();
+            self._assert_not_finalized();
 
             let pending = self.pending_prompts.read(prompt_id);
             assert(pending.reclaimer != contract_address_const::<0>(), 'No pending prompt');
@@ -501,15 +598,75 @@ pub mod Agent {
             let amount = pending.amount;
 
             // Calculate fee splits
-            let creator_fee = (amount * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
-            let protocol_fee = (amount * PROTOCOL_FEE_BPS.into()) / BPS_DENOMINATOR.into();
-            let agent_amount = amount - creator_fee - protocol_fee;
+            let (agent_amount, creator_fee, protocol_fee) = self._split_amounts(amount);
+
+            // Clear pending prompt
+            self._clear_pending_prompt(prompt_id);
+
+            self
+                .emit(
+                    Event::PromptConsumed(
+                        PromptConsumed {
+                            prompt_id,
+                            amount: agent_amount,
+                            creator_fee,
+                            protocol_fee,
+                            drained_to: drain_to,
+                        },
+                    ),
+                );
 
             // Transfer fees
             token.transfer(self.creator.read(), creator_fee);
-            token.transfer(registry, protocol_fee);
+            token.transfer(self.registry.read(), protocol_fee);
 
-            // Clear pending prompt
+            self._decrement_pending_pool(amount);
+
+            if drain_to != get_contract_address() {
+                self._drain(drain_to);
+            }
+        }
+
+        fn RECLAIM_DELAY(self: @ContractState) -> u64 {
+            RECLAIM_DELAY
+        }
+
+        fn PROMPT_REWARD_BPS(self: @ContractState) -> u16 {
+            PROMPT_REWARD_BPS
+        }
+
+        fn CREATOR_REWARD_BPS(self: @ContractState) -> u16 {
+            CREATOR_REWARD_BPS
+        }
+
+        fn PROTOCOL_FEE_BPS(self: @ContractState) -> u16 {
+            PROTOCOL_FEE_BPS
+        }
+
+        fn BPS_DENOMINATOR(self: @ContractState) -> u16 {
+            BPS_DENOMINATOR
+        }
+    }
+
+    #[generate_trait]
+    impl AgentInternalImpl of AgentInternalTrait {
+        fn _drain(ref self: ContractState, to: ContractAddress) {
+            let token = IERC20Dispatcher { contract_address: self.token.read() };
+            let prize_pool = self._get_prize_pool(token);
+
+            self.is_drained.write(true);
+
+            token.transfer(to, prize_pool);
+        }
+
+        fn _split_amounts(self: @ContractState, amount: u256) -> (u256, u256, u256) {
+            let creator_fee = (amount * CREATOR_REWARD_BPS.into()) / BPS_DENOMINATOR.into();
+            let protocol_fee = (amount * PROTOCOL_FEE_BPS.into()) / BPS_DENOMINATOR.into();
+            let agent_amount = amount - creator_fee - protocol_fee;
+            (agent_amount, creator_fee, protocol_fee)
+        }
+
+        fn _clear_pending_prompt(ref self: ContractState, prompt_id: u64) {
             self
                 .pending_prompts
                 .write(
@@ -518,15 +675,36 @@ pub mod Agent {
                         reclaimer: contract_address_const::<0>(), amount: 0, timestamp: 0,
                     },
                 );
+        }
 
-            self
-                .emit(
-                    Event::PromptConsumed(
-                        PromptConsumed {
-                            prompt_id, amount: agent_amount, creator_fee, protocol_fee,
-                        },
-                    ),
-                );
+        fn _get_prize_pool(self: @ContractState, token: IERC20Dispatcher) -> u256 {
+            token.balance_of(get_contract_address()) - self.pending_pool.read()
+        }
+
+        fn _increment_pending_pool(ref self: ContractState, amount: u256) {
+            self.pending_pool.write(self.pending_pool.read() + amount);
+        }
+
+        fn _decrement_pending_pool(ref self: ContractState, amount: u256) {
+            self.pending_pool.write(self.pending_pool.read() - amount);
+        }
+
+        fn _assert_registry_not_paused(ref self: ContractState) {
+            let registry = self.registry.read();
+            let registry_pausable = IPausableDispatcher { contract_address: registry };
+            assert(!registry_pausable.is_paused(), PausableComponent::Errors::PAUSED);
+        }
+
+        fn _assert_finalized(ref self: ContractState) {
+            assert(self.is_finalized(), 'Agent not been finalized');
+        }
+
+        fn _assert_not_finalized(ref self: ContractState) {
+            assert(!self.is_finalized(), 'Agent already been finalized');
+        }
+
+        fn _assert_caller_is_registry(ref self: ContractState) {
+            assert(get_caller_address() == self.registry.read(), 'Only registry can call');
         }
     }
 }

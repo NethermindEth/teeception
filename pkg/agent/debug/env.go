@@ -3,10 +3,11 @@ package debug
 import "os"
 
 const (
-	DebugPlainSetupKey     = "DEBUG_PLAIN_SETUP"
-	DebugShowSetupKey      = "DEBUG_SHOW_SETUP"
-	DebugShowPasswordKey   = "DEBUG_SHOW_PASSWORD"
-	DebugDisableRepliesKey = "DEBUG_DISABLE_REPLIES"
+	DebugPlainSetupKey             = "DEBUG_PLAIN_SETUP"
+	DebugShowSetupKey              = "DEBUG_SHOW_SETUP"
+	DebugShowPasswordKey           = "DEBUG_SHOW_PASSWORD"
+	DebugDisableRepliesKey         = "DEBUG_DISABLE_REPLIES"
+	DebugDisableTweetValidationKey = "DEBUG_DISABLE_TWEET_VALIDATION"
 )
 
 func isDebugPlainSetupSet() bool {
@@ -23,4 +24,8 @@ func isDebugShowPasswordSet() bool {
 
 func isDebugDisableRepliesSet() bool {
 	return os.Getenv(DebugDisableRepliesKey) == "true"
+}
+
+func isDebugDisableTweetValidationSet() bool {
+	return os.Getenv(DebugDisableTweetValidationKey) == "true"
 }

@@ -4,14 +4,23 @@ import { Tooltip } from '@/components/Tooltip'
 import Image from 'next/image'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MenuIcon, Plus, Search } from 'lucide-react'
-import { AgentTabs, TabType } from '@/components/AgentTabs'
-import { ACTIVE_AGENTS_DATA, AGENTS_RANKING_DATA, TOP_ATTACKERS_DATA } from '@/mock-data'
-import { useState } from 'react'
+import { AgentsList, TabType } from '@/components/AgentsList'
+import { useMemo, useState } from 'react'
 import { MenuItems } from '@/components/MenuItems'
 import clsx from 'clsx'
+import { useAgents } from '@/hooks/useAgents'
+import { Footer } from '@/components/Footer'
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { agents = [], loading: isFetchingAgents, error } = useAgents({ start: 0, end: 1000 })
+
+  const activeAgents = useMemo(() => agents.filter((agent) => !agent.isFinalized), [agents])
+  const topAttackers = useMemo(
+    () => agents.sort((agent1, agent2) => +agent2.prizePool - +agent1.prizePool),
+    [agents]
+  )
+  console.log({ agents, isFetchingAgents, error })
   const handleInstallExtension = () => {
     //TODO: add chrome line
     console.log('install extension handler called')
@@ -161,7 +170,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="px-4 md:px-8 py-8 md:py-20 max-w-[1560px] mx-auto">
+        <div className="px-4 md:px-8 py-8 md:py-20 max-w-[1560px] mx-auto" id="how_it_works">
           <p className="text-5xl font-bold text-center uppercase mb-3 leading-none">
             Joining the arena
           </p>
@@ -277,7 +286,9 @@ export default function Home() {
         </div>
         <div className="px-2 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto md:mt-20">
           <div className="mb-20">
-            <p className="text-4xl md:text-[48px] font-bold text-center uppercase ">Leaderboard</p>
+            <p className="text-4xl md:text-[48px] font-bold text-center uppercase" id="leaderboard">
+              Leaderboard
+            </p>
 
             <div className="flex max-w-[800px] mx-auto my-3 md:my-6">
               <div className="white-gradient-border"></div>
@@ -294,13 +305,13 @@ export default function Home() {
               <div className="flex flex-col md:flex-row items-center justify-between mb-6">
                 <TabsList className="flex w-full">
                   <TabsTrigger value={TabType.AgentRanking}>
-                    Agents ranking ({AGENTS_RANKING_DATA.length})
+                    Agents ranking ({agents.length})
                   </TabsTrigger>
                   <TabsTrigger value={TabType.ActiveAgents}>
-                    Active agents ({ACTIVE_AGENTS_DATA.length})
+                    Active agents ({activeAgents.length})
                   </TabsTrigger>
                   <TabsTrigger value={TabType.TopAttackers}>
-                    Top attackers ({TOP_ATTACKERS_DATA.length})
+                    Top attackers ({topAttackers.length})
                   </TabsTrigger>
                 </TabsList>
 
@@ -318,17 +329,27 @@ export default function Home() {
               </div>
 
               <TabsContent value={TabType.AgentRanking}>
-                <AgentTabs tabType={TabType.AgentRanking} />
+                <AgentsList agents={agents} isFetchingAgents={isFetchingAgents} />
               </TabsContent>
               <TabsContent value={TabType.ActiveAgents}>
-                <AgentTabs tabType={TabType.ActiveAgents} />
+                <AgentsList agents={activeAgents} isFetchingAgents={isFetchingAgents} />
               </TabsContent>
               <TabsContent value={TabType.TopAttackers}>
-                <AgentTabs tabType={TabType.TopAttackers} />
+                <AgentsList agents={topAttackers} isFetchingAgents={isFetchingAgents} />
               </TabsContent>
             </Tabs>
           </div>
         </div>
+        <div className="text-[#B8B8B8] text-sm text-center px-3 mb-12">
+          <p className="mb-3 text-white md:text-[#B8B8B8]">Disclaimer</p>
+
+          <p>
+            This platform is for educational purposes and responsible red teaming. Use your powers
+            for good, and happy hacking!
+          </p>
+        </div>
+
+        <Footer />
       </div>
     </div>
   )

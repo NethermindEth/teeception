@@ -4,23 +4,25 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 )
 
 const (
-	SecureFileKey           = "SECURE_FILE"
-	DstackTappdEndpointKey  = "DSTACK_TAPPD_ENDPOINT"
-	TwitterAccountKey       = "X_USERNAME"
-	TwitterPasswordKey      = "X_PASSWORD"
-	TwitterAppKeyKey        = "X_CONSUMER_KEY"
-	TwitterAppSecretKey     = "X_CONSUMER_SECRET"
-	LoginServerIpKey        = "X_LOGIN_SERVER_IP"
-	LoginServerPortKey      = "X_LOGIN_SERVER_PORT"
-	ProtonEmailKey          = "PROTONMAIL_EMAIL"
-	ProtonPasswordKey       = "PROTONMAIL_PASSWORD"
-	StarknetRpcUrlsKey      = "STARKNET_RPC_URLS"
-	AgentRegistryAddressKey = "CONTRACT_ADDRESS"
-	OpenAiKeyKey            = "OPENAI_API_KEY"
+	SecureFileKey                   = "SECURE_FILE"
+	DstackTappdEndpointKey          = "DSTACK_TAPPD_ENDPOINT"
+	TwitterAccountKey               = "X_USERNAME"
+	TwitterPasswordKey              = "X_PASSWORD"
+	TwitterAppKeyKey                = "X_CONSUMER_KEY"
+	TwitterAppSecretKey             = "X_CONSUMER_SECRET"
+	LoginServerIpKey                = "X_LOGIN_SERVER_IP"
+	LoginServerPortKey              = "X_LOGIN_SERVER_PORT"
+	ProtonEmailKey                  = "PROTONMAIL_EMAIL"
+	ProtonPasswordKey               = "PROTONMAIL_PASSWORD"
+	StarknetRpcUrlsKey              = "STARKNET_RPC_URLS"
+	AgentRegistryAddressKey         = "CONTRACT_ADDRESS"
+	AgentRegistryDeploymentBlockKey = "CONTRACT_DEPLOYMENT_BLOCK"
+	OpenAiKeyKey                    = "OPENAI_API_KEY"
 )
 
 func envLookupSecureFile() (string, error) {
@@ -117,6 +119,18 @@ func envGetAgentRegistryAddress() string {
 		slog.Warn(AgentRegistryAddressKey + " environment variable not set")
 	}
 	return address
+}
+
+func envGetAgentRegistryDeploymentBlock() uint64 {
+	block, ok := os.LookupEnv(AgentRegistryDeploymentBlockKey)
+	if !ok {
+		slog.Warn(AgentRegistryDeploymentBlockKey + " environment variable not set")
+	}
+	blockNumber, err := strconv.ParseUint(block, 10, 64)
+	if err != nil {
+		slog.Warn(AgentRegistryDeploymentBlockKey + " environment variable is not a valid uint64")
+	}
+	return blockNumber
 }
 
 func envGetOpenAiKey() string {
