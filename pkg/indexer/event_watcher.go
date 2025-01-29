@@ -22,6 +22,7 @@ type EventType int
 const (
 	EventAgentRegistered EventType = iota
 	EventPromptPaid
+	EventPromptConsumed
 	EventTransfer
 	EventTokenAdded
 	EventTokenRemoved
@@ -30,6 +31,7 @@ const (
 var EventTypeItems = []EventType{
 	EventAgentRegistered,
 	EventPromptPaid,
+	EventPromptConsumed,
 	EventTransfer,
 	EventTokenAdded,
 	EventTokenRemoved,
@@ -154,6 +156,44 @@ func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 		PromptID: promptID,
 		TweetID:  tweetID,
 		Prompt:   prompt,
+	}, true
+}
+
+type PromptConsumedEvent struct {
+	PromptID    uint64
+	Amount      *big.Int
+	CreatorFee  *big.Int
+	ProtocolFee *big.Int
+	DrainedTo   *felt.Felt
+}
+
+func (e *Event) ToPromptConsumedEvent() (*PromptConsumedEvent, bool) {
+	if e.Type != EventPromptConsumed {
+		return nil, false
+	}
+
+	if len(e.Raw.Keys) != 2 {
+		slog.Warn("invalid prompt consumed event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
+	if len(e.Raw.Data) != 7 {
+		slog.Warn("invalid prompt consumed event", "data", e.Raw.Data)
+		return nil, false
+	}
+
+	promptID := e.Raw.Keys[1].Uint64()
+	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+	creatorFee := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[2:4]))
+	protocolFee := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[4:6]))
+	drainedTo := e.Raw.Data[6]
+
+	return &PromptConsumedEvent{
+		PromptID:    promptID,
+		Amount:      amount,
+		CreatorFee:  creatorFee,
+		ProtocolFee: protocolFee,
+		DrainedTo:   drainedTo,
 	}, true
 }
 

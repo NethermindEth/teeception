@@ -63,6 +63,7 @@ type AgentConfig struct {
 
 	Pool pond.Pool
 
+	StartupBlockNumber   uint64
 	AgentRegistryAddress *felt.Felt
 }
 
@@ -141,6 +142,18 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		SubmissionInterval: 20 * time.Second,
 	})
 
+	var startupBlockNumber uint64
+	if err := starknetClient.Do(func(provider rpc.RpcProvider) error {
+		blockNumber, err := provider.BlockNumber(context.Background())
+		if err != nil {
+			return err
+		}
+		startupBlockNumber = blockNumber
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to get startup block number: %v", err)
+	}
+
 	return &AgentConfig{
 		TwitterClient:  twitterClient,
 		ChatCompletion: openaiClient,
@@ -154,6 +167,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 
 		Pool: pond.NewPool(params.TaskConcurrency),
 
+		StartupBlockNumber:   startupBlockNumber,
 		AgentRegistryAddress: params.AgentRegistryAddress,
 	}, nil
 }
@@ -174,11 +188,11 @@ type Agent struct {
 
 	pool pond.Pool
 
+	startupBlockNumber   uint64
 	agentRegistryAddress *felt.Felt
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
-
 	slog.Info("agent initialized successfully", "account_address", config.Account.Address())
 
 	return &Agent{
@@ -196,6 +210,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 		pool: config.Pool,
 
+		startupBlockNumber:   config.StartupBlockNumber,
 		agentRegistryAddress: config.AgentRegistryAddress,
 	}, nil
 }
@@ -228,20 +243,90 @@ func (a *Agent) Run(ctx context.Context) error {
 	subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, promptPaidCh)
 	defer a.eventWatcher.Unsubscribe(subID)
 
-	go func() {
-		if err := a.ProcessEvents(ctx, promptPaidCh); err != nil {
-			slog.Error("failed to process events", "error", err)
-		}
-	}()
+	promptConsumedCh := make(chan *indexer.EventSubscriptionData, 1000)
+	subID = a.eventWatcher.Subscribe(indexer.EventPromptConsumed, promptConsumedCh)
+	defer a.eventWatcher.Unsubscribe(subID)
 
-	return nil
+	return a.ProcessEvents(ctx, promptPaidCh, promptConsumedCh)
 }
 
-func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData) error {
+type agentEventStartupController struct {
+	startupTasks       map[uint64]func()
+	finishedStartup    bool
+	startupBlockNumber uint64
+}
+
+func (a *agentEventStartupController) clearStartupTask(promptID uint64) {
+	a.startupTasks[promptID] = nil
+}
+
+func (a *agentEventStartupController) addStartupTask(promptID uint64, task func()) {
+	_, ok := a.startupTasks[promptID]
+	if !ok {
+		a.startupTasks[promptID] = task
+	}
+}
+
+func (a *agentEventStartupController) isStartup(block uint64) bool {
+	return block <= a.startupBlockNumber && !a.finishedStartup
+}
+
+func (a *agentEventStartupController) finishStartup(pool pond.Pool) {
+	for _, task := range a.startupTasks {
+		if task == nil {
+			continue
+		}
+
+		pool.Go(task)
+	}
+
+	a.startupTasks = nil
+	a.finishedStartup = true
+}
+
+func (a *agentEventStartupController) tryAddStartupTask(pool pond.Pool, block, promptID uint64, task func()) bool {
+	if a.finishedStartup {
+		return false
+	}
+
+	if block > a.startupBlockNumber {
+		a.finishStartup(pool)
+	} else {
+		a.addStartupTask(promptID, task)
+	}
+
+	return true
+}
+
+func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData, promptConsumedCh <-chan *indexer.EventSubscriptionData) error {
+	startupController := &agentEventStartupController{
+		startupTasks:       make(map[uint64]func()),
+		finishedStartup:    false,
+		startupBlockNumber: a.startupBlockNumber,
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
+		case data := <-promptConsumedCh:
+			if data.FromBlock > a.startupBlockNumber {
+				continue
+			}
+
+			for _, ev := range data.Events {
+				if ev.Raw.BlockNumber > a.startupBlockNumber {
+					continue
+				}
+
+				promptConsumedEvent, ok := ev.ToPromptConsumedEvent()
+				if !ok {
+					slog.Warn("failed to convert event to prompt consumed event", "event", ev)
+					continue
+				}
+
+				startupController.clearStartupTask(promptConsumedEvent.PromptID)
+			}
 		case data := <-promptPaidCh:
 			for _, ev := range data.Events {
 				promptPaidEvent, ok := ev.ToPromptPaidEvent()
@@ -250,7 +335,7 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 					continue
 				}
 
-				err := a.pool.Go(func() {
+				task := func() {
 					slog.Info("processing prompt paid event",
 						"agent_address", ev.Raw.FromAddress,
 						"from_address", promptPaidEvent.User,
@@ -270,9 +355,16 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 					if err != nil {
 						slog.Warn("failed to process prompt paid event", "error", err)
 					}
-				})
-				if err != nil {
-					slog.Warn("failed to submit task to pool", "error", err)
+				}
+
+				isStartupTask := startupController.tryAddStartupTask(
+					a.pool,
+					ev.Raw.BlockNumber,
+					promptPaidEvent.PromptID,
+					task,
+				)
+				if !isStartupTask {
+					a.pool.Go(task)
 				}
 			}
 		}
