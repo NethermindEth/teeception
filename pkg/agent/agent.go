@@ -264,27 +264,45 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 type agentEventStartupController struct {
-	startupTasks       map[uint64]func()
-	finishedStartup    bool
-	startupBlockNumber uint64
+	startupTasks              map[uint64]func()
+	finishedStartup           bool
+	startupBlockNumber        uint64
+	promptPaidBlockNumber     uint64
+	promptConsumedBlockNumber uint64
 }
 
-func (a *agentEventStartupController) clearStartupTask(promptID uint64) {
+func (a *agentEventStartupController) ClearStartupTask(promptID uint64) {
 	a.startupTasks[promptID] = nil
 }
 
-func (a *agentEventStartupController) addStartupTask(promptID uint64, task func()) {
+func (a *agentEventStartupController) AddStartupTask(promptID uint64, task func()) {
 	_, ok := a.startupTasks[promptID]
 	if !ok {
 		a.startupTasks[promptID] = task
 	}
 }
 
-func (a *agentEventStartupController) isStartup(block uint64) bool {
-	return block <= a.startupBlockNumber && !a.finishedStartup
+func (a *agentEventStartupController) isPastOrAtStartupBlock(block uint64) bool {
+	return block >= a.startupBlockNumber
 }
 
-func (a *agentEventStartupController) finishStartup(pool pond.Pool) {
+func (a *agentEventStartupController) SetPromptPaidBlockNumber(block uint64) {
+	a.promptPaidBlockNumber = block
+}
+
+func (a *agentEventStartupController) SetPromptConsumedBlockNumber(block uint64) {
+	a.promptConsumedBlockNumber = block
+}
+
+func (a *agentEventStartupController) IsStartupPhase() bool {
+	return !a.isPastOrAtStartupBlock(a.promptPaidBlockNumber) && !a.isPastOrAtStartupBlock(a.promptConsumedBlockNumber) && !a.finishedStartup
+}
+
+func (a *agentEventStartupController) ShouldFinish() bool {
+	return a.isPastOrAtStartupBlock(a.promptPaidBlockNumber) && a.isPastOrAtStartupBlock(a.promptConsumedBlockNumber) && !a.finishedStartup
+}
+
+func (a *agentEventStartupController) FinishStartup(pool pond.Pool) {
 	for _, task := range a.startupTasks {
 		if task == nil {
 			continue
@@ -297,20 +315,6 @@ func (a *agentEventStartupController) finishStartup(pool pond.Pool) {
 	a.finishedStartup = true
 }
 
-func (a *agentEventStartupController) tryAddStartupTask(pool pond.Pool, block, promptID uint64, task func()) bool {
-	if a.finishedStartup {
-		return false
-	}
-
-	if block > a.startupBlockNumber {
-		a.finishStartup(pool)
-	} else {
-		a.addStartupTask(promptID, task)
-	}
-
-	return true
-}
-
 func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData, promptConsumedCh <-chan *indexer.EventSubscriptionData) error {
 	startupController := &agentEventStartupController{
 		startupTasks:       make(map[uint64]func()),
@@ -319,6 +323,10 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 	}
 
 	for {
+		if startupController.ShouldFinish() {
+			startupController.FinishStartup(a.pool)
+		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -338,8 +346,11 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 					continue
 				}
 
-				startupController.clearStartupTask(promptConsumedEvent.PromptID)
+				startupController.ClearStartupTask(promptConsumedEvent.PromptID)
 			}
+
+			startupController.SetPromptConsumedBlockNumber(data.ToBlock)
+
 		case data := <-promptPaidCh:
 			for _, ev := range data.Events {
 				promptPaidEvent, ok := ev.ToPromptPaidEvent()
@@ -371,16 +382,14 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 					}
 				}
 
-				isStartupTask := startupController.tryAddStartupTask(
-					a.pool,
-					ev.Raw.BlockNumber,
-					promptPaidEvent.PromptID,
-					task,
-				)
-				if !isStartupTask {
+				if startupController.IsStartupPhase() {
+					startupController.AddStartupTask(promptPaidEvent.PromptID, task)
+				} else {
 					a.pool.Go(task)
 				}
 			}
+
+			startupController.SetPromptPaidBlockNumber(data.ToBlock)
 		}
 	}
 }
