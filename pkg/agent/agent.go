@@ -357,6 +357,7 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 					isPromptConsumed, err := a.isPromptConsumed(ctx, ev.Raw.FromAddress, promptPaidEvent.PromptID)
 					if err != nil {
 						slog.Warn("failed to check if prompt is consumed", "error", err)
+						return
 					}
 
 					if isPromptConsumed {
