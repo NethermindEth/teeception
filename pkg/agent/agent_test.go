@@ -520,7 +520,6 @@ func NewMockAgentConfig(config *MockAgentConfigConfig) (*agent.AgentConfig, erro
 		AgentIndexer: agentIndexer,
 		EventWatcher: eventWatcher,
 
-		TickRate:             config.MockTickRate,
 		AgentRegistryAddress: config.MockAgentRegistryAddress,
 	}, nil
 }

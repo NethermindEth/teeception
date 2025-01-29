@@ -63,7 +63,6 @@ type AgentConfig struct {
 
 	Pool pond.Pool
 
-	TickRate             time.Duration
 	AgentRegistryAddress *felt.Felt
 }
 
@@ -155,7 +154,6 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 
 		Pool: pond.NewPool(params.TaskConcurrency),
 
-		TickRate:             params.TickRate,
 		AgentRegistryAddress: params.AgentRegistryAddress,
 	}, nil
 }
@@ -176,7 +174,6 @@ type Agent struct {
 
 	pool pond.Pool
 
-	tickRate             time.Duration
 	agentRegistryAddress *felt.Felt
 }
 
@@ -199,7 +196,6 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 
 		pool: config.Pool,
 
-		tickRate:             config.TickRate,
 		agentRegistryAddress: config.AgentRegistryAddress,
 	}, nil
 }
@@ -232,23 +228,21 @@ func (a *Agent) Run(ctx context.Context) error {
 	subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, promptPaidCh)
 	defer a.eventWatcher.Unsubscribe(subID)
 
-	slog.Info("entering main loop")
+	go func() {
+		if err := a.ProcessEvents(ctx, promptPaidCh); err != nil {
+			slog.Error("failed to process events", "error", err)
+		}
+	}()
+
+	return nil
+}
+
+func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.After(a.tickRate):
-			err := a.Tick(ctx, promptPaidCh)
-			if err != nil {
-				slog.Warn("failed to tick", "error", err)
-			}
-		}
-	}
-}
-
-func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData) error {
-	go func() {
-		for data := range promptPaidCh {
+		case data := <-promptPaidCh:
 			for _, ev := range data.Events {
 				promptPaidEvent, ok := ev.ToPromptPaidEvent()
 				if !ok {
@@ -282,9 +276,7 @@ func (a *Agent) Tick(ctx context.Context, promptPaidCh <-chan *indexer.EventSubs
 				}
 			}
 		}
-	}()
-
-	return nil
+	}
 }
 
 func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.Felt, promptPaidEvent *indexer.PromptPaidEvent, block uint64) error {
