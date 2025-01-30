@@ -45,7 +45,7 @@ type TxQueue struct {
 	client   ProviderWrapper
 	itemsMu  sync.Mutex
 	items    []*TxQueueItem
-	submitMu sync.Mutex
+	nonceMu  sync.Mutex
 	running  bool
 	ticker   *time.Ticker
 	submitCh chan struct{}
@@ -103,20 +103,9 @@ func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *
 		return nil, errors.New("queue is not running")
 	}
 
-	invokeTxn, err := q.buildTx(ctx, calls)
+	err := q.simulateBatch(ctx, calls)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build transaction: %w", err)
-	}
-
-	err = q.client.Do(func(client rpc.RpcProvider) error {
-		_, err := client.SimulateTransactions(ctx, rpc.WithBlockTag("latest"), []rpc.BroadcastTxn{*invokeTxn}, []rpc.SimulationFlag{})
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("function call failed simulation: %w", FormatRpcError(err))
+		return nil, fmt.Errorf("function call failed simulation: %w", err)
 	}
 
 	resultCh := make(chan *TxQueueResult, 1)
@@ -164,8 +153,8 @@ func (q *TxQueue) submitIfDue(ctx context.Context) {
 // submitBatch attempts a single multicall (aggregation of all items) first. If that fails,
 // it defaults to sending each item in the batch individually.
 func (q *TxQueue) submitBatch(ctx context.Context, items []*TxQueueItem) {
-	q.submitMu.Lock()
-	defer q.submitMu.Unlock()
+	q.nonceMu.Lock()
+	defer q.nonceMu.Unlock()
 
 	slog.Info("preparing to submit batch", "calls_in_batch", len(items))
 
@@ -285,6 +274,29 @@ func (q *TxQueue) submitSingle(ctx context.Context, item *TxQueueItem) {
 	}
 
 	q.notifySingle(item, resp.TransactionHash, nil)
+}
+
+func (q *TxQueue) simulateBatch(ctx context.Context, calls []rpc.FunctionCall) error {
+	q.nonceMu.Lock()
+	defer q.nonceMu.Unlock()
+
+	invokeTxn, err := q.buildTx(ctx, calls)
+	if err != nil {
+		return fmt.Errorf("failed to build transaction: %w", err)
+	}
+
+	err = q.client.Do(func(client rpc.RpcProvider) error {
+		_, err := client.SimulateTransactions(ctx, rpc.WithBlockTag("latest"), []rpc.BroadcastTxn{*invokeTxn}, []rpc.SimulationFlag{})
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("function call failed simulation: %w", FormatRpcError(err))
+	}
+
+	return nil
 }
 
 // notifyAll notifies all queued items in this batch with a single transaction result.
