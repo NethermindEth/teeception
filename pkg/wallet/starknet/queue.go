@@ -28,7 +28,7 @@ type TxQueueConfig struct {
 type TxQueueItem struct {
 	FunctionCalls []rpc.FunctionCall
 	ResultChan    chan *TxQueueResult
-	Context       context.Context
+	Ctx           context.Context
 }
 
 // TxQueueResult represents the result of submitting a batch, including
@@ -48,6 +48,7 @@ type TxQueue struct {
 	submitMu sync.Mutex
 	running  bool
 	ticker   *time.Ticker
+	submitCh chan struct{}
 }
 
 // NewTxQueue initializes a TxQueue with sensible defaults if none are provided.
@@ -63,10 +64,11 @@ func NewTxQueue(account *StarknetAccount, client ProviderWrapper, cfg *TxQueueCo
 	}
 
 	return &TxQueue{
-		cfg:     *cfg,
-		account: account,
-		client:  client,
-		items:   make([]*TxQueueItem, 0),
+		cfg:      *cfg,
+		account:  account,
+		client:   client,
+		items:    make([]*TxQueueItem, 0),
+		submitCh: make(chan struct{}, 100),
 	}
 }
 
@@ -77,17 +79,18 @@ func (q *TxQueue) Run(ctx context.Context) error {
 		return nil
 	}
 	q.running = true
-
-	q.ticker = time.NewTicker(q.cfg.SubmissionInterval)
-
-	defer q.ticker.Stop()
+	defer func() {
+		q.running = false
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-q.ticker.C:
-			q.submitIfDue()
+		case <-q.submitCh:
+			q.submitIfDue(ctx)
+		case <-time.After(q.cfg.SubmissionInterval):
+			q.submitIfDue(ctx)
 		}
 	}
 }
@@ -96,18 +99,24 @@ func (q *TxQueue) Run(ctx context.Context) error {
 // If successful, the set of calls is queued for batch submission. Otherwise,
 // it returns an error and does not enqueue the item.
 func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *TxQueueResult, error) {
-	// Dry-run each FunctionCall to confirm success.
-	for i, c := range calls {
-		err := q.client.Do(func(client rpc.RpcProvider) error {
-			_, err := client.Call(ctx, c, rpc.WithBlockTag("latest"))
-			if err != nil {
-				return err
-			}
-			return nil
-		})
+	if !q.running {
+		return nil, errors.New("queue is not running")
+	}
+
+	invokeTxn, err := q.buildTx(ctx, calls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build transaction: %w", err)
+	}
+
+	err = q.client.Do(func(client rpc.RpcProvider) error {
+		_, err := client.SimulateTransactions(ctx, rpc.WithBlockTag("latest"), []rpc.BroadcastTxn{*invokeTxn}, []rpc.SimulationFlag{})
 		if err != nil {
-			return nil, fmt.Errorf("function call index %d failed simulation: %w", i, FormatRpcError(err))
+			return err
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("function call failed simulation: %w", FormatRpcError(err))
 	}
 
 	resultCh := make(chan *TxQueueResult, 1)
@@ -116,15 +125,17 @@ func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *
 	q.items = append(q.items, &TxQueueItem{
 		FunctionCalls: calls,
 		ResultChan:    resultCh,
-		Context:       ctx,
+		Ctx:           ctx,
 	})
 	numItems := len(q.items)
-	q.itemsMu.Unlock()
-
 	// If we reached the max batch size, try a submit immediately.
 	if numItems >= q.cfg.MaxBatchSize {
-		q.submitIfDue()
+		select {
+		case q.submitCh <- struct{}{}:
+		default:
+		}
 	}
+	q.itemsMu.Unlock()
 
 	return resultCh, nil
 }
@@ -132,7 +143,7 @@ func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *
 // submitIfDue checks if we have a non-empty queue and tries to submit a batch.
 // It ensures that only one submission can happen at a time and no new submission
 // is triggered if another submission is still in progress.
-func (q *TxQueue) submitIfDue() {
+func (q *TxQueue) submitIfDue(ctx context.Context) {
 	q.itemsMu.Lock()
 	numItems := len(q.items)
 	if numItems == 0 {
@@ -147,12 +158,12 @@ func (q *TxQueue) submitIfDue() {
 	q.items = q.items[:0]
 	q.itemsMu.Unlock()
 
-	go q.submitBatch(toSubmit)
+	go q.submitBatch(ctx, toSubmit)
 }
 
 // submitBatch attempts a single multicall (aggregation of all items) first. If that fails,
 // it defaults to sending each item in the batch individually.
-func (q *TxQueue) submitBatch(items []*TxQueueItem) {
+func (q *TxQueue) submitBatch(ctx context.Context, items []*TxQueueItem) {
 	q.submitMu.Lock()
 	defer q.submitMu.Unlock()
 
@@ -165,7 +176,7 @@ func (q *TxQueue) submitBatch(items []*TxQueueItem) {
 	}
 
 	// Attempt multicall:
-	ok := q.tryMulticall(items, allCalls)
+	ok := q.tryMulticall(ctx, items, allCalls)
 	if ok {
 		return
 	}
@@ -173,23 +184,19 @@ func (q *TxQueue) submitBatch(items []*TxQueueItem) {
 	// Otherwise, fallback to sending individually:
 	slog.Warn("multicall failed, falling back to single-call submission")
 	for _, item := range items {
-		q.submitSingle(item)
+		q.submitSingle(ctx, item)
 	}
 }
 
-// tryMulticall tries to sign/broadcast all calls as a single transaction.
-// If it fails at any step, returns false so we can fallback.
-func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall) bool {
+func (q *TxQueue) buildTx(ctx context.Context, calls []rpc.FunctionCall) (*rpc.BroadcastInvokev1Txn, error) {
 	acc, err := q.account.Account()
 	if err != nil {
-		slog.Error("failed to get account for multicall", "error", err)
-		return false
+		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 
-	nonce, err := acc.Nonce(context.Background(), rpc.WithBlockTag("latest"), q.account.Address())
+	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), q.account.Address())
 	if err != nil {
-		slog.Error("failed to get nonce for multicall", "error", FormatRpcError(err))
-		return false
+		return nil, fmt.Errorf("failed to get nonce: %w", FormatRpcError(err))
 	}
 
 	invokeTxn := rpc.BroadcastInvokev1Txn{
@@ -201,37 +208,51 @@ func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall
 		},
 	}
 
-	calldata, err := acc.FmtCalldata(allCalls)
+	calldata, err := acc.FmtCalldata(calls)
 	if err != nil {
-		slog.Error("failed to format calldata for multicall", "error", FormatRpcError(err))
-		return false
+		return nil, fmt.Errorf("failed to format calldata: %w", err)
 	}
 	invokeTxn.Calldata = calldata
 
 	// Estimate fee for multicall
-	feeResp, err := acc.EstimateFee(context.Background(), []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
+	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
-		slog.Error("fee estimation failed for multicall", "error", FormatRpcError(err))
-		return false
+		return nil, fmt.Errorf("fee estimation failed: %w", FormatRpcError(err))
 	}
 
 	fee := feeResp[0].OverallFee
 	feeBI := fee.BigInt(new(big.Int))
+
 	// Add 20% buffer
 	feeBI.Add(feeBI, new(big.Int).Div(feeBI, big.NewInt(5)))
 	invokeTxn.MaxFee = new(felt.Felt).SetBigInt(feeBI)
 
-	// Sign transaction
-	slog.Info("signing multicall transaction")
-	err = acc.SignInvokeTransaction(context.Background(), &invokeTxn.InvokeTxnV1)
+	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
 	if err != nil {
-		slog.Error("failed to sign multicall transaction", "error", FormatRpcError(err))
+		return nil, fmt.Errorf("failed to sign transaction: %w", FormatRpcError(err))
+	}
+
+	return &invokeTxn, nil
+}
+
+// tryMulticall tries to sign/broadcast all calls as a single transaction.
+// If it fails at any step, returns false so we can fallback.
+func (q *TxQueue) tryMulticall(ctx context.Context, items []*TxQueueItem, allCalls []rpc.FunctionCall) bool {
+	acc, err := q.account.Account()
+	if err != nil {
+		slog.Error("failed to get account", "error", err)
+		return false
+	}
+
+	invokeTxn, err := q.buildTx(ctx, allCalls)
+	if err != nil {
+		slog.Error("failed to build multicall transaction", "error", err)
 		return false
 	}
 
 	// Broadcast transaction
 	slog.Info("broadcasting multicall transaction")
-	resp, err := acc.AddInvokeTransaction(context.Background(), invokeTxn)
+	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
 	if err != nil {
 		slog.Error("multicall broadcast failed", "error", FormatRpcError(err))
 		return false
@@ -243,54 +264,21 @@ func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall
 }
 
 // submitSingle signs and broadcasts just one TxQueueItem in its own transaction.
-func (q *TxQueue) submitSingle(item *TxQueueItem) {
+func (q *TxQueue) submitSingle(ctx context.Context, item *TxQueueItem) {
 	acc, err := q.account.Account()
+	if err != nil {
+		slog.Error("failed to get account", "error", err)
+		q.notifySingle(item, nil, err)
+		return
+	}
+
+	invokeTxn, err := q.buildTx(ctx, item.FunctionCalls)
 	if err != nil {
 		q.notifySingle(item, nil, err)
 		return
 	}
 
-	nonce, err := acc.Nonce(item.Context, rpc.WithBlockTag("latest"), q.account.Address())
-	if err != nil {
-		q.notifySingle(item, nil, FormatRpcError(err))
-		return
-	}
-
-	invokeTxn := rpc.BroadcastInvokev1Txn{
-		InvokeTxnV1: rpc.InvokeTxnV1{
-			Version:       rpc.TransactionV1,
-			Nonce:         nonce,
-			Type:          rpc.TransactionType_Invoke,
-			SenderAddress: q.account.Address(),
-		},
-	}
-
-	calldata, err := acc.FmtCalldata(item.FunctionCalls)
-	if err != nil {
-		q.notifySingle(item, nil, FormatRpcError(err))
-		return
-	}
-	invokeTxn.Calldata = calldata
-
-	feeResp, err := acc.EstimateFee(item.Context, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
-	if err != nil {
-		q.notifySingle(item, nil, FormatRpcError(err))
-		return
-	}
-
-	fee := feeResp[0].OverallFee
-	feeBI := fee.BigInt(new(big.Int))
-	// Add 20% buffer
-	feeBI.Add(feeBI, new(big.Int).Div(feeBI, big.NewInt(5)))
-	invokeTxn.MaxFee = new(felt.Felt).SetBigInt(feeBI)
-
-	err = acc.SignInvokeTransaction(item.Context, &invokeTxn.InvokeTxnV1)
-	if err != nil {
-		q.notifySingle(item, nil, FormatRpcError(err))
-		return
-	}
-
-	resp, err := acc.AddInvokeTransaction(item.Context, invokeTxn)
+	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
 	if err != nil {
 		q.notifySingle(item, nil, FormatRpcError(err))
 		return
@@ -309,7 +297,7 @@ func (q *TxQueue) notifyAll(items []*TxQueueItem, txHash *felt.Felt, err error) 
 // notifySingle sends the result to a single item's ResultChan.
 func (q *TxQueue) notifySingle(item *TxQueueItem, txHash *felt.Felt, err error) {
 	select {
-	case <-item.Context.Done():
+	case <-item.Ctx.Done():
 		// Requestor gave up or timed out, ignore sending result
 		return
 	case item.ResultChan <- &TxQueueResult{
