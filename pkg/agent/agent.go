@@ -629,12 +629,12 @@ func (a *Agent) checkAccountBalance(ctx context.Context) (*big.Int, error) {
 }
 
 func (a *Agent) waitForAccountDeployment(ctx context.Context) error {
-	classHashMatches, err := a.account.ClassHashMatches(ctx)
+	isDeployed, err := a.account.LoadDeployment(ctx, a.starknetClient)
 	if err != nil {
-		return fmt.Errorf("failed to check class hash: %w", err)
+		return fmt.Errorf("failed to load deployment state: %w", err)
 	}
 
-	if classHashMatches {
+	if isDeployed {
 		slog.Info("account already deployed, not waiting for deployment")
 		a.accountDeploymentState.AlreadyDeployed = true
 

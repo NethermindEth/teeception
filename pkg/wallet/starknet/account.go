@@ -147,7 +147,7 @@ func (a *StarknetAccount) Connect(client ProviderWrapper) error {
 	return nil
 }
 
-func (a *StarknetAccount) ClassHashMatches(ctx context.Context) (bool, error) {
+func (a *StarknetAccount) classHashMatches(ctx context.Context) (bool, error) {
 	slog.Info("checking current class hash")
 	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
 	if err != nil {
@@ -175,7 +175,7 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 		}
 	}
 
-	classHashMatches, err := a.ClassHashMatches(ctx)
+	classHashMatches, err := a.classHashMatches(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to check class hash: %w", err)
 	}
@@ -255,4 +255,20 @@ func (a *StarknetAccount) Deploy(ctx context.Context, client ProviderWrapper) er
 	a.deployed = true
 
 	return nil
+}
+
+func (a *StarknetAccount) LoadDeployment(ctx context.Context, client ProviderWrapper) (bool, error) {
+	a.deployMu.Lock()
+	defer a.deployMu.Unlock()
+
+	classHashMatches, err := a.classHashMatches(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check class hash: %w", err)
+	}
+
+	if classHashMatches {
+		a.deployed = true
+	}
+
+	return classHashMatches, nil
 }
