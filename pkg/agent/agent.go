@@ -252,6 +252,8 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to start server: %v", err)
 	}
 
+	a.txQueue.Start()
+
 	promptPaidCh := make(chan *indexer.EventSubscriptionData, 1000)
 	subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, promptPaidCh)
 	defer a.eventWatcher.Unsubscribe(subID)
