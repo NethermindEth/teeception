@@ -197,6 +197,7 @@ func (q *TxQueue) buildTx(ctx context.Context, calls []rpc.FunctionCall) (*rpc.B
 
 	invokeTxn := rpc.BroadcastInvokev1Txn{
 		InvokeTxnV1: rpc.InvokeTxnV1{
+			MaxFee:        new(felt.Felt).SetUint64(100000000000000),
 			Version:       rpc.TransactionV1,
 			Nonce:         q.nonce,
 			Type:          rpc.TransactionType_Invoke,
@@ -209,6 +210,11 @@ func (q *TxQueue) buildTx(ctx context.Context, calls []rpc.FunctionCall) (*rpc.B
 		return nil, fmt.Errorf("failed to format calldata: %w", err)
 	}
 	invokeTxn.Calldata = calldata
+
+	err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign transaction: %w", FormatRpcError(err))
+	}
 
 	// Estimate fee for multicall
 	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
