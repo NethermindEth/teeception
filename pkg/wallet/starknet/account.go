@@ -119,8 +119,7 @@ func (a *StarknetAccount) connect(client ProviderWrapper) error {
 	slog.Info("precomputing account address")
 	a.address, err = a.account.PrecomputeAccountAddress(a.options.PublicKey, classHashFelt, []*felt.Felt{a.options.PublicKey})
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to precompute account address: %w", err)
+		return fmt.Errorf("failed to precompute account address: %w", FormatRpcError(err))
 	}
 	slog.Info("account address computed", "address", a.address.String())
 
@@ -164,8 +163,7 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
 	if err != nil {
 		if err.Error() != "Contract not found" {
-			LogRpcError(err)
-			return fmt.Errorf("failed to get current class hash: %w", err)
+			return fmt.Errorf("failed to get current class hash: %w", FormatRpcError(err))
 		} else {
 			currentClassHash = new(felt.Felt).SetUint64(0)
 		}
@@ -193,15 +191,13 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 	slog.Info("signing deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to sign deploy account transaction: %w", err)
+		return fmt.Errorf("failed to sign deploy account transaction: %w", FormatRpcError(err))
 	}
 
 	slog.Info("estimating transaction fee")
 	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to estimate transaction fee: %w", err)
+		return fmt.Errorf("failed to estimate transaction fee: %w", FormatRpcError(err))
 	}
 
 	fee := feeRes[0].OverallFee
@@ -215,15 +211,13 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 	slog.Info("signing final deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to sign final deploy account transaction: %w", err)
+		return fmt.Errorf("failed to sign final deploy account transaction: %w", FormatRpcError(err))
 	}
 
 	slog.Info("broadcasting deploy account transaction")
 	resp, err := a.account.AddDeployAccountTransaction(ctx, tx)
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to broadcast deploy account transaction: %w", err)
+		return fmt.Errorf("failed to broadcast deploy account transaction: %w", FormatRpcError(err))
 	}
 
 	if resp.ContractAddress.Cmp(a.address) != 0 {

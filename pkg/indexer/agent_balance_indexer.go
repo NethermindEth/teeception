@@ -293,7 +293,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 
 		return err
 	}); err != nil {
-		return fmt.Errorf("get_prize_pool call failed: %v", snaccount.FormatRpcError(err))
+		return fmt.Errorf("get_prize_pool call failed: %w", snaccount.FormatRpcError(err))
 	}
 
 	var amount *big.Int

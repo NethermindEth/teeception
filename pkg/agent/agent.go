@@ -564,7 +564,7 @@ func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, p
 		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("latest"))
 		return err
 	}); err != nil {
-		return false, fmt.Errorf("failed to call get_pending_prompt: %v", snaccount.FormatRpcError(err))
+		return false, fmt.Errorf("failed to call get_pending_prompt: %w", snaccount.FormatRpcError(err))
 	}
 
 	// The pending prompt struct has 3 fields:

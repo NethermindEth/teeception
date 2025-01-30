@@ -73,7 +73,7 @@ func NewTxQueue(account *StarknetAccount, client ProviderWrapper, cfg *TxQueueCo
 	}
 }
 
-// Start begins the queue’s background loop that checks for
+// Start begins the queue's background loop that checks for
 // pending function calls and submits them as a batch.
 func (q *TxQueue) Start() {
 	if q.running {
@@ -123,7 +123,7 @@ func (q *TxQueue) Enqueue(ctx context.Context, calls []rpc.FunctionCall) (chan *
 			return nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("function call index %d failed simulation: %v", i, FormatRpcError(err))
+			return nil, fmt.Errorf("function call index %d failed simulation: %w", i, FormatRpcError(err))
 		}
 	}
 
@@ -205,8 +205,7 @@ func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall
 
 	nonce, err := acc.Nonce(context.Background(), rpc.WithBlockTag("latest"), q.account.Address())
 	if err != nil {
-		LogRpcError(err)
-		slog.Error("failed to get nonce for multicall", "error", err)
+		slog.Error("failed to get nonce for multicall", "error", FormatRpcError(err))
 		return false
 	}
 
@@ -221,8 +220,7 @@ func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall
 
 	calldata, err := acc.FmtCalldata(allCalls)
 	if err != nil {
-		LogRpcError(err)
-		slog.Error("failed to format calldata for multicall", "error", err)
+		slog.Error("failed to format calldata for multicall", "error", FormatRpcError(err))
 		return false
 	}
 	invokeTxn.Calldata = calldata
@@ -230,8 +228,7 @@ func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall
 	// Estimate fee for multicall
 	feeResp, err := acc.EstimateFee(context.Background(), []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
-		LogRpcError(err)
-		slog.Error("fee estimation failed for multicall", "error", err)
+		slog.Error("fee estimation failed for multicall", "error", FormatRpcError(err))
 		return false
 	}
 
@@ -245,8 +242,7 @@ func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall
 	slog.Info("signing multicall transaction")
 	err = acc.SignInvokeTransaction(context.Background(), &invokeTxn.InvokeTxnV1)
 	if err != nil {
-		LogRpcError(err)
-		slog.Error("failed to sign multicall transaction", "error", err)
+		slog.Error("failed to sign multicall transaction", "error", FormatRpcError(err))
 		return false
 	}
 
@@ -254,8 +250,7 @@ func (q *TxQueue) tryMulticall(items []*TxQueueItem, allCalls []rpc.FunctionCall
 	slog.Info("broadcasting multicall transaction")
 	resp, err := acc.AddInvokeTransaction(context.Background(), invokeTxn)
 	if err != nil {
-		LogRpcError(err)
-		slog.Error("multicall broadcast failed", "error", err)
+		slog.Error("multicall broadcast failed", "error", FormatRpcError(err))
 		return false
 	}
 
@@ -274,8 +269,7 @@ func (q *TxQueue) submitSingle(item *TxQueueItem) {
 
 	nonce, err := acc.Nonce(item.Context, rpc.WithBlockTag("latest"), q.account.Address())
 	if err != nil {
-		LogRpcError(err)
-		q.notifySingle(item, nil, err)
+		q.notifySingle(item, nil, FormatRpcError(err))
 		return
 	}
 
@@ -290,16 +284,14 @@ func (q *TxQueue) submitSingle(item *TxQueueItem) {
 
 	calldata, err := acc.FmtCalldata(item.FunctionCalls)
 	if err != nil {
-		LogRpcError(err)
-		q.notifySingle(item, nil, err)
+		q.notifySingle(item, nil, FormatRpcError(err))
 		return
 	}
 	invokeTxn.Calldata = calldata
 
 	feeResp, err := acc.EstimateFee(item.Context, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
 	if err != nil {
-		LogRpcError(err)
-		q.notifySingle(item, nil, err)
+		q.notifySingle(item, nil, FormatRpcError(err))
 		return
 	}
 
@@ -311,15 +303,13 @@ func (q *TxQueue) submitSingle(item *TxQueueItem) {
 
 	err = acc.SignInvokeTransaction(item.Context, &invokeTxn.InvokeTxnV1)
 	if err != nil {
-		LogRpcError(err)
-		q.notifySingle(item, nil, err)
+		q.notifySingle(item, nil, FormatRpcError(err))
 		return
 	}
 
 	resp, err := acc.AddInvokeTransaction(item.Context, invokeTxn)
 	if err != nil {
-		LogRpcError(err)
-		q.notifySingle(item, nil, err)
+		q.notifySingle(item, nil, FormatRpcError(err))
 		return
 	}
 
@@ -333,7 +323,7 @@ func (q *TxQueue) notifyAll(items []*TxQueueItem, txHash *felt.Felt, err error) 
 	}
 }
 
-// notifySingle sends the result to a single item’s ResultChan.
+// notifySingle sends the result to a single item's ResultChan.
 func (q *TxQueue) notifySingle(item *TxQueueItem, txHash *felt.Felt, err error) {
 	select {
 	case <-item.Context.Done():

@@ -198,7 +198,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		}, rpc.WithBlockTag("latest"))
 		return err
 	}); err != nil {
-		return AgentInfo{}, fmt.Errorf("is_agent_registered call failed: %s", snaccount.FormatRpcError(err))
+		return AgentInfo{}, fmt.Errorf("is_agent_registered call failed: %w", snaccount.FormatRpcError(err))
 	}
 
 	if isAgentRegisteredResp[0].Cmp(new(felt.Felt).SetUint64(1)) != 0 {
@@ -214,7 +214,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		}, rpc.WithBlockTag("latest"))
 		return err
 	}); err != nil {
-		return AgentInfo{}, fmt.Errorf("get_name call failed: %s", snaccount.FormatRpcError(err))
+		return AgentInfo{}, fmt.Errorf("get_name call failed: %w", snaccount.FormatRpcError(err))
 	}
 
 	name, err := starknetgoutils.ByteArrFeltToString(nameResp)
@@ -231,7 +231,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		}, rpc.WithBlockTag("latest"))
 		return err
 	}); err != nil {
-		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %s", snaccount.FormatRpcError(err))
+		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %w", snaccount.FormatRpcError(err))
 	}
 
 	systemPrompt, err := starknetgoutils.ByteArrFeltToString(getSystemPromptResp)

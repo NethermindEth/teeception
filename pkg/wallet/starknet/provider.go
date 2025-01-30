@@ -50,7 +50,7 @@ func (p *RateLimitedMultiProvider) Do(f func(provider rpc.RpcProvider) error) er
 		}
 	}
 
-	var errs []string
+	var errs []error
 
 	for idx, provider := range p.providers {
 		err := f(provider)
@@ -64,7 +64,7 @@ func (p *RateLimitedMultiProvider) Do(f func(provider rpc.RpcProvider) error) er
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("failed to execute function for all providers: %v", errs)
+		return fmt.Errorf("failed to execute function for all providers: %w", errs)
 	}
 
 	return nil
