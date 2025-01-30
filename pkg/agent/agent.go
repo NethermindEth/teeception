@@ -480,11 +480,14 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		}
 
 		if isDrain {
+			slog.Info("replying as drained to", "agent_address", agentInfo.Address, "tweet_id", promptPaidEvent.TweetID, "drain_to", resp.Drain.Address)
 			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf("Drained %s to %s: %s. Congratulations!", agentInfo.Address, resp.Drain.Address, txHash))
 			if err != nil {
 				slog.Warn("failed to reply to tweet", "error", err)
 			}
 		}
+
+		slog.Info("replying to", "agent_address", agentInfo.Address, "tweet_id", promptPaidEvent.TweetID, "reply", resp.Response)
 		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, resp.Response)
 		if err != nil {
 			slog.Warn("failed to reply to tweet", "error", err)
