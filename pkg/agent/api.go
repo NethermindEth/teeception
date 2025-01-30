@@ -19,14 +19,14 @@ func (a *Agent) StartServer(ctx context.Context) error {
 		c.String(http.StatusOK, a.account.PublicKey().String())
 	})
 
-	router.GET("/deploy-account", func(c *gin.Context) {
-		err := a.account.Deploy(context.Background(), a.starknetClient)
-		if err != nil {
-			c.String(http.StatusInternalServerError, err.Error())
-			return
-		}
-
-		c.String(http.StatusOK, "deployed")
+	router.GET("/deployment-status", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"already_deployed":   a.accountDeploymentState.AlreadyDeployed,
+			"deployment_error":   a.accountDeploymentState.DeploymentErr.Error(),
+			"deployed_at":        a.accountDeploymentState.DeployedAt,
+			"balance":            a.accountDeploymentState.Balance.String(),
+			"balance_updated_at": a.accountDeploymentState.BalanceUpdatedAt,
+		})
 	})
 
 	router.GET("/quote", func(c *gin.Context) {

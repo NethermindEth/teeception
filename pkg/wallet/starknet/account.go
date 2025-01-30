@@ -19,6 +19,8 @@ const (
 	classHash    = "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f"
 )
 
+var classHashFelt, _ = utils.HexToFelt(classHash)
+
 type StarknetAccountOptions struct {
 	PublicKey  *felt.Felt
 	PrivateKey *felt.Felt
@@ -145,6 +147,25 @@ func (a *StarknetAccount) Connect(client ProviderWrapper) error {
 	return nil
 }
 
+func (a *StarknetAccount) ClassHashMatches(ctx context.Context) (bool, error) {
+	slog.Info("checking current class hash")
+	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
+	if err != nil {
+		if err.Error() != "Contract not found" {
+			return false, fmt.Errorf("failed to get current class hash: %w", FormatRpcError(err))
+		} else {
+			currentClassHash = new(felt.Felt).SetUint64(0)
+		}
+	}
+
+	if currentClassHash.Cmp(classHashFelt) == 0 {
+		slog.Info("account already deployed with correct class hash")
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) error {
 	if !a.connected {
 		slog.Info("connecting account before deployment")
@@ -154,23 +175,12 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 		}
 	}
 
-	classHashFelt, err := utils.HexToFelt(classHash)
+	classHashMatches, err := a.ClassHashMatches(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to convert class hash to felt: %w", err)
+		return fmt.Errorf("failed to check class hash: %w", err)
 	}
 
-	slog.Info("checking current class hash")
-	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
-	if err != nil {
-		if err.Error() != "Contract not found" {
-			return fmt.Errorf("failed to get current class hash: %w", FormatRpcError(err))
-		} else {
-			currentClassHash = new(felt.Felt).SetUint64(0)
-		}
-	}
-
-	if currentClassHash.Cmp(classHashFelt) == 0 {
-		slog.Info("account already deployed with correct class hash")
+	if classHashMatches {
 		return nil
 	}
 

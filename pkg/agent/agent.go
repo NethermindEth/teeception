@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/alitto/pond/v2"
 	"github.com/sashabaranov/go-openai"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/NethermindEth/teeception/pkg/agent/chat"
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
@@ -26,6 +28,8 @@ import (
 
 var (
 	consumePromptSelector = starknetgoutils.GetSelectorFromNameFelt("consume_prompt")
+	balanceOfSelector     = starknetgoutils.GetSelectorFromNameFelt("balance_of")
+	ethAddress, _         = starknetgoutils.HexToFelt("0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7")
 )
 
 const (
@@ -48,6 +52,14 @@ type AgentConfigParams struct {
 	SafeBlockDelta               uint64
 }
 
+type AgentAccountDeploymentState struct {
+	AlreadyDeployed  bool
+	DeploymentErr    error
+	DeployedAt       int64
+	Balance          *big.Int
+	BalanceUpdatedAt int64
+}
+
 type AgentConfig struct {
 	TwitterClient       twitter.TwitterClient
 	TwitterClientConfig *twitter.TwitterClientConfig
@@ -59,8 +71,9 @@ type AgentConfig struct {
 	AgentIndexer *indexer.AgentIndexer
 	EventWatcher *indexer.EventWatcher
 
-	Account *snaccount.StarknetAccount
-	TxQueue *snaccount.TxQueue
+	Account                *snaccount.StarknetAccount
+	AccountDeploymentState *AgentAccountDeploymentState
+	TxQueue                *snaccount.TxQueue
 
 	Pool pond.Pool
 
@@ -194,14 +207,18 @@ type Agent struct {
 	agentIndexer *indexer.AgentIndexer
 	eventWatcher *indexer.EventWatcher
 
-	account *snaccount.StarknetAccount
-	txQueue *snaccount.TxQueue
+	account                *snaccount.StarknetAccount
+	accountDeploymentState *AgentAccountDeploymentState
+	txQueue                *snaccount.TxQueue
 
 	pool pond.Pool
 
 	startupBlockNumber   uint64
 	agentRegistryAddress *felt.Felt
 	agentRegistryBlock   uint64
+
+	promptPaidCh     chan *indexer.EventSubscriptionData
+	promptConsumedCh chan *indexer.EventSubscriptionData
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
@@ -225,6 +242,9 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		startupBlockNumber:   config.StartupBlockNumber,
 		agentRegistryAddress: config.AgentRegistryAddress,
 		agentRegistryBlock:   config.AgentRegistryBlock,
+
+		promptPaidCh:     make(chan *indexer.EventSubscriptionData, 1000),
+		promptConsumedCh: make(chan *indexer.EventSubscriptionData, 1000),
 	}, nil
 }
 
@@ -233,36 +253,39 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	err := a.twitterClient.Initialize(a.twitterClientConfig)
 	if err != nil {
-		return fmt.Errorf("failed to initialize twitter client: %v", err)
+		return fmt.Errorf("failed to initialize twitter client: %w", err)
 	}
 
-	go func() {
-		if err := a.eventWatcher.Run(ctx); err != nil {
-			slog.Error("event watcher execution failed: %v", err)
-		}
-	}()
-
-	go func() {
-		if err := a.agentIndexer.Run(ctx, a.eventWatcher); err != nil {
-			slog.Error("agent indexer execution failed: %v", err)
-		}
-	}()
-
-	if err := a.StartServer(ctx); err != nil {
-		return fmt.Errorf("failed to start server: %v", err)
+	err = a.waitForAccountDeployment(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to wait for account deployment: %w", err)
 	}
 
-	a.txQueue.Start()
+	g, ctx := errgroup.WithContext(ctx)
 
-	promptPaidCh := make(chan *indexer.EventSubscriptionData, 1000)
-	subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, promptPaidCh)
-	defer a.eventWatcher.Unsubscribe(subID)
+	g.Go(func() error {
+		subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, a.promptPaidCh)
+		defer a.eventWatcher.Unsubscribe(subID)
 
-	promptConsumedCh := make(chan *indexer.EventSubscriptionData, 1000)
-	subID = a.eventWatcher.Subscribe(indexer.EventPromptConsumed, promptConsumedCh)
-	defer a.eventWatcher.Unsubscribe(subID)
+		subID = a.eventWatcher.Subscribe(indexer.EventPromptConsumed, a.promptConsumedCh)
+		defer a.eventWatcher.Unsubscribe(subID)
 
-	return a.ProcessEvents(ctx, promptPaidCh, promptConsumedCh)
+		return a.eventWatcher.Run(ctx)
+	})
+	g.Go(func() error {
+		return a.agentIndexer.Run(ctx, a.eventWatcher)
+	})
+	g.Go(func() error {
+		return a.StartServer(ctx)
+	})
+	g.Go(func() error {
+		return a.txQueue.Run(ctx)
+	})
+	g.Go(func() error {
+		return a.ProcessEvents(ctx)
+	})
+
+	return g.Wait()
 }
 
 type agentEventStartupController struct {
@@ -317,7 +340,7 @@ func (a *agentEventStartupController) FinishStartup(pool pond.Pool) {
 	a.finishedStartup = true
 }
 
-func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.EventSubscriptionData, promptConsumedCh <-chan *indexer.EventSubscriptionData) error {
+func (a *Agent) ProcessEvents(ctx context.Context) error {
 	startupController := &agentEventStartupController{
 		startupTasks:       make(map[uint64]func()),
 		finishedStartup:    false,
@@ -332,7 +355,7 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case data := <-promptConsumedCh:
+		case data := <-a.promptConsumedCh:
 			if data.FromBlock > a.startupBlockNumber {
 				continue
 			}
@@ -352,8 +375,7 @@ func (a *Agent) ProcessEvents(ctx context.Context, promptPaidCh <-chan *indexer.
 			}
 
 			startupController.SetPromptConsumedBlockNumber(data.ToBlock)
-
-		case data := <-promptPaidCh:
+		case data := <-a.promptPaidCh:
 			for _, ev := range data.Events {
 				promptPaidEvent, ok := ev.ToPromptPaidEvent()
 				if !ok {
@@ -577,4 +599,81 @@ func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, p
 
 	// Check if reclaimer is zero address (indicating consumed)
 	return resp[0].IsZero(), nil
+}
+
+func (a *Agent) checkAccountBalance(ctx context.Context) (*big.Int, error) {
+	fnCall := rpc.FunctionCall{
+		ContractAddress:    ethAddress,
+		EntryPointSelector: balanceOfSelector,
+		Calldata:           []*felt.Felt{a.account.Address()},
+	}
+
+	var resp []*felt.Felt
+	var err error
+
+	if err := a.starknetClient.Do(func(provider rpc.RpcProvider) error {
+		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("latest"))
+		return err
+	}); err != nil {
+		return nil, fmt.Errorf("failed to call balance_of: %w", snaccount.FormatRpcError(err))
+	}
+
+	if len(resp) < 2 {
+		return nil, fmt.Errorf("invalid response length: got %d, want at least 2", len(resp))
+	}
+
+	balance := snaccount.Uint256ToBigInt([2]*felt.Felt(resp[0:2]))
+
+	return balance, nil
+}
+
+func (a *Agent) waitForAccountDeployment(ctx context.Context) error {
+	classHashMatches, err := a.account.ClassHashMatches(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check class hash: %w", err)
+	}
+
+	if classHashMatches {
+		slog.Info("account already deployed, not waiting for deployment")
+		a.accountDeploymentState.AlreadyDeployed = true
+
+		return nil
+	}
+
+	for {
+		for {
+			slog.Info("checking account balance")
+
+			balance, err := a.checkAccountBalance(ctx)
+			if err != nil {
+				return fmt.Errorf("account balance is 0: %w", err)
+			}
+
+			a.accountDeploymentState.Balance = balance
+			a.accountDeploymentState.BalanceUpdatedAt = time.Now().Unix()
+
+			if balance.Cmp(big.NewInt(0)) != 0 {
+				break
+			}
+
+			slog.Info("account balance is 0, waiting for 5 seconds")
+
+			time.Sleep(5 * time.Second)
+		}
+
+		slog.Info("deploying account")
+
+		err := a.account.Deploy(context.Background(), a.starknetClient)
+		if err != nil {
+			slog.Error("failed to deploy account", "error", err)
+			a.accountDeploymentState.DeploymentErr = err
+		} else {
+			a.accountDeploymentState.DeployedAt = time.Now().Unix()
+			break
+		}
+
+		time.Sleep(10 * time.Second)
+	}
+
+	return nil
 }

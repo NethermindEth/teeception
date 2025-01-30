@@ -47,9 +47,7 @@ type TxQueue struct {
 	items    []*TxQueueItem
 	submitMu sync.Mutex
 	running  bool
-	stopCh   chan struct{}
 	ticker   *time.Ticker
-	wg       sync.WaitGroup
 }
 
 // NewTxQueue initializes a TxQueue with sensible defaults if none are provided.
@@ -69,44 +67,29 @@ func NewTxQueue(account *StarknetAccount, client ProviderWrapper, cfg *TxQueueCo
 		account: account,
 		client:  client,
 		items:   make([]*TxQueueItem, 0),
-		stopCh:  make(chan struct{}),
 	}
 }
 
-// Start begins the queue's background loop that checks for
+// Run runs the queue's background loop that checks for
 // pending function calls and submits them as a batch.
-func (q *TxQueue) Start() {
+func (q *TxQueue) Run(ctx context.Context) error {
 	if q.running {
-		return
+		return nil
 	}
 	q.running = true
 
 	q.ticker = time.NewTicker(q.cfg.SubmissionInterval)
-	q.wg.Add(1)
 
-	go func() {
-		defer q.wg.Done()
-		defer q.ticker.Stop()
+	defer q.ticker.Stop()
 
-		for {
-			select {
-			case <-q.stopCh:
-				return
-			case <-q.ticker.C:
-				q.submitIfDue()
-			}
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-q.ticker.C:
+			q.submitIfDue()
 		}
-	}()
-}
-
-// Stop stops the background submission process gracefully.
-func (q *TxQueue) Stop() {
-	if !q.running {
-		return
 	}
-	close(q.stopCh)
-	q.wg.Wait()
-	q.running = false
 }
 
 // Enqueue attempts a "call" for each function call to ensure it doesn't revert.
