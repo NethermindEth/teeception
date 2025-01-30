@@ -46,6 +46,7 @@ type TxQueue struct {
 	itemsMu  sync.Mutex
 	items    []*TxQueueItem
 	nonceMu  sync.Mutex
+	nonce    *felt.Felt
 	running  bool
 	ticker   *time.Ticker
 	submitCh chan struct{}
@@ -82,6 +83,17 @@ func (q *TxQueue) Run(ctx context.Context) error {
 	defer func() {
 		q.running = false
 	}()
+
+	// Get initial nonce
+	acc, err := q.account.Account()
+	if err != nil {
+		return fmt.Errorf("failed to get account: %w", err)
+	}
+	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), q.account.Address())
+	if err != nil {
+		return fmt.Errorf("failed to get initial nonce: %w", FormatRpcError(err))
+	}
+	q.nonce = nonce
 
 	for {
 		select {
@@ -183,15 +195,10 @@ func (q *TxQueue) buildTx(ctx context.Context, calls []rpc.FunctionCall) (*rpc.B
 		return nil, fmt.Errorf("failed to get account: %w", err)
 	}
 
-	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), q.account.Address())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %w", FormatRpcError(err))
-	}
-
 	invokeTxn := rpc.BroadcastInvokev1Txn{
 		InvokeTxnV1: rpc.InvokeTxnV1{
 			Version:       rpc.TransactionV1,
-			Nonce:         nonce,
+			Nonce:         q.nonce,
 			Type:          rpc.TransactionType_Invoke,
 			SenderAddress: q.account.Address(),
 		},
@@ -247,6 +254,9 @@ func (q *TxQueue) tryMulticall(ctx context.Context, items []*TxQueueItem, allCal
 		return false
 	}
 
+	// Increment nonce after successful broadcast
+	q.nonce = q.nonce.Add(q.nonce, new(felt.Felt).SetUint64(1))
+
 	slog.Info("multicall broadcast successful", "tx_hash", resp.TransactionHash)
 	q.notifyAll(items, resp.TransactionHash, nil)
 	return true
@@ -272,6 +282,9 @@ func (q *TxQueue) submitSingle(ctx context.Context, item *TxQueueItem) {
 		q.notifySingle(item, nil, FormatRpcError(err))
 		return
 	}
+
+	// Increment nonce after successful broadcast
+	q.nonce = q.nonce.Add(q.nonce, new(felt.Felt).SetUint64(1))
 
 	q.notifySingle(item, resp.TransactionHash, nil)
 }
