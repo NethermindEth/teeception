@@ -206,9 +206,10 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 
 	fee := feeRes[0].OverallFee
 	feeBI := fee.BigInt(new(big.Int))
-	tx.DeployAccountTxn.MaxFee = new(felt.Felt).SetBigInt(new(big.Int).Add(feeBI, new(big.Int).Div(feeBI, new(big.Int).SetUint64(5))))
 
-	tx.DeployAccountTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
+	feeBI.Add(feeBI, new(big.Int).Div(feeBI, big.NewInt(5)))
+	tx.DeployAccountTxn.MaxFee = new(felt.Felt).SetBigInt(feeBI)
+
 	slog.Info("estimated fee", "fee", fee.String())
 
 	slog.Info("signing final deploy account transaction")
