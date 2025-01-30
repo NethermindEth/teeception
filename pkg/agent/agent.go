@@ -414,10 +414,14 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 	}
 
 	isDrain := resp.Drain != nil
+	drainTo := ""
+	if isDrain {
+		drainTo = resp.Drain.Address
+	}
 
 	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID, "is_drain", isDrain, "reply", resp.Response)
 
-	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, isDrain, resp.Drain.Address)
+	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, isDrain, drainTo)
 	if err != nil {
 		slog.Warn("failed to consume prompt", "error", snaccount.FormatRpcError(err))
 		return fmt.Errorf("failed to consume prompt: %v", err)
