@@ -21,9 +21,9 @@ func LogRpcError(err error) {
 func FormatRpcError(err error) string {
 	rpcErr, ok := err.(*rpc.RPCError)
 	if !ok {
-		return err.Error()
+		return fmt.Sprintf("non-rpc error: %v", err)
 	}
-	return fmt.Sprintf("rpc error: %v", rpcErr)
+	return fmt.Sprintf("rpc error: (%d, %s, %v)", rpcErr.Code, rpcErr.Message, rpcErr.Data)
 }
 
 func Uint256ToBigInt(uint256 [2]*felt.Felt) *big.Int {
