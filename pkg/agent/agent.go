@@ -390,6 +390,19 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 						"from_address", promptPaidEvent.User,
 						"tweet_id", promptPaidEvent.TweetID)
 
+					agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, ev.Raw.FromAddress, ev.Raw.BlockNumber)
+					if err != nil {
+						slog.Warn("failed to get agent info", "error", err)
+						return
+					}
+
+					timeNow := uint64(time.Now().Unix())
+
+					if timeNow >= agentInfo.EndTime {
+						slog.Info("agent is expired", "agent_address", ev.Raw.FromAddress, "end_time", agentInfo.EndTime)
+						return
+					}
+
 					isPromptConsumed, err := a.isPromptConsumed(ctx, ev.Raw.FromAddress, promptPaidEvent.PromptID)
 					if err != nil {
 						slog.Warn("failed to check if prompt is consumed", "error", err)
