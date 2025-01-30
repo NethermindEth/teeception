@@ -72,7 +72,7 @@ type AgentConfig struct {
 	EventWatcher *indexer.EventWatcher
 
 	Account                *snaccount.StarknetAccount
-	AccountDeploymentState *AgentAccountDeploymentState
+	AccountDeploymentState AgentAccountDeploymentState
 	TxQueue                *snaccount.TxQueue
 
 	Pool pond.Pool
@@ -208,7 +208,7 @@ type Agent struct {
 	eventWatcher *indexer.EventWatcher
 
 	account                *snaccount.StarknetAccount
-	accountDeploymentState *AgentAccountDeploymentState
+	accountDeploymentState AgentAccountDeploymentState
 	txQueue                *snaccount.TxQueue
 
 	pool pond.Pool
@@ -232,10 +232,11 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		starknetClient: config.StarknetClient,
 		quoter:         config.Quoter,
 
-		agentIndexer: config.AgentIndexer,
-		eventWatcher: config.EventWatcher,
-		account:      config.Account,
-		txQueue:      config.TxQueue,
+		agentIndexer:           config.AgentIndexer,
+		eventWatcher:           config.EventWatcher,
+		account:                config.Account,
+		accountDeploymentState: config.AccountDeploymentState,
+		txQueue:                config.TxQueue,
 
 		pool: config.Pool,
 
