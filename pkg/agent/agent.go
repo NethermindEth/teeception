@@ -334,7 +334,10 @@ func (a *agentEventStartupController) FinishStartup(pool pond.Pool) {
 			continue
 		}
 
-		pool.Go(task)
+		err := pool.Go(task)
+		if err != nil {
+			slog.Error("failed to pool startup task", "error", err)
+		}
 	}
 
 	a.startupTasks = nil
@@ -423,7 +426,10 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 				if startupController.IsStartupPhase() {
 					startupController.AddStartupTask(promptPaidEvent.PromptID, task)
 				} else {
-					a.pool.Go(task)
+					err := a.pool.Go(task)
+					if err != nil {
+						slog.Error("failed to pool startup task", "error", err)
+					}
 				}
 			}
 

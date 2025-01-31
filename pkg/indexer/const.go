@@ -18,6 +18,5 @@ var (
 	getCreatorSelector        = starknetgoutils.GetSelectorFromNameFelt("get_creator")
 	getEndTimeSelector        = starknetgoutils.GetSelectorFromNameFelt("get_end_time")
 
-	balanceOfSelector    = starknetgoutils.GetSelectorFromNameFelt("balanceOf")
 	getPrizePoolSelector = starknetgoutils.GetSelectorFromNameFelt("get_prize_pool")
 )

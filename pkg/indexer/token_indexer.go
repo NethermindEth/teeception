@@ -97,7 +97,9 @@ func (i *TokenIndexer) run(ctx context.Context, watcher *EventWatcher) error {
 					i.onTokenRemoved(ev)
 				}
 			}
-			i.db.SetLastIndexedBlock(data.ToBlock)
+			if err := i.db.SetLastIndexedBlock(data.ToBlock); err != nil {
+				slog.Error("failed to set last indexed block", "error", err)
+			}
 			i.dbMu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
@@ -130,7 +132,9 @@ func (i *TokenIndexer) updatePricesTask(ctx context.Context) error {
 
 			i.dbMu.Lock()
 			for tokenBytes, info := range tokens {
-				i.db.SetTokenInfo(tokenBytes, info)
+				if err := i.db.SetTokenInfo(tokenBytes, info); err != nil {
+					slog.Error("failed to set token info", "error", err)
+				}
 			}
 			i.dbMu.Unlock()
 
@@ -152,10 +156,12 @@ func (i *TokenIndexer) onTokenAdded(ev *Event) {
 		return
 	}
 
-	i.db.SetTokenInfo(tokenAddedEv.Token.Bytes(), &TokenInfo{
+	if err := i.db.SetTokenInfo(tokenAddedEv.Token.Bytes(), &TokenInfo{
 		MinPromptPrice:    tokenAddedEv.MinPromptPrice,
 		MinInitialBalance: tokenAddedEv.MinInitialBalance,
-	})
+	}); err != nil {
+		slog.Error("failed to set token info", "error", err)
+	}
 }
 
 func (i *TokenIndexer) onTokenRemoved(ev *Event) {
@@ -170,7 +176,9 @@ func (i *TokenIndexer) onTokenRemoved(ev *Event) {
 		return
 	}
 
-	i.db.SetTokenInfo(tokenRemovedEv.Token.Bytes(), nil)
+	if err := i.db.SetTokenInfo(tokenRemovedEv.Token.Bytes(), nil); err != nil {
+		slog.Error("failed to set token info", "error", err)
+	}
 }
 
 // GetTokenMinPromptPrice returns a token's minimum prompt price, if it exists.

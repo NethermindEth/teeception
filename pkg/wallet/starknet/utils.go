@@ -8,22 +8,22 @@ import (
 	"github.com/NethermindEth/starknet.go/rpc"
 )
 
-type StandardRpcFormattedError struct {
-	Err error
+type RpcFormattedError struct {
+	rpcErr *rpc.RPCError
 }
 
-var _ error = (*StandardRpcFormattedError)(nil)
+var _ error = (*RpcFormattedError)(nil)
 
-func (e *StandardRpcFormattedError) Error() string {
-	rpcErr, ok := e.Err.(*rpc.RPCError)
-	if !ok {
-		return fmt.Sprintf("non-rpc error: %w", e.Err)
-	}
-	return fmt.Sprintf("rpc error: (%d, %s, %v)", rpcErr.Code, rpcErr.Message, rpcErr.Data)
+func (e *RpcFormattedError) Error() string {
+	return fmt.Sprintf("rpc error: (%d, %s, %v)", e.rpcErr.Code, e.rpcErr.Message, e.rpcErr.Data)
 }
 
 func FormatRpcError(err error) error {
-	return &StandardRpcFormattedError{Err: err}
+	rpcErr, ok := err.(*rpc.RPCError)
+	if !ok {
+		return fmt.Errorf("non-rpc error: %w", err)
+	}
+	return &RpcFormattedError{rpcErr: rpcErr}
 }
 
 func Uint256ToBigInt(uint256 [2]*felt.Felt) *big.Int {

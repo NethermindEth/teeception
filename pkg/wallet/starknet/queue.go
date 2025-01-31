@@ -48,7 +48,6 @@ type TxQueue struct {
 	nonceMu  sync.Mutex
 	nonce    *felt.Felt
 	running  bool
-	ticker   *time.Ticker
 	submitCh chan struct{}
 }
 

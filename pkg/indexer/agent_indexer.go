@@ -82,7 +82,9 @@ func (i *AgentIndexer) run(ctx context.Context, watcher *EventWatcher) error {
 			for _, ev := range data.Events {
 				i.onAgentRegistered(ev)
 			}
-			i.db.SetLastIndexedBlock(data.ToBlock)
+			if err := i.db.SetLastIndexedBlock(data.ToBlock); err != nil {
+				slog.Error("failed to set last indexed block", "error", err)
+			}
 			i.agentsMu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
@@ -104,7 +106,7 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 
 	slog.Info("agent registered", "address", agentRegisteredEv.Agent.String(), "creator", agentRegisteredEv.Creator.String(), "name", agentRegisteredEv.Name)
 
-	i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
+	if err := i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
 		Address:      agentRegisteredEv.Agent,
 		Creator:      agentRegisteredEv.Creator,
 		Name:         agentRegisteredEv.Name,
@@ -112,7 +114,9 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		PromptPrice:  agentRegisteredEv.PromptPrice,
 		TokenAddress: agentRegisteredEv.TokenAddress,
 		EndTime:      agentRegisteredEv.EndTime,
-	})
+	}); err != nil {
+		slog.Error("failed to set agent info", "error", err)
+	}
 }
 
 // GetAgentInfo returns an agent's info, if it exists.

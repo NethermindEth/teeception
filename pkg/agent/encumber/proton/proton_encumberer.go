@@ -58,7 +58,7 @@ func NewProtonEncumberer(credentials ProtonEncumbererCredentials) *ProtonEncumbe
 func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.SeleniumDriver) error {
 	slog.Info("attempting to login to proton", "url", protonLoginUrl)
 	if err := driver.Get(protonLoginUrl); err != nil {
-		return fmt.Errorf("failed to navigate to login page: %v", err)
+		return fmt.Errorf("failed to navigate to login page: %w", err)
 	}
 
 	slog.Info("waiting for page to load", "delay", protonNavigationDelay)
@@ -68,7 +68,7 @@ func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.Sel
 		time.Sleep(seleniumInputDelay)
 		return el.SendKeys(p.credentials.ProtonUsername)
 	}, protonWaitTimeout); err != nil {
-		return fmt.Errorf("failed to find or interact with username field: %v", err)
+		return fmt.Errorf("failed to find or interact with username field: %w", err)
 	}
 	slog.Info("username entered", "username", p.credentials.ProtonUsername)
 
@@ -79,7 +79,7 @@ func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.Sel
 		}
 		return el.Submit()
 	}, protonWaitTimeout); err != nil {
-		return fmt.Errorf("failed to find or interact with password field: %v", err)
+		return fmt.Errorf("failed to find or interact with password field: %w", err)
 	}
 	slog.Info("password entered and submitted", "password", p.credentials.ProtonPassword)
 
@@ -92,7 +92,7 @@ func (p *ProtonEncumberer) Login(ctx context.Context, driver *selenium_utils.Sel
 func (p *ProtonEncumberer) SetNewPassword(ctx context.Context, driver *selenium_utils.SeleniumDriver, newPassword string) error {
 	slog.Info("navigating to password settings", "url", protonPasswordUrl)
 	if err := driver.Get(protonPasswordUrl); err != nil {
-		return fmt.Errorf("failed to navigate to password settings: %v", err)
+		return fmt.Errorf("failed to navigate to password settings: %w", err)
 	}
 
 	slog.Info("waiting for page to load", "delay", protonNavigationDelay)
@@ -101,7 +101,7 @@ func (p *ProtonEncumberer) SetNewPassword(ctx context.Context, driver *selenium_
 	if err := driver.InteractWithElement(ctx, selenium.ByXPATH, protonChangeButtonXpath, func(el selenium.WebElement) error {
 		return el.Click()
 	}, protonWaitTimeout); err != nil {
-		return fmt.Errorf("failed to find or click change password button: %v", err)
+		return fmt.Errorf("failed to find or click change password button: %w", err)
 	}
 	slog.Info("clicked change password button")
 
@@ -112,7 +112,7 @@ func (p *ProtonEncumberer) SetNewPassword(ctx context.Context, driver *selenium_
 		}
 		return el.Submit()
 	}, protonWaitTimeout); err != nil {
-		return fmt.Errorf("failed to confirm current password: %v", err)
+		return fmt.Errorf("failed to confirm current password: %w", err)
 	}
 	slog.Info("current password confirmed")
 	time.Sleep(protonSleepDelay)
@@ -120,7 +120,7 @@ func (p *ProtonEncumberer) SetNewPassword(ctx context.Context, driver *selenium_
 	if err := driver.InteractWithElement(ctx, selenium.ByID, protonNewPwdElementId, func(el selenium.WebElement) error {
 		return el.SendKeys(newPassword)
 	}, protonWaitTimeout); err != nil {
-		return fmt.Errorf("failed to enter new password: %v", err)
+		return fmt.Errorf("failed to enter new password: %w", err)
 	}
 	slog.Info("entered new password")
 
@@ -130,7 +130,7 @@ func (p *ProtonEncumberer) SetNewPassword(ctx context.Context, driver *selenium_
 		}
 		return el.Submit()
 	}, protonWaitTimeout); err != nil {
-		return fmt.Errorf("failed to confirm new password: %v", err)
+		return fmt.Errorf("failed to confirm new password: %w", err)
 	}
 	slog.Info("confirmed and submitted new password")
 
@@ -144,19 +144,26 @@ func (p *ProtonEncumberer) Encumber(ctx context.Context) (*ProtonEncumbererOutpu
 	slog.Info("starting proton encumbrance process")
 	driver, err := selenium_utils.NewSeleniumDriver(seleniumPort)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create selenium driver: %v", err)
+		return nil, fmt.Errorf("failed to create selenium driver: %w", err)
 	}
-	defer driver.Close()
+	defer func() {
+		if err := driver.Close(); err != nil {
+			slog.Error("failed to close selenium driver", "error", err)
+		}
+	}()
 
 	if err := p.Login(ctx, driver); err != nil {
-		driver.Debug()
-		return nil, fmt.Errorf("failed to login: %v", err)
+		debugErr := driver.Debug()
+		if debugErr != nil {
+			slog.Error("failed to debug selenium driver", "error", debugErr)
+		}
+		return nil, fmt.Errorf("failed to login: %w", err)
 	}
 	slog.Info("successfully logged in to proton")
 
 	newPassword, err := password.GeneratePassword()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate new password: %v", err)
+		return nil, fmt.Errorf("failed to generate new password: %w", err)
 	}
 
 	if debug.IsDebugShowPassword() {
@@ -164,8 +171,11 @@ func (p *ProtonEncumberer) Encumber(ctx context.Context) (*ProtonEncumbererOutpu
 	}
 
 	if err := p.SetNewPassword(ctx, driver, newPassword); err != nil {
-		driver.Debug()
-		return nil, fmt.Errorf("failed to set new password: %v", err)
+		debugErr := driver.Debug()
+		if debugErr != nil {
+			slog.Error("failed to debug selenium driver", "error", debugErr)
+		}
+		return nil, fmt.Errorf("failed to set new password: %w", err)
 	}
 	slog.Info("successfully changed proton password")
 
@@ -178,13 +188,20 @@ func (p *ProtonEncumberer) GetTwitterVerificationCode(ctx context.Context) (stri
 	slog.Info("starting twitter verification code retrieval")
 	driver, err := selenium_utils.NewSeleniumDriver(seleniumPort)
 	if err != nil {
-		return "", fmt.Errorf("failed to create selenium driver: %v", err)
+		return "", fmt.Errorf("failed to create selenium driver: %w", err)
 	}
-	defer driver.Close()
+	defer func() {
+		if err := driver.Close(); err != nil {
+			slog.Error("failed to close selenium driver", "error", err)
+		}
+	}()
 
 	if err := p.Login(ctx, driver); err != nil {
-		driver.Debug()
-		return "", fmt.Errorf("failed to login: %v", err)
+		debugErr := driver.Debug()
+		if debugErr != nil {
+			slog.Error("failed to debug selenium driver", "error", debugErr)
+		}
+		return "", fmt.Errorf("failed to login: %w", err)
 	}
 	slog.Info("successfully logged in to proton")
 
@@ -200,8 +217,11 @@ func (p *ProtonEncumberer) GetTwitterVerificationCode(ctx context.Context) (stri
 
 		return nil
 	}, protonWaitTimeout); err != nil {
-		driver.Debug()
-		return "", fmt.Errorf("failed to find verification code: %v", err)
+		debugErr := driver.Debug()
+		if debugErr != nil {
+			slog.Error("failed to debug selenium driver", "error", debugErr)
+		}
+		return "", fmt.Errorf("failed to find verification code: %w", err)
 	}
 
 	if debug.IsDebugShowPassword() {
