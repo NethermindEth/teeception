@@ -4,6 +4,7 @@ import { debug } from './debug'
 declare global {
   interface Window {
     __INITIAL_STATE__: any
+    showChallengeModal?: (agentName: string) => Promise<boolean>;
   }
 }
 
@@ -24,7 +25,7 @@ const findReactProps = (element: Element): any => {
   for (const prefix of reactInternalKeys) {
     const key = Object.keys(element).find(key => key.startsWith(prefix))
     if (key) {
-      debug.log('Twitter', 'Found React key', { key })
+       
       return (element as any)[key]
     }
   }
@@ -35,11 +36,11 @@ const findReactProps = (element: Element): any => {
   )
   
   if (anyReactKey) {
-    debug.log('Twitter', 'Found potential React key', { key: anyReactKey })
+     
     return (element as any)[anyReactKey]
   }
 
-  debug.log('Twitter', 'Available element keys', { keys: Object.keys(element) })
+   
   return null
 }
 
@@ -51,7 +52,7 @@ const findReactProps = (element: Element): any => {
 const findTweetHandler = (element: Element): Function | null => {
   try {
     const props = findReactProps(element)
-    debug.log('Twitter', 'Found props', { props })
+     
 
     if (props) {
       // Check different possible locations of the click handler
@@ -59,7 +60,7 @@ const findTweetHandler = (element: Element): Function | null => {
       if (props.children?.props?.onClick) return props.children.props.onClick
       if (props.memoizedProps?.onClick) return props.memoizedProps.onClick
       
-      debug.log('Twitter', 'Props structure', { props })
+       
     }
 
     // Try parent elements if we can't find it here
@@ -73,12 +74,23 @@ const findTweetHandler = (element: Element): Function | null => {
   return null
 }
 
-interface TweetPayload {
-  text: string
-  reply?: {
-    in_reply_to_tweet_id: string
-    exclude_reply_user_ids: string[]
-  }
+/**
+ * Extracts agent name from tweet text
+ * @param text - The tweet text
+ * @returns The agent name or null if not found
+ */
+export const extractAgentName = (text: string): string | null => {
+   
+  
+  // Remove any text from our overlay to prevent infinite loops
+  const cleanText = text.replace(/Paid|Pay to Challenge/g, '').trim()
+  
+  const match = cleanText.match(/:([^:]+):/)
+   
+  if (!match || !match[1]) return null
+  const agentName = match[1].trim()
+   
+  return agentName
 }
 
 /**
@@ -86,11 +98,27 @@ interface TweetPayload {
  * @param text - The text content of the tweet
  * @returns Promise that resolves to true if the tweet was sent successfully
  */
-export const sendTweet = async (text: string): Promise<boolean> => {
+export const sendTweet = async (): Promise<boolean> => {
   try {
     // Try to find both types of tweet buttons
     const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
     const inlineTweetButton = document.querySelector('[data-testid="tweetButtonInline"]') as HTMLElement
+    const tweetTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+    
+     
+    
+    // Extract agent name from textarea if it exists
+    const agentName = tweetTextarea ? extractAgentName(tweetTextarea.textContent || '') : null
+    
+     
+    
+    // If we found an agent name and have the modal function, show it first
+    if (agentName && window.showChallengeModal) {
+      const shouldProceed = await window.showChallengeModal(agentName)
+      if (!shouldProceed) {
+        return false
+      }
+    }
     
     debug.log('Twitter', 'Found tweet buttons', { 
       tweetButtonExists: !!tweetButton,
@@ -101,7 +129,7 @@ export const sendTweet = async (text: string): Promise<boolean> => {
 
     // Create a promise that resolves when the tweet is sent
     const tweetSentPromise = new Promise<boolean>((resolve) => {
-      debug.log('Twitter', 'Setting up tweet success observer')
+       
       
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
@@ -113,7 +141,7 @@ export const sendTweet = async (text: string): Promise<boolean> => {
             })
             
             if (mutation.target.textContent?.includes('Your Tweet was sent')) {
-              debug.log('Twitter', 'Tweet success detected')
+               
               observer.disconnect()
               resolve(true)
               return
@@ -122,7 +150,7 @@ export const sendTweet = async (text: string): Promise<boolean> => {
         }
       })
       
-      debug.log('Twitter', 'Starting mutation observer')
+       
       observer.observe(document.body, {
         childList: true,
         subtree: true,
@@ -131,7 +159,7 @@ export const sendTweet = async (text: string): Promise<boolean> => {
 
       // Set a timeout to prevent hanging
       setTimeout(() => {
-        debug.log('Twitter', 'Tweet timeout reached')
+         
         observer.disconnect()
         resolve(false)
       }, 5000)
@@ -151,10 +179,10 @@ export const sendTweet = async (text: string): Promise<boolean> => {
     })
 
     buttonToClick.click()
-    debug.log('Twitter', 'Button clicked, waiting for result')
+     
 
     const success = await tweetSentPromise
-    debug.log('Twitter', 'Tweet operation completed', { success })
+     
     return success
 
   } catch (error) {

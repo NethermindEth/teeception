@@ -63,7 +63,6 @@ export const useTweetButton = () => {
         overlay.style.left = `${newRect.left}px`
         overlay.style.width = `${newRect.width}px`
         overlay.style.height = `${newRect.height}px`
-        debug.log('TweetButton', 'Updated overlay position')
       }
       
       overlay.style.display = 'block'
@@ -128,8 +127,6 @@ export const useTweetButton = () => {
         originalButton: tweetButton,
         overlayButton: overlay
       })
-
-      debug.log('TweetButton', 'Created new overlay')
     }
   }, [createOverlayButton, updateOverlayPosition, findTweetButton])
 

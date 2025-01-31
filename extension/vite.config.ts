@@ -4,25 +4,34 @@ import { crx } from '@crxjs/vite-plugin'
 import manifest from './manifest.json'
 import path from 'path'
 
+// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    crx({ manifest }),
-  ],
+  plugins: [react(), crx({ manifest })],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  server: {
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      port: 5173,
+      clientPort: 5173,
+    },
+  },
   build: {
-    manifest: true,
     rollupOptions: {
       input: {
+        popup: 'index.html',
+        content: 'src/content-script/index.tsx',
         contentStyle: 'src/content-script/styles.css',
       },
       output: {
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name][extname]',
       },
-    },
-  },
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
     },
   },
 })
