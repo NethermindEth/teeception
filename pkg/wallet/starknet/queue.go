@@ -89,7 +89,7 @@ func (q *TxQueue) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get account: %w", err)
 	}
-	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("latest"), q.account.Address())
+	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("pending"), q.account.Address())
 	if err != nil {
 		return fmt.Errorf("failed to get initial nonce: %w", FormatRpcError(err))
 	}
@@ -217,7 +217,7 @@ func (q *TxQueue) buildTx(ctx context.Context, calls []rpc.FunctionCall) (*rpc.B
 	}
 
 	// Estimate fee for multicall
-	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
+	feeResp, err := acc.EstimateFee(ctx, []rpc.BroadcastTxn{invokeTxn}, []rpc.SimulationFlag{}, rpc.WithBlockTag("pending"))
 	if err != nil {
 		return nil, fmt.Errorf("fee estimation failed: %w", FormatRpcError(err))
 	}
@@ -305,7 +305,7 @@ func (q *TxQueue) simulateBatch(ctx context.Context, calls []rpc.FunctionCall) e
 	}
 
 	err = q.client.Do(func(client rpc.RpcProvider) error {
-		_, err := client.SimulateTransactions(ctx, rpc.WithBlockTag("latest"), []rpc.BroadcastTxn{*invokeTxn}, []rpc.SimulationFlag{})
+		_, err := client.SimulateTransactions(ctx, rpc.WithBlockTag("pending"), []rpc.BroadcastTxn{*invokeTxn}, []rpc.SimulationFlag{})
 		if err != nil {
 			return err
 		}

@@ -149,7 +149,7 @@ func (a *StarknetAccount) Connect(client ProviderWrapper) error {
 
 func (a *StarknetAccount) classHashMatches(ctx context.Context) (bool, error) {
 	slog.Info("checking current class hash")
-	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
+	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("pending"), a.address)
 	if err != nil {
 		if err.Error() != "Contract not found" {
 			return false, fmt.Errorf("failed to get current class hash: %w", FormatRpcError(err))
@@ -205,7 +205,7 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 	}
 
 	slog.Info("estimating transaction fee")
-	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
+	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("pending"))
 	if err != nil {
 		return fmt.Errorf("failed to estimate transaction fee: %w", FormatRpcError(err))
 	}

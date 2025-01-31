@@ -195,7 +195,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 			ContractAddress:    i.registryAddress,
 			EntryPointSelector: isAgentRegisteredSelector,
 			Calldata:           []*felt.Felt{addr},
-		}, rpc.WithBlockTag("latest"))
+		}, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
 		return AgentInfo{}, fmt.Errorf("is_agent_registered call failed: %w", snaccount.FormatRpcError(err))
@@ -211,7 +211,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 			ContractAddress:    addr,
 			EntryPointSelector: getNameSelector,
 			Calldata:           []*felt.Felt{},
-		}, rpc.WithBlockTag("latest"))
+		}, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
 		return AgentInfo{}, fmt.Errorf("get_name call failed: %w", snaccount.FormatRpcError(err))
@@ -228,7 +228,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 			ContractAddress:    addr,
 			EntryPointSelector: getSystemPromptSelector,
 			Calldata:           []*felt.Felt{},
-		}, rpc.WithBlockTag("latest"))
+		}, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
 		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %w", snaccount.FormatRpcError(err))

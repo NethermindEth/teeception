@@ -600,7 +600,7 @@ func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, p
 	var err error
 
 	if err := a.starknetClient.Do(func(provider rpc.RpcProvider) error {
-		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("latest"))
+		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
 		return false, fmt.Errorf("failed to call get_pending_prompt: %w", snaccount.FormatRpcError(err))
@@ -629,7 +629,7 @@ func (a *Agent) checkAccountBalance(ctx context.Context) (*big.Int, error) {
 	var err error
 
 	if err := a.starknetClient.Do(func(provider rpc.RpcProvider) error {
-		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("latest"))
+		resp, err = provider.Call(ctx, fnCall, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
 		return nil, fmt.Errorf("failed to call balance_of: %w", snaccount.FormatRpcError(err))
