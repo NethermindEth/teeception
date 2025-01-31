@@ -239,10 +239,64 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		return AgentInfo{}, fmt.Errorf("parse system_prompt failed: %v", err)
 	}
 
+	var getCreatorResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getCreatorResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getCreatorSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_creator call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	var getPromptPriceResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getPromptPriceResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getPromptPriceSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_prompt_price call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	var getTokenResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getTokenResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getTokenSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_token call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	var getEndTimeResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getEndTimeResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getEndTimeSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_end_time call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	promptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(getPromptPriceResp[0:2]))
+
 	return AgentInfo{
 		Address:      addr,
+		Creator:      getCreatorResp[0],
 		Name:         name,
 		SystemPrompt: systemPrompt,
+		PromptPrice:  promptPrice,
+		TokenAddress: getTokenResp[0],
+		EndTime:      getEndTimeResp[0].Uint64(),
 	}, nil
 }
 
