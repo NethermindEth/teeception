@@ -76,42 +76,6 @@ const ContentApp = () => {
     setCurrentAgentName(null)
   }
 
-  const handleConfirmPayment = async () => {
-    try {
-      if (!account) {
-        throw new Error('Please connect your wallet first')
-      }
-
-      if (currentTweetId && currentAgentName) {
-        // Get agent address first
-        const agentAddress = await getAgentAddressByName(currentAgentName)
-        if (!agentAddress) {
-          throw new Error(`Agent ${currentAgentName} not found`)
-        }
-
-        debug.log('ContentApp', 'Sending payment transaction', {
-          agentAddress,
-          tweetId: currentTweetId,
-          account,
-        })
-
-        // Send the payment transaction
-        const txHash = await payForTweet(agentAddress, currentTweetId, account)
-        debug.log('ContentApp', 'Payment transaction sent', { txHash })
-
-        // Only close modal after successful transaction
-        setShowPaymentModal(false)
-        setCurrentAgentName(null)
-        setCurrentTweetId(null)
-
-        // TODO: Show transaction pending notification
-      }
-    } catch (error) {
-      debug.error('ContentApp', 'Error handling payment', error)
-      throw error // Re-throw to let PaymentModal handle the error state
-    }
-  }
-
   // Get current user from Twitter
   const [currentUser, setCurrentUser] = useState('')
   useEffect(() => {
@@ -141,7 +105,9 @@ const ContentApp = () => {
       {showPaymentModal && currentAgentName && currentTweetId && (
         <PaymentModal
           open={true}
-          onConfirm={handleConfirmPayment}
+          onConfirm={() => {
+            setShowConfirmModal(false)
+          }}
           onCancel={() => {
             setShowPaymentModal(false)
             setCurrentAgentName(null)

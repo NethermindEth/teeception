@@ -1,5 +1,5 @@
 import { Contract, RpcProvider } from 'starknet'
-import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
+import { AGENT_REGISTRY_ABI } from '../../abis/AGENT_REGISTRY'
 import { useAgentRegistry } from './useAgentRegistry'
 import { useEffect, useState } from 'react'
 import { ACTIVE_NETWORK } from '../config/starknet'
@@ -29,7 +29,7 @@ export function useTokenSupport() {
       try {
         const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
 
-        const registry = new Contract(AGENT_REGISTRY_COPY_ABI, registryAddress, provider)
+        const registry = new Contract(AGENT_REGISTRY_ABI, registryAddress, provider)
 
         // Verify contract connection
         try {
