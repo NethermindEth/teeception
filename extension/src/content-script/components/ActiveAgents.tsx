@@ -1,15 +1,11 @@
 import { AGENT_VIEWS } from './AgentView'
 import { ACTIVE_NETWORK, TWITTER_CONFIG } from '../config/starknet'
 import { useAgents } from '../hooks/useAgents'
-import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
-import { Contract, RpcProvider } from 'starknet'
+import { Contract } from 'starknet'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
-import { useEffect, useState, useMemo } from 'react'
-import { useTokenSupport } from '../hooks/useTokenSupport'
+import { useEffect, useState } from 'react'
 import { SELECTORS } from '../constants/selectors'
-import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
-import { AGENT_ABI } from '../../abis/AGENT_ABI'
 import { debug } from '../utils/debug'
 import { getProvider } from '../utils/contracts'
 
@@ -93,16 +89,15 @@ export default function ActiveAgents({
   setCurrentView: React.Dispatch<React.SetStateAction<AGENT_VIEWS>>
 }) {
   const { agents, loading: agentsLoading, error: agentsError } = useAgents()
-  const { contract: registry } = useAgentRegistry()
   const [agentsWithBalances, setAgentsWithBalances] = useState<AgentWithBalances[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [agentList, setAgentList] = useState<Agent[]>([])
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set())
   const [tokenImages, setTokenImages] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    if (agents.length > 0) {
+    if (!agentsLoading) {
       setAgentList(agents.map(agent => ({
         name: agent.name,
         address: agent.address,
@@ -110,16 +105,20 @@ export default function ActiveAgents({
         token: agent.token
       })))
     }
-  }, [agents])
+  }, [agents, agentsLoading])
 
   useEffect(() => {
     const fetchTokenBalances = async () => {
-      if (!agentList.length) {
-        setLoading(false)
-        return
-      }
-
+      if (agentsLoading) return;
+      
+      setLoading(true);
+      
       try {
+        if (!agentList.length) {
+          setAgentsWithBalances([]);
+          return;
+        }
+
         const provider = getProvider()
 
         // Create a map of token addresses to fetch images only once
@@ -163,14 +162,12 @@ export default function ActiveAgents({
         debug.error('ActiveAgents', 'Error fetching token balances:', err)
         setError('Failed to fetch token balances')
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
     }
 
-    if (agentList.length) {
-      fetchTokenBalances()
-    }
-  }, [agentList])
+    fetchTokenBalances()
+  }, [agentList, agentsLoading])
 
   // Sort agents by total value in their respective tokens
   const sortedAgents = [...agentsWithBalances].sort((a, b) => {
@@ -209,7 +206,7 @@ export default function ActiveAgents({
     })
   }
 
-  if (loading || agentsLoading) {
+  if (agentsLoading || loading) {
     return (
       <div className="flex items-center justify-center h-[600px]">
         <div className="flex items-center gap-2">
