@@ -35,12 +35,18 @@ pub trait IAgentRegistry<TContractState> {
     fn get_agent(self: @TContractState, idx: u64) -> ContractAddress;
     fn get_agents_count(self: @TContractState) -> u64;
     fn get_agents(self: @TContractState, start: u64, end: u64) -> Array<ContractAddress>;
+    fn get_agent_by_name(self: @TContractState, name: ByteArray) -> ContractAddress;
     fn get_token_params(self: @TContractState, token: ContractAddress) -> TokenParams;
+
     fn get_tee(self: @TContractState) -> ContractAddress;
+    fn set_tee(ref self: TContractState, tee: ContractAddress);
+
     fn get_agent_class_hash(self: @TContractState) -> ClassHash;
+    fn set_agent_class_hash(ref self: TContractState, agent_class_hash: ClassHash);
 
     fn pause(ref self: TContractState);
     fn unpause(ref self: TContractState);
+    fn unencumber(ref self: TContractState);
 
     fn register_agent(
         ref self: TContractState,
@@ -52,7 +58,6 @@ pub trait IAgentRegistry<TContractState> {
         end_time: u64,
     ) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
-    fn get_agent_by_name(self: @TContractState, name: ByteArray) -> ContractAddress;
 
     fn consume_prompt(
         ref self: TContractState, agent: ContractAddress, prompt_id: u64, drain_to: ContractAddress,
@@ -144,6 +149,7 @@ pub mod AgentRegistry {
         AgentRegistered: AgentRegistered,
         TokenAdded: TokenAdded,
         TokenRemoved: TokenRemoved,
+        TeeUnencumbered: TeeUnencumbered,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -171,6 +177,12 @@ pub mod AgentRegistry {
     pub struct TokenRemoved {
         #[key]
         pub token: ContractAddress,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    pub struct TeeUnencumbered {
+        #[key]
+        pub tee: ContractAddress,
     }
 
     #[storage]
@@ -356,8 +368,23 @@ pub mod AgentRegistry {
             self.tee.read()
         }
 
+        fn set_tee(ref self: ContractState, tee: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.tee.write(tee);
+        }
+
         fn get_agent_class_hash(self: @ContractState) -> ClassHash {
             self.agent_class_hash.read()
+        }
+
+        fn set_agent_class_hash(ref self: ContractState, agent_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.agent_class_hash.write(agent_class_hash);
+        }
+
+        fn unencumber(ref self: ContractState) {
+            self.ownable.assert_only_owner();
+            self.emit(Event::TeeUnencumbered(TeeUnencumbered { tee: self.tee.read() }));
         }
     }
 }

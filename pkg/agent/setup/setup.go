@@ -2,12 +2,8 @@ package setup
 
 import (
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 
@@ -102,22 +98,10 @@ func writeSetupOutput(setupOutput *SetupOutput, filePath string, key []byte) err
 		return fmt.Errorf("failed to marshal setup output: %v", err)
 	}
 
-	block, err := aes.NewCipher(key)
+	ciphertext, err := encrypt(plaintext, key)
 	if err != nil {
-		return fmt.Errorf("failed to create cipher: %v", err)
+		return fmt.Errorf("failed to encrypt setup output: %v", err)
 	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return fmt.Errorf("failed to create GCM: %v", err)
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return fmt.Errorf("failed to create nonce: %v", err)
-	}
-
-	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
 
 	if err := os.WriteFile(filePath, ciphertext, 0600); err != nil {
 		return fmt.Errorf("failed to write secure file: %v", err)
@@ -149,26 +133,9 @@ func readSetupOutput(filePath string, key []byte) (*SetupOutput, error) {
 		return nil, fmt.Errorf("failed to read secure file: %v", err)
 	}
 
-	block, err := aes.NewCipher(key)
+	plaintext, err := decrypt(ciphertext, key)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cipher: %v", err)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GCM: %v", err)
-	}
-
-	nonceSize := gcm.NonceSize()
-	if len(ciphertext) < nonceSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-
-	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
-
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decrypt data: %v", err)
+		return nil, fmt.Errorf("failed to decrypt setup output: %v", err)
 	}
 
 	var setupOutput SetupOutput

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/base64"
 	"log/slog"
 	"net/http"
 
@@ -19,7 +20,20 @@ func (a *Agent) StartServer(ctx context.Context) error {
 		c.String(http.StatusOK, a.account.PublicKey().String())
 	})
 
-	router.GET("/deployment-status", func(c *gin.Context) {
+	router.GET("/unencumber", func(c *gin.Context) {
+		resp := gin.H{
+			"status": a.isUnencumbered,
+		}
+
+		if a.isUnencumbered {
+			resp["twitter_password"] = base64.StdEncoding.EncodeToString(a.unencumberData.EncryptedTwitterPassword)
+			resp["email_password"] = base64.StdEncoding.EncodeToString(a.unencumberData.EncryptedEmailPassword)
+		}
+
+		c.JSON(http.StatusOK, resp)
+	})
+
+	router.GET("/deployment", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"already_deployed":   a.accountDeploymentState.AlreadyDeployed,
 			"deployment_error":   a.accountDeploymentState.DeploymentErr.Error(),

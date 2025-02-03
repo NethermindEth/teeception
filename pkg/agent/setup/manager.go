@@ -27,6 +27,7 @@ type SetupManager struct {
 	loginServerIp                string
 	loginServerPort              string
 	dstackTappdEndpoint          string
+	unencumberEncryptionKey      [32]byte
 }
 
 type SetupOutput struct {
@@ -44,6 +45,7 @@ type SetupOutput struct {
 	AgentRegistryDeploymentBlock uint64     `json:"agent_registry_deployment_block"`
 	OpenAIKey                    string     `json:"openai_key"`
 	DstackTappdEndpoint          string     `json:"dstack_tappd_endpoint"`
+	UnencumberEncryptionKey      [32]byte   `json:"encryption_key"`
 }
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
@@ -61,6 +63,7 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		loginServerIp:                envGetLoginServerIp(),
 		loginServerPort:              envGetLoginServerPort(),
 		dstackTappdEndpoint:          envGetDstackTappdEndpoint(),
+		unencumberEncryptionKey:      envGetUnencumberEncryptionKey(),
 	}
 
 	if err := setupManager.Validate(); err != nil {
@@ -97,6 +100,10 @@ func (m *SetupManager) Validate() error {
 
 	if m.loginServerIp == "" || m.loginServerPort == "" {
 		return fmt.Errorf("invalid login server credentials")
+	}
+
+	if len(m.unencumberEncryptionKey) != 32 {
+		return fmt.Errorf("invalid encryption key")
 	}
 
 	// dstack endpoint can be empty, so not checking
@@ -151,6 +158,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		AgentRegistryAddress:     agentRegistryAddress,
 		OpenAIKey:                m.openAiKey,
 		DstackTappdEndpoint:      m.dstackTappdEndpoint,
+		UnencumberEncryptionKey:  m.unencumberEncryptionKey,
 	}
 
 	if debug.IsDebugShowSetup() {

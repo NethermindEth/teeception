@@ -20,6 +20,7 @@ import (
 	"github.com/NethermindEth/teeception/pkg/agent/chat"
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
 	"github.com/NethermindEth/teeception/pkg/agent/quote"
+	"github.com/NethermindEth/teeception/pkg/agent/setup"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
@@ -41,6 +42,8 @@ const (
 type AgentConfigParams struct {
 	TwitterClientMode            string
 	TwitterClientConfig          *twitter.TwitterClientConfig
+	IsUnencumbered               bool
+	UnencumberData               *setup.UnencumberData
 	OpenAIKey                    string
 	DstackTappdEndpoint          string
 	StarknetRpcUrls              []string
@@ -63,6 +66,9 @@ type AgentAccountDeploymentState struct {
 type AgentConfig struct {
 	TwitterClient       twitter.TwitterClient
 	TwitterClientConfig *twitter.TwitterClientConfig
+
+	IsUnencumbered bool
+	UnencumberData *setup.UnencumberData
 
 	ChatCompletion chat.ChatCompletion
 	StarknetClient starknet.ProviderWrapper
@@ -179,6 +185,9 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		TwitterClient:       twitterClient,
 		TwitterClientConfig: params.TwitterClientConfig,
 
+		IsUnencumbered: false,
+		UnencumberData: params.UnencumberData,
+
 		ChatCompletion: openaiClient,
 		StarknetClient: starknetClient,
 		Quoter:         quoter,
@@ -200,6 +209,9 @@ type Agent struct {
 	twitterClient       twitter.TwitterClient
 	twitterClientConfig *twitter.TwitterClientConfig
 
+	isUnencumbered bool
+	unencumberData *setup.UnencumberData
+
 	chatCompletion chat.ChatCompletion
 	starknetClient starknet.ProviderWrapper
 	quoter         quote.Quoter
@@ -217,8 +229,9 @@ type Agent struct {
 	agentRegistryAddress *felt.Felt
 	agentRegistryBlock   uint64
 
-	promptPaidCh     chan *indexer.EventSubscriptionData
-	promptConsumedCh chan *indexer.EventSubscriptionData
+	promptPaidCh      chan *indexer.EventSubscriptionData
+	promptConsumedCh  chan *indexer.EventSubscriptionData
+	teeUnencumberedCh chan *indexer.EventSubscriptionData
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
@@ -227,6 +240,9 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 	return &Agent{
 		twitterClient:       config.TwitterClient,
 		twitterClientConfig: config.TwitterClientConfig,
+
+		isUnencumbered: config.IsUnencumbered,
+		unencumberData: config.UnencumberData,
 
 		chatCompletion: config.ChatCompletion,
 		starknetClient: config.StarknetClient,
@@ -244,8 +260,9 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		agentRegistryAddress: config.AgentRegistryAddress,
 		agentRegistryBlock:   config.AgentRegistryBlock,
 
-		promptPaidCh:     make(chan *indexer.EventSubscriptionData, 1000),
-		promptConsumedCh: make(chan *indexer.EventSubscriptionData, 1000),
+		promptPaidCh:      make(chan *indexer.EventSubscriptionData, 1000),
+		promptConsumedCh:  make(chan *indexer.EventSubscriptionData, 1000),
+		teeUnencumberedCh: make(chan *indexer.EventSubscriptionData, 1000),
 	}, nil
 }
 
@@ -265,11 +282,14 @@ func (a *Agent) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		subID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, a.promptPaidCh)
-		defer a.eventWatcher.Unsubscribe(subID)
+		promptPaidSubID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, a.promptPaidCh)
+		defer a.eventWatcher.Unsubscribe(promptPaidSubID)
 
-		subID = a.eventWatcher.Subscribe(indexer.EventPromptConsumed, a.promptConsumedCh)
-		defer a.eventWatcher.Unsubscribe(subID)
+		promptConsumedSubID := a.eventWatcher.Subscribe(indexer.EventPromptConsumed, a.promptConsumedCh)
+		defer a.eventWatcher.Unsubscribe(promptConsumedSubID)
+
+		teeUnencumberedSubID := a.eventWatcher.Subscribe(indexer.EventTeeUnencumbered, a.teeUnencumberedCh)
+		defer a.eventWatcher.Unsubscribe(teeUnencumberedSubID)
 
 		return a.eventWatcher.Run(ctx)
 	})
@@ -359,11 +379,24 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case data := <-a.promptConsumedCh:
-			if data.FromBlock > a.startupBlockNumber {
-				continue
-			}
+		case data := <-a.teeUnencumberedCh:
+			for _, ev := range data.Events {
+				if ev.Raw.BlockNumber < a.startupBlockNumber {
+					continue
+				}
 
+				teeUnencumberedEvent, ok := ev.ToTeeUnencumberedEvent()
+				if !ok {
+					slog.Warn("failed to convert event to tee unencumbered event", "event", ev)
+					continue
+				}
+
+				if teeUnencumberedEvent.Tee.Cmp(a.account.Address()) == 0 {
+					slog.Info("found valid TeeUnencumbered event, twitter and email are now unencumbered")
+					a.isUnencumbered = true
+				}
+			}
+		case data := <-a.promptConsumedCh:
 			for _, ev := range data.Events {
 				if ev.Raw.BlockNumber > a.startupBlockNumber {
 					continue

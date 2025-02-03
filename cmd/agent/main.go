@@ -24,6 +24,12 @@ func main() {
 		twitterClientMode = agent.TwitterClientModeApi
 	}
 
+	unencumberData, err := setup.NewUnencumberDataFromSetupOutput(output)
+	if err != nil {
+		slog.Error("failed to create unencumber data", "error", err)
+		os.Exit(1)
+	}
+
 	agentConfig, err := agent.NewAgentConfigFromParams(&agent.AgentConfigParams{
 		TwitterClientMode: twitterClientMode,
 		TwitterClientConfig: &twitter.TwitterClientConfig{
@@ -34,6 +40,8 @@ func main() {
 			AccessToken:       output.TwitterAccessToken,
 			AccessTokenSecret: output.TwitterAccessTokenSecret,
 		},
+		IsUnencumbered:               false,
+		UnencumberData:               unencumberData,
 		OpenAIKey:                    output.OpenAIKey,
 		StarknetRpcUrls:              output.StarknetRpcUrls,
 		DstackTappdEndpoint:          output.DstackTappdEndpoint,

@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"os"
@@ -23,6 +24,7 @@ const (
 	AgentRegistryAddressKey         = "CONTRACT_ADDRESS"
 	AgentRegistryDeploymentBlockKey = "CONTRACT_DEPLOYMENT_BLOCK"
 	OpenAiKeyKey                    = "OPENAI_API_KEY"
+	UnencumberEncryptionKeyKey      = "UNENCUMBER_ENCRYPTION_KEY"
 )
 
 func envLookupSecureFile() (string, error) {
@@ -139,4 +141,26 @@ func envGetOpenAiKey() string {
 		slog.Warn(OpenAiKeyKey + " environment variable not set")
 	}
 	return key
+}
+
+func envGetUnencumberEncryptionKey() [32]byte {
+	var keyBytes [32]byte
+
+	key, ok := os.LookupEnv(UnencumberEncryptionKeyKey)
+	if !ok {
+		slog.Warn(UnencumberEncryptionKeyKey + " environment variable not set")
+		return keyBytes
+	}
+	decodedKey, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		slog.Warn(UnencumberEncryptionKeyKey + " environment variable is not a valid base64 string")
+		return keyBytes
+	}
+	if len(decodedKey) != 32 {
+		slog.Warn(UnencumberEncryptionKeyKey + " environment variable is not a valid 32 byte key")
+		return keyBytes
+	}
+
+	copy(keyBytes[:], decodedKey)
+	return keyBytes
 }

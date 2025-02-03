@@ -26,6 +26,7 @@ const (
 	EventTransfer
 	EventTokenAdded
 	EventTokenRemoved
+	EventTeeUnencumbered
 )
 
 var EventTypeItems = []EventType{
@@ -35,6 +36,7 @@ var EventTypeItems = []EventType{
 	EventTransfer,
 	EventTokenAdded,
 	EventTokenRemoved,
+	EventTeeUnencumbered,
 }
 
 type Event struct {
@@ -310,6 +312,22 @@ func (e *Event) ToTokenRemovedEvent() (*TokenRemovedEvent, bool) {
 
 	return &TokenRemovedEvent{
 		Token: token,
+	}, true
+}
+
+type TeeUnencumberedEvent struct {
+	Tee *felt.Felt
+}
+
+func (e *Event) ToTeeUnencumberedEvent() (*TeeUnencumberedEvent, bool) {
+	if e.Type != EventTeeUnencumbered {
+		return nil, false
+	}
+
+	tee := e.Raw.Keys[1]
+
+	return &TeeUnencumberedEvent{
+		Tee: tee,
 	}, true
 }
 
@@ -613,6 +631,10 @@ func (w *EventWatcher) parseEvent(raw rpc.EmittedEvent) (Event, bool) {
 	case selector.Cmp(tokenRemovedSelector) == 0:
 		slog.Debug("parsed token removed event")
 		ev.Type = EventTokenRemoved
+		return ev, true
+	case selector.Cmp(teeUnencumberedSelector) == 0:
+		slog.Debug("parsed tee unencumbered event")
+		ev.Type = EventTeeUnencumbered
 		return ev, true
 	default:
 		slog.Debug("parsed unknown event")
