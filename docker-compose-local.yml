@@ -2,7 +2,9 @@ version: '3.9'
 services:
   teeception-agent:
     restart: always
-    image: ghcr.io/nethermindeth/teeception/agent:latest
+    build:
+      context: .
+      dockerfile: agent.Dockerfile
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
       - tee:/app/storage
