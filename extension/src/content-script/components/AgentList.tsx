@@ -43,39 +43,28 @@ const composeTweet = (agentName: string, setIsShowAgentView: (show: boolean) => 
     setIsShowAgentView(false)
   }
 
+  const tryInsertWithRetry = (retryCount = 0, maxRetries = 5) => {
+    const textarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
+    if (textarea) {
+      insertText(textarea)
+    } else if (retryCount < maxRetries) {
+      setTimeout(() => tryInsertWithRetry(retryCount + 1), 200)
+    } else {
+      debug.error('AgentList', 'Failed to find textarea after max retries', { agentName })
+    }
+  }
+
   if (tweetTextarea) {
     insertText(tweetTextarea)
   } else {
     if (postButton) {
       postButton.click()
-      setTimeout(() => {
-        const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
-        if (newTextarea) {
-          insertText(newTextarea)
-        } else if (tweetButton) {
-          tweetButton.click()
-          setTimeout(() => {
-            const fallbackTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
-            if (fallbackTextarea) {
-              insertText(fallbackTextarea)
-            } else {
-              debug.error('AgentList', 'Failed to find textarea after all attempts', {
-                agentName,
-              })
-            }
-          }, 100)
-        }
-      }, 100)
+      // Give the popup time to render
+      setTimeout(() => tryInsertWithRetry(), 300)
     } else if (tweetButton) {
       tweetButton.click()
-      setTimeout(() => {
-        const newTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
-        if (newTextarea) {
-          insertText(newTextarea)
-        } else {
-          debug.error('AgentList', 'Failed to find textarea after tweet button', { agentName })
-        }
-      }, 100)
+      // Give the popup time to render
+      setTimeout(() => tryInsertWithRetry(), 300)
     }
   }
 }
