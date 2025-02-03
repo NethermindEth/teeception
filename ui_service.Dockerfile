@@ -3,7 +3,7 @@
 
 FROM golang:1.23-bookworm AS builder
 
-WORKDIR /deps
+WORKDIR /app
 
 COPY go.* ./
 RUN go mod download
@@ -21,6 +21,6 @@ RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -
 
 WORKDIR /app
 
-COPY --from=builder /app/ui_service .
+COPY --from=builder /app/ui_service /app/ui_service
 
-ENTRYPOINT ["./ui_service"]
+ENTRYPOINT ["/app/ui_service"]
