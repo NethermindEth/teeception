@@ -46,8 +46,8 @@ class TwitterClientApi {
                 undefined,
                 initializeRequest.consumerKey,
                 initializeRequest.consumerSecret,
-                initializeRequest.accessToken,
-                initializeRequest.accessTokenSecret
+                undefined,
+                undefined
             )
             
             res.sendStatus(200)
