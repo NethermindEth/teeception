@@ -438,7 +438,7 @@ func NewMockProviderFromNetwork(network *MockNetwork) *MockProvider {
 				var blockNumber uint64
 				if block.Number != nil {
 					blockNumber = *block.Number
-				} else if block.Tag == "latest" {
+				} else if block.Tag == "latest" || block.Tag == "pending" {
 					latestBlockNumber, err := network.BlockNumber()
 					if err != nil {
 						return nil, fmt.Errorf("failed to get block number: %v", err)

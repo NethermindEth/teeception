@@ -52,9 +52,18 @@ func NewSeleniumDriver(port int) (*SeleniumDriver, error) {
 	}, nil
 }
 
-func (s *SeleniumDriver) Close() {
-	s.service.Stop()
-	s.WebDriver.Quit()
+func (s *SeleniumDriver) Close() error {
+	err := s.service.Stop()
+	if err != nil {
+		return fmt.Errorf("failed to stop selenium service: %w", err)
+	}
+
+	err = s.WebDriver.Quit()
+	if err != nil {
+		return fmt.Errorf("failed to quit web driver: %w", err)
+	}
+
+	return nil
 }
 
 func (s *SeleniumDriver) Debug() error {

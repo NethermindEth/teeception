@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
 )
@@ -28,9 +29,18 @@ func (r *ReportData) MarshalJSON() ([]byte, error) {
 func (r *ReportData) MarshalBinary() ([]byte, error) {
 	writer := bytes.NewBuffer([]byte{})
 
-	binary.Write(writer, binary.BigEndian, r.Address.Bytes())
-	binary.Write(writer, binary.BigEndian, r.ContractAddress.Bytes())
-	binary.Write(writer, binary.BigEndian, []byte(r.TwitterUsername))
+	err := binary.Write(writer, binary.BigEndian, r.Address.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to write address: %w", err)
+	}
+	err = binary.Write(writer, binary.BigEndian, r.ContractAddress.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to write contract address: %w", err)
+	}
+	err = binary.Write(writer, binary.BigEndian, []byte(r.TwitterUsername))
+	if err != nil {
+		return nil, fmt.Errorf("failed to write twitter username: %w", err)
+	}
 
 	return writer.Bytes(), nil
 }

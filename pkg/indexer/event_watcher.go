@@ -439,7 +439,7 @@ func (w *EventWatcher) run(ctx context.Context) error {
 		w.initializedAtBlock, err = provider.BlockNumber(ctx)
 		return err
 	}); err != nil {
-		return fmt.Errorf("failed to get current block number: %v", snaccount.FormatRpcError(err))
+		return fmt.Errorf("failed to get current block number: %w", snaccount.FormatRpcError(err))
 	}
 
 	tickDuration := w.startupTickRate
@@ -491,8 +491,7 @@ func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) 
 			})
 			return err
 		}); err != nil {
-			snaccount.LogRpcError(err)
-			return nil, fmt.Errorf("failed to get events from %v to %v: %v", filter.FromBlock, filter.ToBlock, err)
+			return nil, fmt.Errorf("failed to get events from %v to %v: %w", filter.FromBlock, filter.ToBlock, snaccount.FormatRpcError(err))
 		}
 
 		continuationToken = eventsResp.ContinuationToken
@@ -519,8 +518,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 		currentBlock, err = provider.BlockNumber(ctx)
 		return err
 	}); err != nil {
-		snaccount.LogRpcError(err)
-		return fmt.Errorf("failed to get current block number: %v", err)
+		return fmt.Errorf("failed to get current block number: %w", snaccount.FormatRpcError(err))
 	}
 
 	safeBlock := currentBlock - w.safeBlockDelta
@@ -557,9 +555,10 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 			},
 		})
 		if err != nil {
-			snaccount.LogRpcError(err)
-			return fmt.Errorf("failed to get events from %v to %v: %v", from, toBlock, err)
+			return fmt.Errorf("failed to get events from %v to %v: %w", from, toBlock, snaccount.FormatRpcError(err))
 		}
+
+		slog.Info("got events", "count", len(events))
 
 		// Parse each event into our local struct and broadcast.
 		for _, rawEvent := range events {

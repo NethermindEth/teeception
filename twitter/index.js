@@ -32,6 +32,8 @@ class TwitterClientApi {
      */
     async initialize(req, res) {
         try {
+            console.log('initialize')
+
             this.scraper = new Scraper()
             
             /** @type {InitializeRequest} */
@@ -63,6 +65,8 @@ class TwitterClientApi {
      */
     async getTweet(req, res) {
         try {
+            console.log('getTweet', req.params.id)
+
             const tweetId = req.params.id
             const tweet = await this.scraper.getTweet(tweetId)
             res.send(tweet.text)
@@ -80,6 +84,8 @@ class TwitterClientApi {
      */
     async replyToTweet(req, res) {
         try {
+            console.log('replyToTweet', req.params.id, req.body)
+
             const tweetId = req.params.id
             const { reply } = req.body
             await this.scraper.sendTweet(reply, tweetId)

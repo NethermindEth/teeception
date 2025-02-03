@@ -170,6 +170,43 @@ fn test_register_agent() {
 }
 
 #[test]
+#[should_panic(expected: ('Name already used',))]
+fn test_register_agent_name_conflict() {
+    let setup = setup();
+    let name = "test_agent";
+    let system_prompt = "Test Prompt";
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+
+    // Register first agent
+    setup
+        .registry
+        .register_agent(
+            name.clone(),
+            system_prompt,
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+
+    // Try to register second agent with same name - should fail
+    setup
+        .registry
+        .register_agent(
+            name.clone(),
+            "Different prompt",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+
+    stop_cheat_caller_address(setup.registry.contract_address);
+}
+
+
+#[test]
 fn test_pay_for_prompt() {
     let setup = setup();
 

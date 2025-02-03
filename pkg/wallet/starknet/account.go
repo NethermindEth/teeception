@@ -19,6 +19,8 @@ const (
 	classHash    = "0x61dac032f228abef9c6626f995015233097ae253a7f72d68552db02f2971b8f"
 )
 
+var classHashFelt, _ = utils.HexToFelt(classHash)
+
 type StarknetAccountOptions struct {
 	PublicKey  *felt.Felt
 	PrivateKey *felt.Felt
@@ -100,7 +102,7 @@ func (a *StarknetAccount) connect(client ProviderWrapper) error {
 	var err error
 
 	slog.Info("creating new account instance")
-	client.Do(func(provider rpc.RpcProvider) error {
+	err = client.Do(func(provider rpc.RpcProvider) error {
 		a.account, err = account.NewAccount(provider, a.options.PublicKey, a.options.PublicKey.String(), a.options.Keystore, cairoVersion)
 		if err != nil {
 			return err
@@ -119,8 +121,7 @@ func (a *StarknetAccount) connect(client ProviderWrapper) error {
 	slog.Info("precomputing account address")
 	a.address, err = a.account.PrecomputeAccountAddress(a.options.PublicKey, classHashFelt, []*felt.Felt{a.options.PublicKey})
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to precompute account address: %w", err)
+		return fmt.Errorf("failed to precompute account address: %w", FormatRpcError(err))
 	}
 	slog.Info("account address computed", "address", a.address.String())
 
@@ -146,6 +147,25 @@ func (a *StarknetAccount) Connect(client ProviderWrapper) error {
 	return nil
 }
 
+func (a *StarknetAccount) classHashMatches(ctx context.Context) (bool, error) {
+	slog.Info("checking current class hash")
+	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("pending"), a.address)
+	if err != nil {
+		if err.Error() != "Contract not found" {
+			return false, fmt.Errorf("failed to get current class hash: %w", FormatRpcError(err))
+		} else {
+			currentClassHash = new(felt.Felt).SetUint64(0)
+		}
+	}
+
+	if currentClassHash.Cmp(classHashFelt) == 0 {
+		slog.Info("account already deployed with correct class hash")
+		return true, nil
+	}
+
+	return false, nil
+}
+
 func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) error {
 	if !a.connected {
 		slog.Info("connecting account before deployment")
@@ -155,24 +175,12 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 		}
 	}
 
-	classHashFelt, err := utils.HexToFelt(classHash)
+	classHashMatches, err := a.classHashMatches(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to convert class hash to felt: %w", err)
+		return fmt.Errorf("failed to check class hash: %w", err)
 	}
 
-	slog.Info("checking current class hash")
-	currentClassHash, err := a.account.ClassHashAt(ctx, rpc.WithBlockTag("latest"), a.address)
-	if err != nil {
-		if err.Error() != "Contract not found" {
-			LogRpcError(err)
-			return fmt.Errorf("failed to get current class hash: %w", err)
-		} else {
-			currentClassHash = new(felt.Felt).SetUint64(0)
-		}
-	}
-
-	if currentClassHash.Cmp(classHashFelt) == 0 {
-		slog.Info("account already deployed with correct class hash")
+	if classHashMatches {
 		return nil
 	}
 
@@ -193,36 +201,33 @@ func (a *StarknetAccount) deploy(ctx context.Context, client ProviderWrapper) er
 	slog.Info("signing deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to sign deploy account transaction: %w", err)
+		return fmt.Errorf("failed to sign deploy account transaction: %w", FormatRpcError(err))
 	}
 
 	slog.Info("estimating transaction fee")
-	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("latest"))
+	feeRes, err := a.account.EstimateFee(ctx, []rpc.BroadcastTxn{tx}, []rpc.SimulationFlag{}, rpc.WithBlockTag("pending"))
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to estimate transaction fee: %w", err)
+		return fmt.Errorf("failed to estimate transaction fee: %w", FormatRpcError(err))
 	}
 
 	fee := feeRes[0].OverallFee
 	feeBI := fee.BigInt(new(big.Int))
-	tx.DeployAccountTxn.MaxFee = new(felt.Felt).SetBigInt(new(big.Int).Add(feeBI, new(big.Int).Div(feeBI, new(big.Int).SetUint64(5))))
 
-	tx.DeployAccountTxn.MaxFee = fee.Add(fee, fee.Div(fee, new(felt.Felt).SetUint64(5)))
+	feeBI.Add(feeBI, new(big.Int).Div(feeBI, big.NewInt(5)))
+	tx.DeployAccountTxn.MaxFee = new(felt.Felt).SetBigInt(feeBI)
+
 	slog.Info("estimated fee", "fee", fee.String())
 
 	slog.Info("signing final deploy account transaction")
 	err = a.account.SignDeployAccountTransaction(ctx, &tx.DeployAccountTxn, a.address)
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to sign final deploy account transaction: %w", err)
+		return fmt.Errorf("failed to sign final deploy account transaction: %w", FormatRpcError(err))
 	}
 
 	slog.Info("broadcasting deploy account transaction")
 	resp, err := a.account.AddDeployAccountTransaction(ctx, tx)
 	if err != nil {
-		LogRpcError(err)
-		return fmt.Errorf("failed to broadcast deploy account transaction: %w", err)
+		return fmt.Errorf("failed to broadcast deploy account transaction: %w", FormatRpcError(err))
 	}
 
 	if resp.ContractAddress.Cmp(a.address) != 0 {
@@ -250,4 +255,20 @@ func (a *StarknetAccount) Deploy(ctx context.Context, client ProviderWrapper) er
 	a.deployed = true
 
 	return nil
+}
+
+func (a *StarknetAccount) LoadDeployment(ctx context.Context, client ProviderWrapper) (bool, error) {
+	a.deployMu.Lock()
+	defer a.deployMu.Unlock()
+
+	classHashMatches, err := a.classHashMatches(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to check class hash: %w", err)
+	}
+
+	if classHashMatches {
+		a.deployed = true
+	}
+
+	return classHashMatches, nil
 }

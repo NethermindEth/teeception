@@ -262,8 +262,11 @@ func (t *TwitterEncumberer) Encumber(ctx context.Context) (*TwitterEncumbererOut
 	defer driver.Close()
 
 	if err := t.Login(ctx, driver); err != nil {
-		driver.Debug()
-		return nil, fmt.Errorf("failed to login: %v", err)
+		debugErr := driver.Debug()
+		if debugErr != nil {
+			slog.Error("failed to debug selenium driver", "error", debugErr)
+		}
+		return nil, fmt.Errorf("failed to login: %w", err)
 	}
 	slog.Info("successfully logged in to twitter")
 
@@ -277,8 +280,11 @@ func (t *TwitterEncumberer) Encumber(ctx context.Context) (*TwitterEncumbererOut
 	}
 
 	if err := t.SetNewPassword(ctx, driver, newPassword); err != nil {
-		driver.Debug()
-		return nil, fmt.Errorf("failed to set new password: %v", err)
+		debugErr := driver.Debug()
+		if debugErr != nil {
+			slog.Error("failed to debug selenium driver", "error", debugErr)
+		}
+		return nil, fmt.Errorf("failed to set new password: %w", err)
 	}
 	slog.Info("successfully changed twitter password")
 

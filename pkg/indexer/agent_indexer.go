@@ -82,7 +82,9 @@ func (i *AgentIndexer) run(ctx context.Context, watcher *EventWatcher) error {
 			for _, ev := range data.Events {
 				i.onAgentRegistered(ev)
 			}
-			i.db.SetLastIndexedBlock(data.ToBlock)
+			if err := i.db.SetLastIndexedBlock(data.ToBlock); err != nil {
+				slog.Error("failed to set last indexed block", "error", err)
+			}
 			i.agentsMu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
@@ -104,7 +106,7 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 
 	slog.Info("agent registered", "address", agentRegisteredEv.Agent.String(), "creator", agentRegisteredEv.Creator.String(), "name", agentRegisteredEv.Name)
 
-	i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
+	if err := i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
 		Address:      agentRegisteredEv.Agent,
 		Creator:      agentRegisteredEv.Creator,
 		Name:         agentRegisteredEv.Name,
@@ -112,7 +114,9 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		PromptPrice:  agentRegisteredEv.PromptPrice,
 		TokenAddress: agentRegisteredEv.TokenAddress,
 		EndTime:      agentRegisteredEv.EndTime,
-	})
+	}); err != nil {
+		slog.Error("failed to set agent info", "error", err)
+	}
 }
 
 // GetAgentInfo returns an agent's info, if it exists.
@@ -195,11 +199,10 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 			ContractAddress:    i.registryAddress,
 			EntryPointSelector: isAgentRegisteredSelector,
 			Calldata:           []*felt.Felt{addr},
-		}, rpc.WithBlockTag("latest"))
+		}, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
-		snaccount.LogRpcError(err)
-		return AgentInfo{}, fmt.Errorf("is_agent_registered call failed: %v", err)
+		return AgentInfo{}, fmt.Errorf("is_agent_registered call failed: %w", snaccount.FormatRpcError(err))
 	}
 
 	if isAgentRegisteredResp[0].Cmp(new(felt.Felt).SetUint64(1)) != 0 {
@@ -212,11 +215,10 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 			ContractAddress:    addr,
 			EntryPointSelector: getNameSelector,
 			Calldata:           []*felt.Felt{},
-		}, rpc.WithBlockTag("latest"))
+		}, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
-		snaccount.LogRpcError(err)
-		return AgentInfo{}, fmt.Errorf("get_name call failed: %v", err)
+		return AgentInfo{}, fmt.Errorf("get_name call failed: %w", snaccount.FormatRpcError(err))
 	}
 
 	name, err := starknetgoutils.ByteArrFeltToString(nameResp)
@@ -230,11 +232,10 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 			ContractAddress:    addr,
 			EntryPointSelector: getSystemPromptSelector,
 			Calldata:           []*felt.Felt{},
-		}, rpc.WithBlockTag("latest"))
+		}, rpc.WithBlockTag("pending"))
 		return err
 	}); err != nil {
-		snaccount.LogRpcError(err)
-		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %v", err)
+		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %w", snaccount.FormatRpcError(err))
 	}
 
 	systemPrompt, err := starknetgoutils.ByteArrFeltToString(getSystemPromptResp)
@@ -242,10 +243,64 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		return AgentInfo{}, fmt.Errorf("parse system_prompt failed: %v", err)
 	}
 
+	var getCreatorResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getCreatorResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getCreatorSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_creator call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	var getPromptPriceResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getPromptPriceResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getPromptPriceSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_prompt_price call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	var getTokenResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getTokenResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getTokenSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_token call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	var getEndTimeResp []*felt.Felt
+	if err := i.client.Do(func(provider rpc.RpcProvider) error {
+		getEndTimeResp, err = provider.Call(ctx, rpc.FunctionCall{
+			ContractAddress:    addr,
+			EntryPointSelector: getEndTimeSelector,
+			Calldata:           []*felt.Felt{},
+		}, rpc.WithBlockTag("pending"))
+		return err
+	}); err != nil {
+		return AgentInfo{}, fmt.Errorf("get_end_time call failed: %w", snaccount.FormatRpcError(err))
+	}
+
+	promptPrice := snaccount.Uint256ToBigInt([2]*felt.Felt(getPromptPriceResp[0:2]))
+
 	return AgentInfo{
 		Address:      addr,
+		Creator:      getCreatorResp[0],
 		Name:         name,
 		SystemPrompt: systemPrompt,
+		PromptPrice:  promptPrice,
+		TokenAddress: getTokenResp[0],
+		EndTime:      getEndTimeResp[0].Uint64(),
 	}, nil
 }
 

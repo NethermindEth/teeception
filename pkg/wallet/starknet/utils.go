@@ -2,28 +2,28 @@ package starknet
 
 import (
 	"fmt"
-	"log/slog"
 	"math/big"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
 )
 
-func LogRpcError(err error) {
-	rpcErr, ok := err.(*rpc.RPCError)
-	if !ok {
-		return
-	}
-
-	slog.Error("rpc error", "error", rpcErr, "data", rpcErr.Data, "code", rpcErr.Code, "message", rpcErr.Message)
+type RpcFormattedError struct {
+	rpcErr *rpc.RPCError
 }
 
-func FormatRpcError(err error) string {
+var _ error = (*RpcFormattedError)(nil)
+
+func (e *RpcFormattedError) Error() string {
+	return fmt.Sprintf("rpc error: (%d, %s, %v)", e.rpcErr.Code, e.rpcErr.Message, e.rpcErr.Data)
+}
+
+func FormatRpcError(err error) error {
 	rpcErr, ok := err.(*rpc.RPCError)
 	if !ok {
-		return err.Error()
+		return fmt.Errorf("non-rpc error: %w", err)
 	}
-	return fmt.Sprintf("rpc error: %v", rpcErr)
+	return &RpcFormattedError{rpcErr: rpcErr}
 }
 
 func Uint256ToBigInt(uint256 [2]*felt.Felt) *big.Int {

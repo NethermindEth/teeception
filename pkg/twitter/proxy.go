@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 )
 
@@ -70,6 +71,8 @@ func (p *TwitterProxy) GetTweetText(tweetID uint64) (string, error) {
 }
 
 func (p *TwitterProxy) ReplyToTweet(tweetID uint64, reply string) error {
+	slog.Info("replying to tweet", "tweet_id", tweetID, "reply", reply)
+
 	body := map[string]string{
 		"reply": reply,
 	}

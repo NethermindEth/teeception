@@ -56,7 +56,7 @@ func (p *RateLimitedMultiProvider) Do(f func(provider rpc.RpcProvider) error) er
 		err := f(provider)
 		if err != nil {
 			slog.Debug("failed to execute function for provider", "error", err, "provider_index", idx)
-			errs = append(errs, err)
+			errs = append(errs, FormatRpcError(err))
 		} else {
 			slog.Debug("successfully executed function for provider", "provider_index", idx)
 			return nil
@@ -64,7 +64,7 @@ func (p *RateLimitedMultiProvider) Do(f func(provider rpc.RpcProvider) error) er
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("failed to execute function for all providers: %v", errs)
+		return fmt.Errorf("failed to execute function for all providers: %w", errors.Join(errs...))
 	}
 
 	return nil

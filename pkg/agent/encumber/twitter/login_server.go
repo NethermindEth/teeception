@@ -193,7 +193,9 @@ func (s *TwitterLoginServer) handleCallback(c *gin.Context) {
 	s.tokenPairMutex.Unlock()
 
 	go func() {
-		s.shutdown()
+		if err := s.shutdown(); err != nil {
+			slog.Error("failed to shutdown twitter login server", "error", err)
+		}
 	}()
 }
 

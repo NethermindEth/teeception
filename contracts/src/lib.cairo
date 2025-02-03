@@ -1,4 +1,6 @@
 use core::starknet::{ContractAddress, ClassHash};
+use core::hash::{HashStateTrait};
+use core::pedersen::PedersenTrait;
 
 #[derive(Drop, Copy, Serde, starknet::Store)]
 pub struct TokenParams {
@@ -11,6 +13,21 @@ struct PendingPrompt {
     pub reclaimer: ContractAddress,
     pub amount: u256,
     pub timestamp: u64,
+}
+
+fn hash_byte_array(value: @ByteArray) -> felt252 {
+    let mut hasher = PedersenTrait::new(0);
+    let mut serialized = ArrayTrait::<felt252>::new();
+
+    value.serialize(ref serialized);
+
+    let serialized_len = serialized.len();
+
+    for i in 0..serialized_len {
+        hasher = hasher.update(*serialized.at(i));
+    };
+
+    hasher.finalize()
 }
 
 #[starknet::interface]
@@ -35,6 +52,7 @@ pub trait IAgentRegistry<TContractState> {
         end_time: u64,
     ) -> ContractAddress;
     fn is_agent_registered(self: @TContractState, address: ContractAddress) -> bool;
+    fn get_agent_by_name(self: @TContractState, name: ByteArray) -> ContractAddress;
 
     fn consume_prompt(
         ref self: TContractState, agent: ContractAddress, prompt_id: u64, drain_to: ContractAddress,
@@ -90,7 +108,10 @@ pub trait IAgent<TContractState> {
 
 #[starknet::contract]
 pub mod AgentRegistry {
-    use core::starknet::{ContractAddress, ClassHash, get_caller_address, get_contract_address};
+    use core::starknet::{
+        ContractAddress, ClassHash, get_caller_address, get_contract_address,
+        contract_address_const,
+    };
     use core::starknet::syscalls::deploy_syscall;
     use core::starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
@@ -100,7 +121,7 @@ pub mod AgentRegistry {
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::security::pausable::PausableComponent;
 
-    use super::{IAgentDispatcher, IAgentDispatcherTrait, TokenParams};
+    use super::{IAgentDispatcher, IAgentDispatcherTrait, TokenParams, hash_byte_array};
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: PausableComponent, storage: pausable, event: PausableEvent);
@@ -159,6 +180,7 @@ pub mod AgentRegistry {
         #[substorage(v0)]
         pausable: PausableComponent::Storage,
         agent_class_hash: ClassHash,
+        agent_by_name_hash: Map::<felt252, ContractAddress>,
         agent_registered: Map::<ContractAddress, bool>,
         agents: Vec::<ContractAddress>,
         tee: ContractAddress,
@@ -190,6 +212,11 @@ pub mod AgentRegistry {
         ) -> ContractAddress {
             self.pausable.assert_not_paused();
 
+            let name_hash = hash_byte_array(@name);
+
+            let agent_with_name_hash = self.agent_by_name_hash.read(name_hash);
+            assert(agent_with_name_hash == contract_address_const::<0>(), 'Name already used');
+
             let token_params = self.token_params.read(token);
             assert(token_params.min_prompt_price != 0, 'Token not supported');
             assert(prompt_price >= token_params.min_prompt_price, 'Prompt price too low');
@@ -218,6 +245,7 @@ pub mod AgentRegistry {
 
             self.agent_registered.write(deployed_address, true);
             self.agents.append().write(deployed_address);
+            self.agent_by_name_hash.write(name_hash, deployed_address);
 
             self
                 .emit(
@@ -263,6 +291,11 @@ pub mod AgentRegistry {
 
         fn is_agent_registered(self: @ContractState, address: ContractAddress) -> bool {
             self.agent_registered.read(address)
+        }
+
+        fn get_agent_by_name(self: @ContractState, name: ByteArray) -> ContractAddress {
+            let name_hash = hash_byte_array(@name);
+            self.agent_by_name_hash.read(name_hash)
         }
 
         fn consume_prompt(
