@@ -256,17 +256,17 @@ export default function ActiveAgents({
               key={symbol}
               className="text-[#A4A4A4] text-sm py-4 text-right flex items-center justify-end gap-1"
             >
-              <img src={token.image} alt={token.name} className="w-4 h-4 rounded-full" />
+              <token.image />
               <span>{symbol}</span>
             </div>
           ))}
         </div>
 
-        <div className="pt-3 max-h-[calc(100vh-240px)] overflow-scroll pr-4 pb-12">
+        <div className="pt-3 max-h-[400px] overflow-scroll pb-12">
           {sortedAgents.map((agent) => (
             <div key={agent.address}>
               <div
-                className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
+                className={`grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C] pr-2`}
                 style={{
                   gridTemplateColumns: `32px auto repeat(${supportedTokenList.length}, 200px) 100px`,
                 }}
@@ -297,7 +297,8 @@ export default function ActiveAgents({
                 <div className="flex justify-end">
                   <button
                     onClick={() => composeTweet(agent.name)}
-                    className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70"
+                    className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70 disabled:bg-white/70"
+                    disabled
                   >
                     Reply
                   </button>

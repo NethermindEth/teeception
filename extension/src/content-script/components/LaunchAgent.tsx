@@ -10,6 +10,12 @@ import { Contract, RpcProvider, uint256 } from 'starknet'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 import { useTokenBalance } from '../hooks/useTokenBalance'
 import { ERC20_ABI } from '../../abis/ERC20_ABI'
+import {
+  AGENT_NAME_TOOLTIP_CONTENT,
+  SELECT_TOKEN_TOOLTIP_CONTENT,
+  SYSTEM_PROMPT_TOOLTIP_CONTENT,
+} from '@/constants'
+import { getFeePerMsgTooltipContent, getInitialBalanceTooltipContent } from '@/lib/utils'
 
 interface FormData {
   agentName: string
@@ -36,7 +42,7 @@ export default function LaunchAgent({
   const { account } = useAccount()
   const { address: registryAddress } = useAgentRegistry()
   const { supportedTokens, isLoading: isLoadingSupport } = useTokenSupport()
-  
+
   const [formData, setFormData] = useState<FormData>({
     agentName: '',
     feePerMessage: '',
@@ -45,7 +51,9 @@ export default function LaunchAgent({
     selectedToken: Object.keys(ACTIVE_NETWORK.tokens)[0],
   })
 
-  const { balance: tokenBalance, isLoading: isLoadingBalance } = useTokenBalance(formData.selectedToken)
+  const { balance: tokenBalance, isLoading: isLoadingBalance } = useTokenBalance(
+    formData.selectedToken
+  )
 
   const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
@@ -61,17 +69,18 @@ export default function LaunchAgent({
         symbol,
         name: token.name,
         address: token.address,
+        image: token.image,
         decimals: token.decimals,
-        minPromptPrice: supportedTokens[symbol]?.minPromptPrice
+        minPromptPrice: supportedTokens[symbol]?.minPromptPrice,
       }))
   }, [supportedTokens])
 
   // Set first supported token as default when loaded
   useEffect(() => {
     if (supportedTokenList.length > 0 && !supportedTokens[formData.selectedToken]?.isSupported) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        selectedToken: supportedTokenList[0].symbol
+        selectedToken: supportedTokenList[0].symbol,
       }))
     }
   }, [supportedTokenList, formData.selectedToken, supportedTokens])
@@ -120,7 +129,9 @@ export default function LaunchAgent({
     return Object.keys(newErrors).length === 0
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
@@ -132,7 +143,7 @@ export default function LaunchAgent({
     try {
       const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
       const registry = new Contract(AGENT_REGISTRY_COPY_ABI, registryAddress, provider)
-      
+
       // Connect the contract to the user's account
       registry.connect(account)
 
@@ -145,11 +156,7 @@ export default function LaunchAgent({
       )
 
       // Approve token spending for initial balance
-      const tokenContract = new Contract(
-        ERC20_ABI,
-        selectedToken.address,
-        provider
-      )
+      const tokenContract = new Contract(ERC20_ABI, selectedToken.address, provider)
       tokenContract.connect(account)
       await tokenContract.approve(registryAddress, initialBalance)
 
@@ -163,7 +170,7 @@ export default function LaunchAgent({
       setCurrentView(AGENT_VIEWS.ACTIVE_AGENTS)
     } catch (error) {
       console.error('Error registering agent:', error)
-      setErrors(prev => ({ ...prev, submit: 'Failed to register agent' }))
+      setErrors((prev) => ({ ...prev, submit: 'Failed to register agent' }))
     } finally {
       setIsLoading(false)
     }
@@ -173,12 +180,14 @@ export default function LaunchAgent({
   const selectedTokenSupport = supportedTokens[formData.selectedToken]
   const isFormValid = Object.values(formData).every((value) => value.trim() !== '')
 
-  const minPromptPriceDisplay = selectedTokenSupport?.minPromptPrice 
-    ? (Number(selectedTokenSupport.minPromptPrice) / Math.pow(10, selectedToken.decimals)).toLocaleString(undefined, {
+  const minPromptPriceDisplay = selectedTokenSupport?.minPromptPrice
+    ? (
+        Number(selectedTokenSupport.minPromptPrice) / Math.pow(10, selectedToken.decimals)
+      ).toLocaleString(undefined, {
         minimumFractionDigits: 0,
-        maximumFractionDigits: 6
+        maximumFractionDigits: 6,
       })
-    : null;
+    : null
 
   if (isLoadingSupport) {
     return <div className="text-white">Loading supported tokens...</div>
@@ -193,7 +202,7 @@ export default function LaunchAgent({
       <div className="text-[#A4A4A4] text-sm grid grid-cols-2 py-4 border-b border-b-[#2F3336]">
         <p className="">Launching agent</p>
       </div>
-      <div className="py-6 text-[#A4A4A4] text-xs flex flex-col gap-4">
+      <div className="py-6 text-[#A4A4A4] text-xs flex flex-col gap-4 max-h-[]">
         <div>
           <div className="flex items-center gap-1 mb-1">
             <p>Agent name</p>
@@ -203,7 +212,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Name of your agent</p>
+                  <p>{AGENT_NAME_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -230,7 +239,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Select token for fees</p>
+                  <p>{SELECT_TOKEN_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -243,8 +252,13 @@ export default function LaunchAgent({
               className="w-full border border-[#818181] rounded-sm bg-black/80 outline-none min-h-[34px] p-2 focus:border-white text-white"
             >
               {supportedTokenList.map((token) => (
-                <option key={token.symbol} value={token.symbol}>
-                  {token.name} ({token.symbol})
+                <option key={token.symbol} value={token.symbol} className="relative">
+                  <>
+                    {token.name} ({token.symbol})
+                    {/* //TODO: for svg to get visible, Make custom dropdown instead of normal dropdown */}
+                    <token.image />
+                    {/* {token.image} */}
+                  </>
                 </option>
               ))}
             </select>
@@ -266,14 +280,18 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Fee per message in {selectedToken?.symbol}</p>
+                  <p>
+                    {getFeePerMsgTooltipContent({
+                      symbol: selectedToken?.symbol,
+                    })}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <div>
             <input
-              type="text"
+              type="number"
               name="feePerMessage"
               value={formData.feePerMessage}
               onChange={handleInputChange}
@@ -298,14 +316,14 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Initial balance in {selectedToken?.symbol}</p>
+                  <p>{getInitialBalanceTooltipContent({ symbol: selectedToken.symbol })}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <div>
             <input
-              type="text"
+              type="number"
               name="initialBalance"
               value={formData.initialBalance}
               onChange={handleInputChange}
@@ -330,10 +348,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>
-                    The System Prompt is your agent&apos;s foundation. Make it &apos;strong&apos; to
-                    defend against attacks and ensure it stays on purpose.
-                  </p>
+                  <p>{SYSTEM_PROMPT_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
