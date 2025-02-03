@@ -2,7 +2,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
 import { cn } from '@/lib/utils'
-import { AlertTriangle, MessageCircle } from 'lucide-react'
+import { MessageCircle } from 'lucide-react'
 import { debug } from '../../utils/debug'
 
 interface ConfirmationModalProps {
@@ -10,6 +10,7 @@ interface ConfirmationModalProps {
   onConfirm: () => void
   onCancel: () => void
   agentName?: string
+  checkForNewTweets: () => void
 }
 
 /**
@@ -20,7 +21,22 @@ export const ConfirmationModal = ({
   onConfirm,
   onCancel,
   agentName,
+  checkForNewTweets,
 }: ConfirmationModalProps) => {
+  const handleConfirm = () => {
+    debug.log('ConfirmationModal', 'Starting tweet send process')
+    onConfirm()
+    
+    // Try multiple checks with shorter intervals
+    const checkIntervals = [100, 200, 300] // Check at 100ms, 200ms, and 300ms after sending
+    checkIntervals.forEach(delay => {
+      setTimeout(() => {
+        debug.log('ConfirmationModal', 'Checking for new tweets', { delay })
+        checkForNewTweets()
+      }, delay)
+    })
+  }
+
   return (
     <Dialog open={open} onClose={onCancel}>
       <div className="space-y-6">
@@ -47,18 +63,14 @@ export const ConfirmationModal = ({
           <Button
             variant="default"
             size="lg"
-            onClick={() => {
-              onConfirm()
-            }}
+            onClick={handleConfirm}
           >
             Send Tweet
           </Button>
           <Button
             size="lg"
             variant="ghost"
-            onClick={() => {
-              onCancel()
-            }}
+            onClick={onCancel}
           >
             Cancel
           </Button>

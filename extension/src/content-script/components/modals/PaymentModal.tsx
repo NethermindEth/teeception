@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
 import { cn } from '@/lib/utils'
@@ -7,10 +7,11 @@ import { debug } from '../../utils/debug'
 import { getPromptPrice, getAgentAddressByName, getAgentToken } from '../../utils/contracts'
 import { ACTIVE_NETWORK } from '../../config/starknet'
 import { useTokenBalance } from '../../hooks/useTokenBalance'
-import { useContract, useAccount } from '@starknet-react/core'
+import { useContract, useAccount, useSendTransaction } from '@starknet-react/core'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
-import { uint256, Abi } from 'starknet'
+import { uint256 } from 'starknet'
+import { SELECTORS } from '../../constants/selectors'
 
 interface TweetPrice {
   price: bigint
@@ -23,6 +24,9 @@ interface PaymentModalProps {
   onCancel: () => void
   agentName: string
   tweetId: string
+  updateBanner?: (tweetId: string) => void
+  checkUnpaidTweets?: () => void
+  markTweetAsPaid?: (tweetId: string) => void
 }
 
 type TransactionStatus = {
@@ -33,7 +37,16 @@ type TransactionStatus = {
 /**
  * Modal component that shows payment confirmation when a user wants to pay for a challenge
  */
-export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: PaymentModalProps) => {
+export const PaymentModal = ({ 
+  open, 
+  onConfirm, 
+  onCancel, 
+  agentName, 
+  tweetId, 
+  updateBanner,
+  checkUnpaidTweets,
+  markTweetAsPaid
+}: PaymentModalProps) => {
   const [loading, setLoading] = useState(true)
   const [price, setPrice] = useState<TweetPrice | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,17 +61,70 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
 
   // Get contract instances
   const { contract: tokenContract } = useContract({
-    abi: TEECEPTION_ERC20_ABI as Abi,
+    abi: TEECEPTION_ERC20_ABI,
     address: tokenAddress ? `0x${BigInt(tokenAddress).toString(16).padStart(64, '0')}` : '0x0',
   })
 
   const { contract: agentContract } = useContract({
-    abi: TEECEPTION_AGENT_ABI as Abi,
+    abi: TEECEPTION_AGENT_ABI,
     address: agentAddress ? `0x${BigInt(agentAddress).toString(16).padStart(64, '0')}` : '0x0',
   })
 
   // Get user's token balance
   const { balance: tokenBalance } = useTokenBalance(price?.token || '')
+
+  const { sendAsync } = useSendTransaction({
+    calls: useMemo(() => {
+      if (!tokenContract || !agentContract || !price) return undefined
+
+      try {
+        // Convert tweet ID to hex string with 0x prefix and pad to 32 bytes
+        const tweetIdHex = '0x' + BigInt(tweetId).toString(16).padStart(64, '0')
+        
+        // Find the tweet element and get its text
+        const tweetElement = document.querySelector(`article[data-testid="tweet"]`)
+        const tweetTextElement = tweetElement?.querySelector(SELECTORS.TWEET_TEXT)
+        const tweetText = tweetTextElement?.textContent || ''
+        
+        if (!tweetText) {
+          debug.error('PaymentModal', 'Could not find tweet text', {
+            tweetId,
+            tweetElement: !!tweetElement,
+            tweetTextElement: !!tweetTextElement
+          })
+          return undefined
+        }
+        
+        // Convert tweet text to hex string using TextEncoder
+        const encoder = new TextEncoder()
+        const encodedText = encoder.encode(tweetText)
+        const promptHex = '0x' + Array.from(encodedText)
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('')
+        
+        debug.log('PaymentModal', 'Preparing transaction', {
+          tweetId,
+          tweetIdHex,
+          tweetText,
+          promptHex
+        })
+        
+        return [
+          tokenContract.populate("approve", [
+            agentContract.address,
+            uint256.bnToUint256(price.price)
+          ]),
+          agentContract.populate("pay_for_prompt", [
+            tweetIdHex,
+            promptHex
+          ])
+        ]
+      } catch (error) {
+        debug.error('PaymentModal', 'Error preparing transaction calls:', error)
+        return undefined
+      }
+    }, [tokenContract, agentContract, price, tweetId])
+  })
 
   const fetchPrice = async () => {
     try {
@@ -129,8 +195,8 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
 
   const getButtonText = () => {
     if (loading) return 'Loading...'
-    if (txStatus.approve === 'loading') return 'Approving...'
-    if (txStatus.approve === 'success' && txStatus.payment === 'loading') return 'Paying...'
+    if (txStatus.approve === 'loading') return 'Processing Transaction...'
+    if (txStatus.approve === 'success' && txStatus.payment === 'loading') return 'Processing Payment...'
     if (hasInsufficientBalance) return `Insufficient ${price?.token} balance`
     return `Pay ${formattedPrice}`
   }
@@ -141,25 +207,37 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
     try {
       setTxStatus(prev => ({ ...prev, approve: 'loading' }))
 
-      // Prepare multicall transactions
-      const approveCalldata = {
-        contractAddress: tokenContract.address,
-        entrypoint: 'approve',
-        calldata: [agentContract.address, uint256.bnToUint256(price.price)]
+      const response = await sendAsync()
+      debug.log('PaymentModal', 'Transaction sent', { response })
+
+      if (response?.transaction_hash) {
+        await account.waitForTransaction(response.transaction_hash)
+        setTxStatus({ approve: 'success', payment: 'success' })
+        
+        // Mark the tweet as temporarily paid and update UI immediately
+        if (markTweetAsPaid) {
+          debug.log('PaymentModal', 'Marking tweet as temporarily paid', { tweetId })
+          markTweetAsPaid(tweetId)
+        }
+        if (updateBanner) {
+          updateBanner(tweetId)
+        }
+        
+        // Start periodic checks for chain state
+        const checkInterval = setInterval(() => {
+          if (checkUnpaidTweets) {
+            debug.log('PaymentModal', 'Checking chain state')
+            checkUnpaidTweets()
+          }
+        }, 2000) // Check every 2 seconds
+        
+        // Stop checking after 30 seconds
+        setTimeout(() => {
+          clearInterval(checkInterval)
+        }, 30000)
+        
+        onConfirm()
       }
-
-      const payCalldata = {
-        contractAddress: agentContract.address,
-        entrypoint: 'pay_for_prompt',
-        calldata: [BigInt(tweetId)]
-      }
-
-      // Execute multicall
-      const multicallResult = await account.execute([approveCalldata, payCalldata])
-      debug.log('PaymentModal', 'Multicall sent', { multicallResult })
-
-      setTxStatus({ approve: 'success', payment: 'success' })
-      onConfirm()
     } catch (error) {
       debug.error('PaymentModal', 'Error executing transactions', error)
       setTxStatus({ approve: 'error', payment: 'error' })
@@ -191,12 +269,13 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
                   <p className="text-sm text-red-500">{error}</p>
                   <Button
                     size="lg"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => {
                       setError(null)
                       setLoading(true)
                       fetchPrice()
                     }}
+                    className="bg-gray-800 hover:bg-gray-700 text-white"
                   >
                     Retry
                   </Button>
@@ -245,7 +324,7 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
             <Button
               variant="default"
               size="lg"
-              onClick={onConfirm}
+              onClick={onCancel}
             >
               Close
             </Button>

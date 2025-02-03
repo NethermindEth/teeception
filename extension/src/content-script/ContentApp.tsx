@@ -86,7 +86,7 @@ const ContentApp = () => {
   }, [])
 
   // Use tweet observer
-  useTweetObserver(handlePayment, currentUser)
+  const { updateBanner, checkUnpaidTweets, markTweetAsPaid } = useTweetObserver(handlePayment, currentUser)
 
   return (
     <>
@@ -100,13 +100,16 @@ const ContentApp = () => {
             setCurrentAgentName(null)
           }}
           agentName={currentAgentName || undefined}
+          checkForNewTweets={checkUnpaidTweets}
         />
       )}
       {showPaymentModal && currentAgentName && currentTweetId && (
         <PaymentModal
           open={true}
           onConfirm={() => {
-            setShowConfirmModal(false)
+            setShowPaymentModal(false)
+            setCurrentAgentName(null)
+            setCurrentTweetId(null)
           }}
           onCancel={() => {
             setShowPaymentModal(false)
@@ -115,6 +118,9 @@ const ContentApp = () => {
           }}
           agentName={currentAgentName}
           tweetId={currentTweetId}
+          updateBanner={updateBanner}
+          checkUnpaidTweets={checkUnpaidTweets}
+          markTweetAsPaid={markTweetAsPaid}
         />
       )}
     </>
