@@ -127,7 +127,7 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
               </TooltipProvider>
             </div>
           </div>
-          <AgentView isShowAgentView={isShowAgentView} />
+          <AgentView isShowAgentView={isShowAgentView} setIsShowAgentView={setIsShowAgentView} />
         </div>
       </div>
     </>

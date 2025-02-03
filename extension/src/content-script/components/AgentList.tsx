@@ -29,7 +29,7 @@ interface AgentWithBalances {
 type Agent = AgentWithBalances;
 
 // Function to focus tweet compose box and set text
-const composeTweet = (agentName: string) => {
+const composeTweet = (agentName: string, setIsShowAgentView: (show: boolean) => void) => {
   const tweetButton = document.querySelector(SELECTORS.TWEET_BUTTON) as HTMLElement
   const tweetTextarea = document.querySelector(SELECTORS.TWEET_TEXTAREA) as HTMLElement
   const postButton = document.querySelector(SELECTORS.POST_BUTTON) as HTMLElement
@@ -40,6 +40,7 @@ const composeTweet = (agentName: string) => {
     const hasExistingText = existingText.trim().length > 0
     const text = `${TWITTER_CONFIG.accountName} :${agentName}:${hasExistingText ? ' ' : ''}`
     document.execCommand('insertText', false, text)
+    setIsShowAgentView(false)
   }
 
   if (tweetTextarea) {
@@ -81,8 +82,10 @@ const composeTweet = (agentName: string) => {
 
 export default function AgentList({
   setCurrentView,
+  setIsShowAgentView,
 }: {
   setCurrentView: React.Dispatch<React.SetStateAction<AGENT_VIEWS>>
+  setIsShowAgentView: (show: boolean) => void
 }) {
   const { agents, loading: agentsLoading, error: agentsError } = useAgents()
   const [agentsWithBalances, setAgentsWithBalances] = useState<AgentWithBalances[]>([])
@@ -344,7 +347,7 @@ export default function AgentList({
 
                 <div className="flex justify-end">
                   <button
-                    onClick={() => composeTweet(agent.name)}
+                    onClick={(e) => composeTweet(agent.name, setIsShowAgentView)}
                     className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={agent.isFinalized}
                   >

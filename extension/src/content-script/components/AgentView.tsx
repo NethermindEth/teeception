@@ -11,9 +11,10 @@ export enum AGENT_VIEWS {
 
 interface AgentViewProps {
   isShowAgentView: boolean
+  setIsShowAgentView: (show: boolean) => void
 }
 
-export const AgentView = ({ isShowAgentView }: AgentViewProps) => {
+export const AgentView = ({ isShowAgentView, setIsShowAgentView }: AgentViewProps) => {
   const [currentView, setCurrentView] = useState<AGENT_VIEWS>(AGENT_VIEWS.ACTIVE_AGENTS)
 
   return (
@@ -26,7 +27,7 @@ export const AgentView = ({ isShowAgentView }: AgentViewProps) => {
       <div className="px-5 pt-4 border-t border-[#2F3336]">
         <div className={isShowAgentView ? 'block' : 'hidden'}>
           {currentView === AGENT_VIEWS.ACTIVE_AGENTS && (
-            <ActiveAgents setCurrentView={setCurrentView} />
+            <ActiveAgents setCurrentView={setCurrentView} setIsShowAgentView={setIsShowAgentView} />
           )}
           {currentView === AGENT_VIEWS.LAUNCH_AGENT && <LaunchAgent setCurrentView={setCurrentView} />}
           {currentView === AGENT_VIEWS.LEADERBOARD && (
