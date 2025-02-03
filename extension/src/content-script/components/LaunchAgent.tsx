@@ -11,6 +11,13 @@ import { useTokenSupport } from '../hooks/useTokenSupport'
 import { useTokenBalance } from '../hooks/useTokenBalance'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { debug } from '../utils/debug'
+import {
+  AGENT_NAME_TOOLTIP_CONTENT,
+  END_TIME_TOOLTIP_CONTENT,
+  SELECT_TOKEN_TOOLTIP_CONTENT,
+  SYSTEM_PROMPT_TOOLTIP_CONTENT,
+} from '@/constants'
+import { getFeePerMsgTooltipContent, getInitialBalanceTooltipContent } from '@/lib/utils';
 
 interface FormData {
   agentName: string
@@ -322,7 +329,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Name of your agent (max 31 characters)</p>
+                  <p>{AGENT_NAME_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -352,7 +359,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Select token for fees</p>
+                  <p>{SELECT_TOKEN_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -390,14 +397,18 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Fee per message in {selectedToken?.symbol}</p>
+                  <p>
+                    {getFeePerMsgTooltipContent({
+                      symbol: selectedToken?.symbol,
+                    })}
+                  </p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <div>
             <input
-              type="text"
+              type="number"
               name="feePerMessage"
               value={formData.feePerMessage}
               onChange={handleInputChange}
@@ -424,14 +435,14 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Initial balance in {selectedToken?.symbol}</p>
+                <p>{getInitialBalanceTooltipContent({ symbol: selectedToken.symbol })}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </div>
           <div>
             <input
-              type="text"
+              type="number"
               name="initialBalance"
               value={formData.initialBalance}
               onChange={handleInputChange}
@@ -468,7 +479,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>When the agent will stop accepting new prompts</p>
+                  <p>{END_TIME_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -498,8 +509,7 @@ export default function LaunchAgent({
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>
-                    The System Prompt is your agent&apos;s foundation. Make it &apos;strong&apos; to
-                    defend against attacks and ensure it stays on purpose.
+                    {SYSTEM_PROMPT_TOOLTIP_CONTENT}
                   </p>
                 </TooltipContent>
               </Tooltip>

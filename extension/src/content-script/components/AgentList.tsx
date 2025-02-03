@@ -254,11 +254,13 @@ export default function AgentList({
           <div className="text-[#A4A4A4] text-sm py-4 text-right">Balance</div>
         </div>
 
-        <div className="pt-3 max-h-[calc(100vh-240px)] overflow-scroll pr-4 pb-12">
+        <div className="pt-3 max-h-[400px] overflow-scroll pr-4 pb-12">
           {sortedAgents.map((agent) => (
             <div key={agent.address}>
               <div
-                className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
+               className={`grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C] ${
+                expandedAgents.has(agent.address) ? 'bg-[#16181C]' : ''
+              } pr-2`}
                 style={{ gridTemplateColumns: '32px auto 200px 100px' }}
               >
                 <button
