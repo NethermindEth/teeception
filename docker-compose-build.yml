@@ -1,0 +1,8 @@
+version: '3.9'
+services:
+  agent:
+    build:
+      context: ./agent.Dockerfile
+  ui_service:
+    build:
+      context: ./ui_service.Dockerfile
