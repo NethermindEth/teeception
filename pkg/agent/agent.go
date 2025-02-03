@@ -310,21 +310,21 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 type agentEventStartupController struct {
-	startupTasks              map[uint64]func()
+	startupTasks              map[[32]byte]map[uint64]func()
 	finishedStartup           bool
 	startupBlockNumber        uint64
 	promptPaidBlockNumber     uint64
 	promptConsumedBlockNumber uint64
 }
 
-func (a *agentEventStartupController) ClearStartupTask(promptID uint64) {
-	a.startupTasks[promptID] = nil
+func (a *agentEventStartupController) ClearStartupTask(agentAddressBytes [32]byte, promptID uint64) {
+	a.startupTasks[agentAddressBytes][promptID] = nil
 }
 
-func (a *agentEventStartupController) AddStartupTask(promptID uint64, task func()) {
-	_, ok := a.startupTasks[promptID]
+func (a *agentEventStartupController) AddStartupTask(agentAddressBytes [32]byte, promptID uint64, task func()) {
+	_, ok := a.startupTasks[agentAddressBytes][promptID]
 	if !ok {
-		a.startupTasks[promptID] = task
+		a.startupTasks[agentAddressBytes][promptID] = task
 	}
 }
 
@@ -349,14 +349,16 @@ func (a *agentEventStartupController) ShouldFinish() bool {
 }
 
 func (a *agentEventStartupController) FinishStartup(pool pond.Pool) {
-	for _, task := range a.startupTasks {
-		if task == nil {
-			continue
-		}
+	for _, tasks := range a.startupTasks {
+		for _, task := range tasks {
+			if task == nil {
+				continue
+			}
 
-		err := pool.Go(task)
-		if err != nil {
-			slog.Error("failed to pool startup task", "error", err)
+			err := pool.Go(task)
+			if err != nil {
+				slog.Error("failed to pool startup task", "error", err)
+			}
 		}
 	}
 
@@ -366,7 +368,7 @@ func (a *agentEventStartupController) FinishStartup(pool pond.Pool) {
 
 func (a *Agent) ProcessEvents(ctx context.Context) error {
 	startupController := &agentEventStartupController{
-		startupTasks:       make(map[uint64]func()),
+		startupTasks:       make(map[[32]byte]map[uint64]func()),
 		finishedStartup:    false,
 		startupBlockNumber: a.startupBlockNumber,
 	}
@@ -408,7 +410,7 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 					continue
 				}
 
-				startupController.ClearStartupTask(promptConsumedEvent.PromptID)
+				startupController.ClearStartupTask(ev.Raw.FromAddress.Bytes(), promptConsumedEvent.PromptID)
 			}
 
 			startupController.SetPromptConsumedBlockNumber(data.ToBlock)
@@ -420,11 +422,13 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 					continue
 				}
 
+				slog.Info("received prompt paid event", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
+
 				task := func() {
 					slog.Info("processing prompt paid event",
 						"agent_address", ev.Raw.FromAddress,
-						"from_address", promptPaidEvent.User,
-						"tweet_id", promptPaidEvent.TweetID)
+						"tweet_id", promptPaidEvent.TweetID,
+						"prompt_id", promptPaidEvent.PromptID)
 
 					agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, ev.Raw.FromAddress, ev.Raw.BlockNumber)
 					if err != nil {
@@ -457,7 +461,7 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 				}
 
 				if startupController.IsStartupPhase() {
-					startupController.AddStartupTask(promptPaidEvent.PromptID, task)
+					startupController.AddStartupTask(ev.Raw.FromAddress.Bytes(), promptPaidEvent.PromptID, task)
 				} else {
 					err := a.pool.Go(task)
 					if err != nil {
