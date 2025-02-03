@@ -2,6 +2,7 @@
 
 import { Tooltip } from '@/components/Tooltip'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MenuIcon, Plus, Search } from 'lucide-react'
 import { AgentsList, TabType } from '@/components/AgentsList'
@@ -24,10 +25,6 @@ export default function Home() {
   const handleInstallExtension = () => {
     //TODO: add chrome line
     console.log('install extension handler called')
-  }
-
-  const howItWorks = () => {
-    console.log('how it works handler called')
   }
 
   return (
@@ -98,12 +95,12 @@ export default function Home() {
               </button>
             </Tooltip>
 
-            <button
+            <Link
+              href="#how_it_works"
               className="col-span-2 md:col-span-1 bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4  text-base hover:bg-white hover:text-black"
-              onClick={howItWorks}
             >
               How it works
-            </button>
+            </Link>
           </div>
         </div>
       </div>
