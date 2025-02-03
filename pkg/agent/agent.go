@@ -318,10 +318,18 @@ type agentEventStartupController struct {
 }
 
 func (a *agentEventStartupController) ClearStartupTask(agentAddressBytes [32]byte, promptID uint64) {
+	if _, ok := a.startupTasks[agentAddressBytes]; !ok {
+		a.startupTasks[agentAddressBytes] = make(map[uint64]func())
+	}
+
 	a.startupTasks[agentAddressBytes][promptID] = nil
 }
 
 func (a *agentEventStartupController) AddStartupTask(agentAddressBytes [32]byte, promptID uint64, task func()) {
+	if _, ok := a.startupTasks[agentAddressBytes]; !ok {
+		a.startupTasks[agentAddressBytes] = make(map[uint64]func())
+	}
+
 	_, ok := a.startupTasks[agentAddressBytes][promptID]
 	if !ok {
 		a.startupTasks[agentAddressBytes][promptID] = task
