@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import ActiveAgents from './ActiveAgents'
+import ActiveAgents from './AgentList'
 import LaunchAgent from './LaunchAgent'
 import { Leaderboard } from './Leaderboard'
 

@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Contract, Abi } from 'starknet';
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI';
-import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI';
 import { debug } from '../utils/debug';
 import { useAgentRegistry } from './useAgentRegistry';
 import { getProvider } from '../utils/contracts';
-import { byteArray } from 'starknet';
+
 interface AgentDetails {
     address: string;
     name: string;
@@ -15,7 +14,6 @@ interface AgentDetails {
         minPromptPrice: string;
         minInitialBalance: string;
     };
-    balance: string;
     promptPrice: string;
     prizePool: string;
     pendingPool: string;
@@ -162,19 +160,6 @@ export const useAgents = () => {
                                 debug.error('useAgents', 'Error fetching token params', { address, tokenAddress, error: e });
                                 throw e;
                             });
-
-                            // Initialize token contract directly
-                            const tokenContract = new Contract(TEECEPTION_ERC20_ABI as Abi, normalizedTokenAddress, provider);
-
-                            const balanceResult = await tokenContract.balance_of(address).catch((e: any) => {
-                                debug.error('useAgents', 'Error fetching token balance', { address, error: e });
-                                return { low: 0, high: 0 };
-                            });
-
-                            const balanceValue = balanceResult.low !== undefined ?
-                                BigInt(balanceResult.low) + (BigInt(balanceResult.high || 0) << BigInt(128)) :
-                                BigInt(0);
-
                             const promptPriceValue = promptPriceResult.low !== undefined ?
                                 BigInt(promptPriceResult.low) + (BigInt(promptPriceResult.high || 0) << BigInt(128)) :
                                 BigInt(0);
@@ -196,7 +181,6 @@ export const useAgents = () => {
                                     minPromptPrice: tokenParams.min_prompt_price.toString(),
                                     minInitialBalance: tokenParams.min_initial_balance.toString(),
                                 },
-                                balance: balanceValue.toString(),
                                 promptPrice: promptPriceValue.toString(),
                                 prizePool: prizePoolValue.toString(),
                                 pendingPool: pendingPoolValue.toString(),

@@ -58,8 +58,11 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
       provider
     )
 
-    // Get all agents
-    const agents = await registry.get_agents()
+    // Get agents count first
+    const agentsCount = await registry.get_agents_count()
+    
+    // Get all agents (if any exist)
+    const agents = agentsCount > 0 ? await registry.get_agents(0, agentsCount) : []
 
     // Clear old cache
     AGENT_ADDRESS_CACHE.clear()

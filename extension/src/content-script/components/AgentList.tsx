@@ -7,7 +7,7 @@ import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { useEffect, useState } from 'react'
 import { SELECTORS } from '../constants/selectors'
 import { debug } from '../utils/debug'
-import { getProvider } from '../utils/contracts'
+import { getProvider, normalizeAddress } from '../utils/contracts'
 
 interface AgentWithBalances {
   address: string
@@ -18,7 +18,6 @@ interface AgentWithBalances {
     minPromptPrice: string
     minInitialBalance: string
   }
-  balance: string
   promptPrice: string
   prizePool: string
   pendingPool: string
@@ -59,7 +58,7 @@ const composeTweet = (agentName: string) => {
             if (fallbackTextarea) {
               insertText(fallbackTextarea)
             } else {
-              debug.error('ActiveAgents', 'Failed to find textarea after all attempts', {
+              debug.error('AgentList', 'Failed to find textarea after all attempts', {
                 agentName,
               })
             }
@@ -73,22 +72,14 @@ const composeTweet = (agentName: string) => {
         if (newTextarea) {
           insertText(newTextarea)
         } else {
-          debug.error('ActiveAgents', 'Failed to find textarea after tweet button', { agentName })
+          debug.error('AgentList', 'Failed to find textarea after tweet button', { agentName })
         }
       }, 100)
     }
   }
 }
 
-// Add a helper function to properly normalize addresses
-const normalizeAddress = (address: string): string => {
-  // Remove all 0x prefixes first
-  const cleanAddr = address.replace(/^(0x)+/, '')
-  // Add back single 0x prefix and ensure proper length
-  return `0x${cleanAddr}`.toLowerCase()
-}
-
-export default function ActiveAgents({
+export default function AgentList({
   setCurrentView,
 }: {
   setCurrentView: React.Dispatch<React.SetStateAction<AGENT_VIEWS>>
@@ -113,7 +104,6 @@ export default function ActiveAgents({
         pendingPool: agent.pendingPool,
         endTime: agent.endTime,
         isFinalized: agent.isFinalized,
-        balance: agent.balance
       })))
     }
   }, [agents, agentsLoading])
@@ -142,7 +132,7 @@ export default function ActiveAgents({
             }
 
             const cleanAddress = normalizeAddress(tokenAddress)
-            debug.log('ActiveAgents', 'Normalized token address', { 
+            debug.log('AgentList', 'Normalized token address', { 
               original: tokenAddress, 
               normalized: cleanAddress 
             })
@@ -152,7 +142,7 @@ export default function ActiveAgents({
             const token = ACTIVE_NETWORK.tokens[symbol.toString()]
             return [tokenAddress, token?.image || ''] as [string, string]
           } catch (err) {
-            debug.error('ActiveAgents', 'Error fetching token image:', err)
+            debug.error('AgentList', 'Error fetching token image:', err)
             return [tokenAddress, ''] as [string, string]
           }
         })
@@ -169,7 +159,7 @@ export default function ActiveAgents({
               }
 
               const cleanAddress = normalizeAddress(agent.token.address)
-              debug.log('ActiveAgents', 'Normalized token address for balance', { 
+              debug.log('AgentList', 'Normalized token address for balance', { 
                 original: agent.token.address, 
                 normalized: cleanAddress 
               })
@@ -181,7 +171,7 @@ export default function ActiveAgents({
                 balance: balance.toString()
               }
             } catch (err) {
-              debug.error('ActiveAgents', 'Error fetching token balance:', {
+              debug.error('AgentList', 'Error fetching token balance:', {
                 address: agent.address,
                 tokenAddress: agent.token.address,
                 error: err
@@ -193,7 +183,7 @@ export default function ActiveAgents({
 
         setAgentsWithBalances(agentsWithTokenBalances)
       } catch (err) {
-        debug.error('ActiveAgents', 'Error fetching token balances:', err)
+        debug.error('AgentList', 'Error fetching token balances:', err)
         setError('Failed to fetch token balances')
       } finally {
         setLoading(false);
@@ -209,8 +199,8 @@ export default function ActiveAgents({
     if (a.token.address === '0x0' && b.token.address !== '0x0') return 1;
     if (a.token.address !== '0x0' && b.token.address === '0x0') return -1;
     
-    const balanceA = BigInt(a.balance || '0')
-    const balanceB = BigInt(b.balance || '0')
+    const balanceA = BigInt(a.prizePool || '0')
+    const balanceB = BigInt(b.prizePool || '0')
     return balanceB > balanceA ? 1 : balanceB < balanceA ? -1 : 0
   })
 
@@ -312,13 +302,43 @@ export default function ActiveAgents({
                   )}
                   <div>
                     <p className="text-white">
-                      {agent.token.address === '0x0' ? 'Error' : formatBalance(agent.balance)}
+                      {(() => {
+                        try {
+                          if (!agent.token?.address || agent.token.address === '0x0') {
+                            return 'Error'
+                          }
+
+                          const matchingToken = Object.values(ACTIVE_NETWORK.tokens).find(token => {
+                            try {
+                              return token && token.address && 
+                                     normalizeAddress(token.address) === normalizeAddress(agent.token.address)
+                            } catch (err) {
+                              debug.error('AgentList', 'Error comparing token addresses:', {
+                                token,
+                                agentToken: agent.token,
+                                error: err
+                              })
+                              return false
+                            }
+                          })
+
+                          debug.log('AgentList', 'Token lookup:', {
+                            agentToken: agent.token.address,
+                            normalizedAgentToken: normalizeAddress(agent.token.address),
+                            availableTokens: Object.values(ACTIVE_NETWORK.tokens).map(t => ({
+                              symbol: t.symbol,
+                              address: t.address,
+                              normalized: normalizeAddress(t.address)
+                            }))
+                          })
+
+                          return `${formatBalance(agent.prizePool)} ${matchingToken?.symbol || 'Unknown'}`
+                        } catch (err) {
+                          debug.error('AgentList', 'Error formatting token display:', err)
+                          return 'Error'
+                        }
+                      })()}
                     </p>
-                    {agent.token.address !== '0x0' && (
-                      <p className="text-[#A4A4A4] text-xs">
-                        Prize pool: {formatBalance(agent.prizePool)}
-                      </p>
-                    )}
                   </div>
                 </div>
 
