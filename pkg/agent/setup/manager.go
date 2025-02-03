@@ -8,8 +8,6 @@ import (
 	"github.com/NethermindEth/juno/core/felt"
 	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
-	"github.com/NethermindEth/teeception/pkg/agent/encumber/proton"
-	"github.com/NethermindEth/teeception/pkg/agent/encumber/twitter"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	"github.com/dghubble/oauth1"
 )
@@ -126,35 +124,37 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 	var protonPassword string
 
 	if !debug.IsDebugDisableEncumbering() {
-		protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{
-			ProtonUsername: m.protonEmail,
-			ProtonPassword: m.protonPassword,
-		})
+		return nil, fmt.Errorf("encumbering currently disabled")
 
-		twitterEncumberer := twitter.NewTwitterEncumberer(twitter.TwitterEncumbererCredentials{
-			TwitterUsername:  m.twitterAccount,
-			TwitterPassword:  m.twitterPassword,
-			TwitterEmail:     m.protonEmail,
-			TwitterAppKey:    m.twitterAppKey,
-			TwitterAppSecret: m.twitterAppSecret,
-		}, m.loginServerIp, m.loginServerPort, func(ctx context.Context) (string, error) {
-			return protonEncumberer.GetTwitterVerificationCode(ctx)
-		})
+		// protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{
+		// 	ProtonUsername: m.protonEmail,
+		// 	ProtonPassword: m.protonPassword,
+		// })
 
-		twitterEncumbererOutput, err := twitterEncumberer.Encumber(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encumber twitter: %v", err)
-		}
+		// twitterEncumberer := twitter.NewTwitterEncumberer(twitter.TwitterEncumbererCredentials{
+		// 	TwitterUsername:  m.twitterAccount,
+		// 	TwitterPassword:  m.twitterPassword,
+		// 	TwitterEmail:     m.protonEmail,
+		// 	TwitterAppKey:    m.twitterAppKey,
+		// 	TwitterAppSecret: m.twitterAppSecret,
+		// }, m.loginServerIp, m.loginServerPort, func(ctx context.Context) (string, error) {
+		// 	return protonEncumberer.GetTwitterVerificationCode(ctx)
+		// })
 
-		protonEncumbererOutput, err := protonEncumberer.Encumber(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encumber proton: %v", err)
-		}
+		// twitterEncumbererOutput, err := twitterEncumberer.Encumber(ctx)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("failed to encumber twitter: %v", err)
+		// }
 
-		authTokens = twitterEncumbererOutput.AuthTokens
-		oauthTokenPair = twitterEncumbererOutput.OAuthTokenPair
-		twitterPassword = twitterEncumbererOutput.NewPassword
-		protonPassword = protonEncumbererOutput.NewPassword
+		// protonEncumbererOutput, err := protonEncumberer.Encumber(ctx)
+		// if err != nil {
+		// 	return nil, fmt.Errorf("failed to encumber proton: %v", err)
+		// }
+
+		// authTokens = twitterEncumbererOutput.AuthTokens
+		// oauthTokenPair = twitterEncumbererOutput.OAuthTokenPair
+		// twitterPassword = twitterEncumbererOutput.NewPassword
+		// protonPassword = protonEncumbererOutput.NewPassword
 	} else {
 		twitterPassword = m.twitterPassword
 		protonPassword = m.protonPassword
