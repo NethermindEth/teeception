@@ -1,9 +1,37 @@
-export const AGENT_REGISTRY_COPY_ABI =
+export const AGENT_REGISTRY_ABI =
     [
         {
             "type": "impl",
             "name": "AgentRegistryImpl",
             "interface_name": "teeception::IAgentRegistry"
+        },
+        {
+            "type": "struct",
+            "name": "core::integer::u256",
+            "members": [
+                {
+                    "name": "low",
+                    "type": "core::integer::u128"
+                },
+                {
+                    "name": "high",
+                    "type": "core::integer::u128"
+                }
+            ]
+        },
+        {
+            "type": "struct",
+            "name": "teeception::TokenParams",
+            "members": [
+                {
+                    "name": "min_prompt_price",
+                    "type": "core::integer::u256"
+                },
+                {
+                    "name": "min_initial_balance",
+                    "type": "core::integer::u256"
+                }
+            ]
         },
         {
             "type": "struct",
@@ -20,20 +48,6 @@ export const AGENT_REGISTRY_COPY_ABI =
                 {
                     "name": "pending_word_len",
                     "type": "core::integer::u32"
-                }
-            ]
-        },
-        {
-            "type": "struct",
-            "name": "core::integer::u256",
-            "members": [
-                {
-                    "name": "low",
-                    "type": "core::integer::u128"
-                },
-                {
-                    "name": "high",
-                    "type": "core::integer::u128"
                 }
             ]
         },
@@ -57,6 +71,105 @@ export const AGENT_REGISTRY_COPY_ABI =
             "items": [
                 {
                     "type": "function",
+                    "name": "get_agent",
+                    "inputs": [
+                        {
+                            "name": "idx",
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_agents_count",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_agents",
+                    "inputs": [
+                        {
+                            "name": "start",
+                            "type": "core::integer::u64"
+                        },
+                        {
+                            "name": "end",
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "core::array::Array::<core::starknet::contract_address::ContractAddress>"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_token_params",
+                    "inputs": [
+                        {
+                            "name": "token",
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "teeception::TokenParams"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_tee",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_agent_class_hash",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::starknet::class_hash::ClassHash"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "pause",
+                    "inputs": [],
+                    "outputs": [],
+                    "state_mutability": "external"
+                },
+                {
+                    "type": "function",
+                    "name": "unpause",
+                    "inputs": [],
+                    "outputs": [],
+                    "state_mutability": "external"
+                },
+                {
+                    "type": "function",
                     "name": "register_agent",
                     "inputs": [
                         {
@@ -74,6 +187,10 @@ export const AGENT_REGISTRY_COPY_ABI =
                         {
                             "name": "prompt_price",
                             "type": "core::integer::u256"
+                        },
+                        {
+                            "name": "initial_balance",
+                            "type": "core::integer::u256"
                         }
                     ],
                     "outputs": [
@@ -82,17 +199,6 @@ export const AGENT_REGISTRY_COPY_ABI =
                         }
                     ],
                     "state_mutability": "external"
-                },
-                {
-                    "type": "function",
-                    "name": "get_token",
-                    "inputs": [],
-                    "outputs": [
-                        {
-                            "type": "core::starknet::contract_address::ContractAddress"
-                        }
-                    ],
-                    "state_mutability": "view"
                 },
                 {
                     "type": "function",
@@ -112,44 +218,6 @@ export const AGENT_REGISTRY_COPY_ABI =
                 },
                 {
                     "type": "function",
-                    "name": "get_agents",
-                    "inputs": [],
-                    "outputs": [
-                        {
-                            "type": "core::array::Array::<core::starknet::contract_address::ContractAddress>"
-                        }
-                    ],
-                    "state_mutability": "view"
-                },
-                {
-                    "type": "function",
-                    "name": "get_registration_price",
-                    "inputs": [],
-                    "outputs": [
-                        {
-                            "type": "core::integer::u256"
-                        }
-                    ],
-                    "state_mutability": "view"
-                },
-                {
-                    "type": "function",
-                    "name": "transfer",
-                    "inputs": [
-                        {
-                            "name": "agent",
-                            "type": "core::starknet::contract_address::ContractAddress"
-                        },
-                        {
-                            "name": "recipient",
-                            "type": "core::starknet::contract_address::ContractAddress"
-                        }
-                    ],
-                    "outputs": [],
-                    "state_mutability": "external"
-                },
-                {
-                    "type": "function",
                     "name": "consume_prompt",
                     "inputs": [
                         {
@@ -159,22 +227,12 @@ export const AGENT_REGISTRY_COPY_ABI =
                         {
                             "name": "prompt_id",
                             "type": "core::integer::u64"
+                        },
+                        {
+                            "name": "drain_to",
+                            "type": "core::starknet::contract_address::ContractAddress"
                         }
                     ],
-                    "outputs": [],
-                    "state_mutability": "external"
-                },
-                {
-                    "type": "function",
-                    "name": "pause",
-                    "inputs": [],
-                    "outputs": [],
-                    "state_mutability": "external"
-                },
-                {
-                    "type": "function",
-                    "name": "unpause",
-                    "inputs": [],
                     "outputs": [],
                     "state_mutability": "external"
                 },
@@ -188,6 +246,10 @@ export const AGENT_REGISTRY_COPY_ABI =
                         },
                         {
                             "name": "min_prompt_price",
+                            "type": "core::integer::u256"
+                        },
+                        {
+                            "name": "min_initial_balance",
                             "type": "core::integer::u256"
                         }
                     ],
@@ -218,22 +280,6 @@ export const AGENT_REGISTRY_COPY_ABI =
                     "outputs": [
                         {
                             "type": "core::bool"
-                        }
-                    ],
-                    "state_mutability": "view"
-                },
-                {
-                    "type": "function",
-                    "name": "get_min_prompt_price",
-                    "inputs": [
-                        {
-                            "name": "token",
-                            "type": "core::starknet::contract_address::ContractAddress"
-                        }
-                    ],
-                    "outputs": [
-                        {
-                            "type": "core::integer::u256"
                         }
                     ],
                     "state_mutability": "view"
@@ -318,14 +364,6 @@ export const AGENT_REGISTRY_COPY_ABI =
                 {
                     "name": "agent_class_hash",
                     "type": "core::starknet::class_hash::ClassHash"
-                },
-                {
-                    "name": "token",
-                    "type": "core::starknet::contract_address::ContractAddress"
-                },
-                {
-                    "name": "registration_price",
-                    "type": "core::integer::u256"
                 }
             ]
         },
@@ -460,6 +498,11 @@ export const AGENT_REGISTRY_COPY_ABI =
                 },
                 {
                     "name": "min_prompt_price",
+                    "type": "core::integer::u256",
+                    "kind": "data"
+                },
+                {
+                    "name": "min_initial_balance",
                     "type": "core::integer::u256",
                     "kind": "data"
                 }

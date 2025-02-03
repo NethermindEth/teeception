@@ -8,21 +8,32 @@ import { ERC20_ABI } from '../../abis/ERC20_ABI'
 import { useEffect, useState, useMemo } from 'react'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 import { SELECTORS } from '../constants/selectors'
-import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
+import { AGENT_REGISTRY_ABI } from '../../abis/AGENT_REGISTRY'
 import { AGENT_ABI } from '../../abis/AGENT_ABI'
 import { debug } from '../utils/debug'
+import { getProvider } from '../utils/contracts'
 
 interface AgentWithBalances {
   address: string
   name: string
   systemPrompt: string
-  balances: Record<string, string>
+  token: {
+    address: string
+    minPromptPrice: string
+    minInitialBalance: string
+  }
+  balance: string
 }
 
 interface Agent {
   name: string
   address: string
   systemPrompt: string
+  token: {
+    address: string
+    minPromptPrice: string
+    minInitialBalance: string
+  }
 }
 
 // Function to focus tweet compose box and set text
@@ -81,68 +92,25 @@ export default function ActiveAgents({
 }: {
   setCurrentView: React.Dispatch<React.SetStateAction<AGENT_VIEWS>>
 }) {
-  const { address: registryAddress } = useAgentRegistry()
-  const { agents, loading: agentsLoading, error: agentsError } = useAgents(registryAddress)
-  const { supportedTokens, isLoading: isLoadingSupport } = useTokenSupport()
+  const { agents, loading: agentsLoading, error: agentsError } = useAgents()
+  const { contract: registry } = useAgentRegistry()
   const [agentsWithBalances, setAgentsWithBalances] = useState<AgentWithBalances[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [agentList, setAgentList] = useState<Agent[]>([])
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set())
-
-  // Get supported tokens only
-  const supportedTokenList = useMemo(
-    () =>
-      Object.entries(ACTIVE_NETWORK.tokens)
-        .filter(([symbol]) => supportedTokens[symbol]?.isSupported)
-        .map(([symbol, token]) => [symbol, token] as [string, typeof token]),
-    [supportedTokens]
-  )
+  const [tokenImages, setTokenImages] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    const loadAgents = async () => {
-      try {
-        const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
-        const registry = new Contract(
-          AGENT_REGISTRY_COPY_ABI,
-          ACTIVE_NETWORK.agentRegistryAddress,
-          provider
-        )
-
-        const agentAddresses = await registry.get_agents()
-        const loadedAgents: Agent[] = []
-
-        for (const address of agentAddresses) {
-          try {
-            // Convert BigInt address to hex string
-            const hexAddress = '0x' + BigInt(address).toString(16)
-            const agentContract = new Contract(AGENT_ABI, hexAddress, provider)
-
-            const [name, systemPrompt] = await Promise.all([
-              agentContract.get_name(),
-              agentContract.get_system_prompt(),
-            ])
-
-            loadedAgents.push({
-              name: name.toString(),
-              address: hexAddress,
-              systemPrompt: systemPrompt.toString(),
-            })
-          } catch (error) {
-            debug.error('ActiveAgents', 'Error loading individual agent', { address, error })
-          }
-        }
-
-        setAgentList(loadedAgents)
-      } catch (error) {
-        debug.error('ActiveAgents', 'Error loading agents', error)
-      } finally {
-        setLoading(false)
-      }
+    if (agents.length > 0) {
+      setAgentList(agents.map(agent => ({
+        name: agent.name,
+        address: agent.address,
+        systemPrompt: agent.systemPrompt,
+        token: agent.token
+      })))
     }
-
-    loadAgents()
-  }, [])
+  }, [agents])
 
   useEffect(() => {
     const fetchTokenBalances = async () => {
@@ -152,26 +120,44 @@ export default function ActiveAgents({
       }
 
       try {
-        const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
+        const provider = getProvider()
 
-        const balancePromises = agentList.map(async (agent) => {
-          const tokenBalances: Record<string, string> = {}
-
-          await Promise.all(
-            supportedTokenList.map(async ([symbol, token]) => {
-              const tokenContract = new Contract(ERC20_ABI, token.address, provider)
-              const balance = await tokenContract.balance_of(agent.address)
-              tokenBalances[symbol] = balance.toString()
-            })
-          )
-
-          return {
-            ...agent,
-            balances: tokenBalances,
+        // Create a map of token addresses to fetch images only once
+        const uniqueTokens = new Set(agentList.map(agent => agent.token.address))
+        const tokenImagePromises = Array.from(uniqueTokens).map(async (tokenAddress) => {
+          try {
+            const tokenContract = new Contract(ERC20_ABI, tokenAddress, provider)
+            const symbol = await tokenContract.symbol()
+            const token = ACTIVE_NETWORK.tokens[symbol.toString()]
+            return [tokenAddress, token?.image || ''] as [string, string]
+          } catch (err) {
+            debug.error('ActiveAgents', 'Error fetching token image:', err)
+            return [tokenAddress, ''] as [string, string]
           }
         })
 
-        const agentsWithTokenBalances = await Promise.all(balancePromises)
+        const tokenImageResults = await Promise.all(tokenImagePromises)
+        setTokenImages(Object.fromEntries(tokenImageResults))
+
+        const agentsWithTokenBalances = await Promise.all(
+          agentList.map(async (agent) => {
+            try {
+              const tokenContract = new Contract(ERC20_ABI, agent.token.address, provider)
+              const balance = await tokenContract.balance_of(agent.address)
+              return {
+                ...agent,
+                balance: balance.toString()
+              }
+            } catch (err) {
+              debug.error('ActiveAgents', 'Error fetching token balance:', err)
+              return {
+                ...agent,
+                balance: '0'
+              }
+            }
+          })
+        )
+
         setAgentsWithBalances(agentsWithTokenBalances)
       } catch (err) {
         debug.error('ActiveAgents', 'Error fetching token balances:', err)
@@ -184,16 +170,16 @@ export default function ActiveAgents({
     if (agentList.length) {
       fetchTokenBalances()
     }
-  }, [agentList, supportedTokenList])
+  }, [agentList])
 
-  // Sort agents by total value in STRK
+  // Sort agents by total value in their respective tokens
   const sortedAgents = [...agentsWithBalances].sort((a, b) => {
-    const balanceA = BigInt(a.balances['STRK'] || '0')
-    const balanceB = BigInt(b.balances['STRK'] || '0')
+    const balanceA = BigInt(a.balance || '0')
+    const balanceB = BigInt(b.balance || '0')
     return balanceB > balanceA ? 1 : balanceB < balanceA ? -1 : 0
   })
 
-  const formatBalance = (balance: string, decimals: number) => {
+  const formatBalance = (balance: string, decimals: number = 18) => {
     const value = BigInt(balance)
     if (value === BigInt(0)) return '0'
 
@@ -223,7 +209,7 @@ export default function ActiveAgents({
     })
   }
 
-  if (loading || agentsLoading || isLoadingSupport) {
+  if (loading || agentsLoading) {
     return (
       <div className="flex items-center justify-center h-[600px]">
         <div className="flex items-center gap-2">
@@ -246,20 +232,9 @@ export default function ActiveAgents({
     <div className="flex flex-col h-[600px] p-4">
       <section className="pt-5">
         {/* Header */}
-        <div
-          className="grid border-b border-b-[#2F3336]"
-          style={{ gridTemplateColumns: `auto repeat(${supportedTokenList.length}, 200px)` }}
-        >
+        <div className="grid border-b border-b-[#2F3336]" style={{ gridTemplateColumns: 'auto 200px' }}>
           <div className="text-[#A4A4A4] text-sm py-4">Active agents ({agentList.length})</div>
-          {supportedTokenList.map(([symbol, token]) => (
-            <div
-              key={symbol}
-              className="text-[#A4A4A4] text-sm py-4 text-right flex items-center justify-end gap-1"
-            >
-              <img src={token.image} alt={token.name} className="w-4 h-4 rounded-full" />
-              <span>{symbol}</span>
-            </div>
-          ))}
+          <div className="text-[#A4A4A4] text-sm py-4 text-right">Balance</div>
         </div>
 
         <div className="pt-3 max-h-[calc(100vh-240px)] overflow-scroll pr-4 pb-12">
@@ -267,9 +242,7 @@ export default function ActiveAgents({
             <div key={agent.address}>
               <div
                 className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
-                style={{
-                  gridTemplateColumns: `32px auto repeat(${supportedTokenList.length}, 200px) 100px`,
-                }}
+                style={{ gridTemplateColumns: '32px auto 200px 100px' }}
               >
                 <button
                   onClick={(e) => toggleAgentPrompt(agent.address, e)}
@@ -284,15 +257,21 @@ export default function ActiveAgents({
 
                 <div className="text-white text-base">
                   <h3 className="text-white">{agent.name}</h3>
+                  <p className="text-[#A4A4A4] text-sm">
+                    Min price: {formatBalance(agent.token.minPromptPrice)}
+                  </p>
                 </div>
 
-                {supportedTokenList.map(([symbol, token]) => (
-                  <div key={symbol} className="text-right">
-                    <p className="text-white">
-                      {formatBalance(agent.balances[symbol] || '0', token.decimals)}
-                    </p>
-                  </div>
-                ))}
+                <div className="text-right flex items-center justify-end gap-2">
+                  <img 
+                    src={tokenImages[agent.token.address]} 
+                    alt="Token" 
+                    className="w-4 h-4 rounded-full"
+                  />
+                  <p className="text-white">
+                    {formatBalance(agent.balance)}
+                  </p>
+                </div>
 
                 <div className="flex justify-end">
                   <button

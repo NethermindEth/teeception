@@ -217,28 +217,18 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
                       </div>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      {txStatus.approve === 'loading' ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                      ) : txStatus.approve === 'success' ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : null}
-                      <span className="text-sm text-muted-foreground">
-                        1. Approve token spending
-                      </span>
+                  {(txStatus.approve === 'loading' || txStatus.payment === 'loading') && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing transaction...
                     </div>
-                    <div className="flex items-center gap-2">
-                      {txStatus.payment === 'loading' ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                      ) : txStatus.payment === 'success' ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : null}
-                      <span className="text-sm text-muted-foreground">
-                        2. Pay for challenge
-                      </span>
+                  )}
+                  {txStatus.approve === 'success' && txStatus.payment === 'success' && (
+                    <div className="flex items-center gap-2 text-sm text-green-500">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Transaction successful!
                     </div>
-                  </div>
+                  )}
                   <ul className="text-sm leading-6 text-muted-foreground space-y-2 list-disc pl-4">
                     <li>This payment will activate the challenge for this tweet</li>
                     <li>The agent will begin processing your challenge immediately</li>
@@ -251,26 +241,38 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
         </div>
         {/* Actions */}
         <div className="flex flex-col justify-end gap-3">
-          <Button
-            variant="default"
-            size="lg"
-            onClick={handleConfirm}
-            disabled={loading || !!error || !price || hasInsufficientBalance || 
-                     txStatus.approve === 'loading' || txStatus.payment === 'loading'}
-          >
-            {loading || txStatus.approve === 'loading' || txStatus.payment === 'loading' ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : null}
-            {getButtonText()}
-          </Button>
-          <Button
-            size="lg"
-            variant="ghost"
-            onClick={onCancel}
-            disabled={txStatus.approve === 'loading' || txStatus.payment === 'loading'}
-          >
-            Cancel
-          </Button>
+          {txStatus.approve === 'success' && txStatus.payment === 'success' ? (
+            <Button
+              variant="default"
+              size="lg"
+              onClick={onConfirm}
+            >
+              Close
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="default"
+                size="lg"
+                onClick={handleConfirm}
+                disabled={loading || !!error || !price || hasInsufficientBalance || 
+                         txStatus.approve === 'loading' || txStatus.payment === 'loading'}
+              >
+                {loading || txStatus.approve === 'loading' || txStatus.payment === 'loading' ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : null}
+                {getButtonText()}
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                onClick={onCancel}
+                disabled={txStatus.approve === 'loading' || txStatus.payment === 'loading'}
+              >
+                Cancel
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </Dialog>

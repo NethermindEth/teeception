@@ -38,16 +38,20 @@ export const AGENT_ABI =
             ]
         },
         {
-            "type": "enum",
-            "name": "core::bool",
-            "variants": [
+            "type": "struct",
+            "name": "teeception::PendingPrompt",
+            "members": [
                 {
-                    "name": "False",
-                    "type": "()"
+                    "name": "reclaimer",
+                    "type": "core::starknet::contract_address::ContractAddress"
                 },
                 {
-                    "name": "True",
-                    "type": "()"
+                    "name": "amount",
+                    "type": "core::integer::u256"
+                },
+                {
+                    "name": "timestamp",
+                    "type": "core::integer::u64"
                 }
             ]
         },
@@ -55,6 +59,54 @@ export const AGENT_ABI =
             "type": "interface",
             "name": "teeception::IAgent",
             "items": [
+                {
+                    "type": "function",
+                    "name": "pay_for_prompt",
+                    "inputs": [
+                        {
+                            "name": "tweet_id",
+                            "type": "core::integer::u64"
+                        },
+                        {
+                            "name": "prompt",
+                            "type": "core::byte_array::ByteArray"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "state_mutability": "external"
+                },
+                {
+                    "type": "function",
+                    "name": "reclaim_prompt",
+                    "inputs": [
+                        {
+                            "name": "prompt_id",
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "outputs": [],
+                    "state_mutability": "external"
+                },
+                {
+                    "type": "function",
+                    "name": "consume_prompt",
+                    "inputs": [
+                        {
+                            "name": "prompt_id",
+                            "type": "core::integer::u64"
+                        },
+                        {
+                            "name": "drain_to",
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        }
+                    ],
+                    "outputs": [],
+                    "state_mutability": "external"
+                },
                 {
                     "type": "function",
                     "name": "get_system_prompt",
@@ -112,71 +164,179 @@ export const AGENT_ABI =
                 },
                 {
                     "type": "function",
-                    "name": "transfer",
-                    "inputs": [
+                    "name": "get_registry",
+                    "inputs": [],
+                    "outputs": [
                         {
-                            "name": "recipient",
                             "type": "core::starknet::contract_address::ContractAddress"
-                        }
-                    ],
-                    "outputs": [],
-                    "state_mutability": "external"
-                },
-                {
-                    "type": "function",
-                    "name": "pay_for_prompt",
-                    "inputs": [
-                        {
-                            "name": "twitter_message_id",
-                            "type": "core::integer::u64"
-                        }
-                    ],
-                    "outputs": [
-                        {
-                            "type": "core::integer::u64"
-                        }
-                    ],
-                    "state_mutability": "external"
-                },
-                {
-                    "type": "function",
-                    "name": "is_prompt_paid",
-                    "inputs": [
-                        {
-                            "name": "prompt_id",
-                            "type": "core::integer::u64"
-                        }
-                    ],
-                    "outputs": [
-                        {
-                            "type": "core::bool"
                         }
                     ],
                     "state_mutability": "view"
                 },
                 {
                     "type": "function",
-                    "name": "reclaim_prompt",
-                    "inputs": [
+                    "name": "get_next_prompt_id",
+                    "inputs": [],
+                    "outputs": [
                         {
-                            "name": "prompt_id",
                             "type": "core::integer::u64"
                         }
                     ],
-                    "outputs": [],
-                    "state_mutability": "external"
+                    "state_mutability": "view"
                 },
                 {
                     "type": "function",
-                    "name": "consume_prompt",
+                    "name": "get_pending_prompt",
                     "inputs": [
                         {
                             "name": "prompt_id",
                             "type": "core::integer::u64"
                         }
                     ],
-                    "outputs": [],
-                    "state_mutability": "external"
+                    "outputs": [
+                        {
+                            "type": "teeception::PendingPrompt"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_prompt_count",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_user_tweet_prompt",
+                    "inputs": [
+                        {
+                            "name": "user",
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        },
+                        {
+                            "name": "tweet_id",
+                            "type": "core::integer::u64"
+                        },
+                        {
+                            "name": "idx",
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_user_tweet_prompts_count",
+                    "inputs": [
+                        {
+                            "name": "user",
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        },
+                        {
+                            "name": "tweet_id",
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "get_user_tweet_prompts",
+                    "inputs": [
+                        {
+                            "name": "user",
+                            "type": "core::starknet::contract_address::ContractAddress"
+                        },
+                        {
+                            "name": "tweet_id",
+                            "type": "core::integer::u64"
+                        },
+                        {
+                            "name": "start",
+                            "type": "core::integer::u64"
+                        },
+                        {
+                            "name": "end",
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "type": "core::array::Array::<core::integer::u64>"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "RECLAIM_DELAY",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u64"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "PROMPT_REWARD_BPS",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u16"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "CREATOR_REWARD_BPS",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u16"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "PROTOCOL_FEE_BPS",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u16"
+                        }
+                    ],
+                    "state_mutability": "view"
+                },
+                {
+                    "type": "function",
+                    "name": "BPS_DENOMINATOR",
+                    "inputs": [],
+                    "outputs": [
+                        {
+                            "type": "core::integer::u16"
+                        }
+                    ],
+                    "state_mutability": "view"
                 }
             ]
         },
@@ -226,13 +386,13 @@ export const AGENT_ABI =
                     "kind": "key"
                 },
                 {
-                    "name": "twitter_message_id",
+                    "name": "tweet_id",
                     "type": "core::integer::u64",
                     "kind": "key"
                 },
                 {
-                    "name": "amount",
-                    "type": "core::integer::u256",
+                    "name": "prompt",
+                    "type": "core::byte_array::ByteArray",
                     "kind": "data"
                 }
             ]
@@ -260,6 +420,11 @@ export const AGENT_ABI =
                 {
                     "name": "protocol_fee",
                     "type": "core::integer::u256",
+                    "kind": "data"
+                },
+                {
+                    "name": "drained_to",
+                    "type": "core::starknet::contract_address::ContractAddress",
                     "kind": "data"
                 }
             ]

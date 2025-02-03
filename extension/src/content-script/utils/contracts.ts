@@ -1,6 +1,6 @@
-import { Contract, RpcProvider, uint256 } from 'starknet'
+import { Contract, RpcProvider, uint256, Abi } from 'starknet'
 import { AGENT_ABI } from '../../abis/AGENT_ABI'
-import { AGENT_REGISTRY_COPY_ABI } from '../../abis/AGENT_REGISTRY'
+import { AGENT_REGISTRY_ABI } from '../../abis/AGENT_REGISTRY'
 import { ERC20_ABI } from '../../abis/ERC20_ABI'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { debug } from './debug'
@@ -13,7 +13,7 @@ const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 // Shared provider instance
 let provider: RpcProvider | null = null
 
-const getProvider = () => {
+export const getProvider = () => {
   if (!provider) {
     provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
   }
@@ -53,7 +53,7 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
 
     const provider = getProvider()
     const registry = new Contract(
-      AGENT_REGISTRY_COPY_ABI,
+      AGENT_REGISTRY_ABI as Abi,
       normalizeAddress(ACTIVE_NETWORK.agentRegistryAddress),
       provider
     )
@@ -70,7 +70,7 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
       try {
         const normalizedAddress = normalizeAddress(agentAddress)
         const agent = new Contract(
-          AGENT_ABI,
+          AGENT_ABI as Abi,
           normalizedAddress,
           provider
         )
@@ -106,7 +106,7 @@ export const checkTweetPaid = async (agentAddress: string, tweetId: string): Pro
   try {
     const provider = getProvider()
     const agentContract = new Contract(
-      AGENT_ABI,
+      AGENT_ABI as Abi,
       normalizeAddress(agentAddress),
       provider
     )
@@ -138,7 +138,7 @@ const approveToken = async (
   account: any
 ): Promise<string> => {
   const provider = getProvider()
-  const normalizedTokenAddress = '0x' + BigInt(tokenAddress).toString(16).padStart(64, '0')
+  const normalizedTokenAddress = normalizeAddress(tokenAddress)
   debug.log('Contracts', 'Approving token', {
     rawTokenAddress: tokenAddress,
     normalizedTokenAddress,
@@ -147,7 +147,7 @@ const approveToken = async (
   })
 
   const tokenContract = new Contract(
-    ERC20_ABI,
+    ERC20_ABI as Abi,
     normalizedTokenAddress,
     provider
   )
@@ -177,7 +177,7 @@ export const payForTweet = async (agentAddress: string, tweetId: string, account
 
     const provider = getProvider()
     const agentContract = new Contract(
-      AGENT_ABI,
+      AGENT_ABI as Abi,
       normalizeAddress(agentAddress),
       provider
     )
@@ -219,7 +219,7 @@ export const getPromptPrice = async (agentAddress: string): Promise<bigint> => {
   try {
     const provider = getProvider()
     const agentContract = new Contract(
-      AGENT_ABI,
+      AGENT_ABI as Abi,
       normalizeAddress(agentAddress),
       provider
     )
@@ -231,9 +231,19 @@ export const getPromptPrice = async (agentAddress: string): Promise<bigint> => {
   }
 }
 
+/**
+ * Gets the token address used by an agent
+ * @param agentAddress - The address of the agent contract
+ * @returns Promise that resolves to the token address
+ */
 export async function getAgentToken(agentAddress: string): Promise<string> {
-  const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
-  const contract = new Contract(AGENT_ABI, agentAddress, provider)
-  const token = await contract.get_token()
-  return token.toString()
+  try {
+    const provider = getProvider()
+    const contract = new Contract(AGENT_ABI as Abi, normalizeAddress(agentAddress), provider)
+    const token = await contract.get_token()
+    return token.toString()
+  } catch (error) {
+    debug.error('Contracts', 'Error getting agent token', error)
+    throw error
+  }
 } 
