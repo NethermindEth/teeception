@@ -274,12 +274,15 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to initialize twitter client: %w", err)
 	}
 
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return a.StartServer(ctx)
+	})
+
 	err = a.waitForAccountDeployment(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to wait for account deployment: %w", err)
 	}
-
-	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		promptPaidSubID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, a.promptPaidCh)
@@ -295,9 +298,6 @@ func (a *Agent) Run(ctx context.Context) error {
 	})
 	g.Go(func() error {
 		return a.agentIndexer.Run(ctx, a.eventWatcher)
-	})
-	g.Go(func() error {
-		return a.StartServer(ctx)
 	})
 	g.Go(func() error {
 		return a.txQueue.Run(ctx)
