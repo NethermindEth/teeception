@@ -569,6 +569,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 					transferSelector,
 					tokenAddedSelector,
 					tokenRemovedSelector,
+					teeUnencumberedSelector,
 				},
 			},
 		})
