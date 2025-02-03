@@ -27,3 +27,7 @@ func IsDebugDisableReplies() bool {
 func IsDebugDisableTweetValidation() bool {
 	return Debug && isDebugDisableTweetValidationSet()
 }
+
+func IsDebugDisableEncumbering() bool {
+	return Debug && isDebugDisableEncumberingSet()
+}
