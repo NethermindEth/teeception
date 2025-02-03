@@ -4,11 +4,11 @@ import { useAgents } from '../hooks/useAgents'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react'
 import { Contract, RpcProvider } from 'starknet'
-import { ERC20_ABI } from '../../abis/ERC20_ABI'
+import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { useEffect, useState, useMemo } from 'react'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 import { SELECTORS } from '../constants/selectors'
-import { AGENT_REGISTRY_ABI } from '../../abis/AGENT_REGISTRY'
+import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { AGENT_ABI } from '../../abis/AGENT_ABI'
 import { debug } from '../utils/debug'
 import { getProvider } from '../utils/contracts'
@@ -126,7 +126,7 @@ export default function ActiveAgents({
         const uniqueTokens = new Set(agentList.map(agent => agent.token.address))
         const tokenImagePromises = Array.from(uniqueTokens).map(async (tokenAddress) => {
           try {
-            const tokenContract = new Contract(ERC20_ABI, tokenAddress, provider)
+            const tokenContract = new Contract(TEECEPTION_ERC20_ABI, tokenAddress, provider)
             const symbol = await tokenContract.symbol()
             const token = ACTIVE_NETWORK.tokens[symbol.toString()]
             return [tokenAddress, token?.image || ''] as [string, string]
@@ -142,7 +142,7 @@ export default function ActiveAgents({
         const agentsWithTokenBalances = await Promise.all(
           agentList.map(async (agent) => {
             try {
-              const tokenContract = new Contract(ERC20_ABI, agent.token.address, provider)
+              const tokenContract = new Contract(TEECEPTION_ERC20_ABI, agent.token.address, provider)
               const balance = await tokenContract.balance_of(agent.address)
               return {
                 ...agent,

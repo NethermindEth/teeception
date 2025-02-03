@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Contract, RpcProvider, Abi } from 'starknet';
 import { useContract } from '@starknet-react/core';
 import { AGENT_REGISTRY_ABI } from '@/abis/AGENT_REGISTRY';
-import { AGENT_ABI } from '@/abis/AGENT_ABI';
-import { ERC20_ABI } from '@/abis/ERC20_ABI';
+import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI';
+import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI';
 import { ACTIVE_NETWORK } from '../config/starknet';
 import { debug } from '../utils/debug';
 import { useAgentRegistry } from './useAgentRegistry';
@@ -45,7 +45,7 @@ export const useAgents = () => {
                 const agentDetails = await Promise.all(
                     addresses.map(async (address: string) => {
                         try {
-                            const agent = new Contract(AGENT_ABI as Abi, address, provider);
+                            const agent = new Contract(TEECEPTION_AGENT_ABI as Abi, address, provider);
                             
                             // Get agent details and token info
                             const [nameResult, systemPromptResult, tokenAddress] = await Promise.all([
@@ -68,7 +68,7 @@ export const useAgents = () => {
                             const normalizedTokenAddress = `0x${BigInt(tokenAddress).toString(16)}`;
                             
                             // Get token balance
-                            const tokenContract = new Contract(ERC20_ABI as Abi, normalizedTokenAddress, provider);
+                            const tokenContract = new Contract(TEECEPTION_ERC20_ABI as Abi, normalizedTokenAddress, provider);
                             const balanceResult = await tokenContract.balance_of(address).catch((e: any) => {
                                 debug.error('useAgents', 'Error fetching token balance', { address, error: e });
                                 return { low: 0, high: 0 };

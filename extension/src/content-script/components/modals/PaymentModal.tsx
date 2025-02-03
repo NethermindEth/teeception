@@ -8,8 +8,8 @@ import { getPromptPrice, getAgentAddressByName, getAgentToken } from '../../util
 import { ACTIVE_NETWORK } from '../../config/starknet'
 import { useTokenBalance } from '../../hooks/useTokenBalance'
 import { useContract, useAccount } from '@starknet-react/core'
-import { ERC20_ABI } from '@/abis/ERC20_ABI'
-import { AGENT_ABI } from '@/abis/AGENT_ABI'
+import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
+import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { uint256, Abi } from 'starknet'
 
 interface TweetPrice {
@@ -48,12 +48,12 @@ export const PaymentModal = ({ open, onConfirm, onCancel, agentName, tweetId }: 
 
   // Get contract instances
   const { contract: tokenContract } = useContract({
-    abi: ERC20_ABI as Abi,
+    abi: TEECEPTION_ERC20_ABI as Abi,
     address: tokenAddress ? `0x${BigInt(tokenAddress).toString(16).padStart(64, '0')}` : '0x0',
   })
 
   const { contract: agentContract } = useContract({
-    abi: AGENT_ABI as Abi,
+    abi: TEECEPTION_AGENT_ABI as Abi,
     address: agentAddress ? `0x${BigInt(agentAddress).toString(16).padStart(64, '0')}` : '0x0',
   })
 

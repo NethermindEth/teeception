@@ -4,12 +4,12 @@ import { AGENT_VIEWS } from './AgentView'
 import { useState, useMemo, useEffect } from 'react'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAccount } from '@starknet-react/core'
-import { AGENT_REGISTRY_ABI } from '../../abis/AGENT_REGISTRY'
+import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
 import { Contract, RpcProvider, uint256 } from 'starknet'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 import { useTokenBalance } from '../hooks/useTokenBalance'
-import { ERC20_ABI } from '../../abis/ERC20_ABI'
+import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 
 interface FormData {
   agentName: string
@@ -131,7 +131,7 @@ export default function LaunchAgent({
     setIsLoading(true)
     try {
       const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
-      const registry = new Contract(AGENT_REGISTRY_ABI, registryAddress, provider)
+      const registry = new Contract(TEECEPTION_AGENTREGISTRY_ABI, registryAddress, provider)
       
       // Connect the contract to the user's account
       registry.connect(account)
@@ -146,7 +146,7 @@ export default function LaunchAgent({
 
       // Approve token spending for initial balance
       const tokenContract = new Contract(
-        ERC20_ABI,
+        TEECEPTION_ERC20_ABI,
         selectedToken.address,
         provider
       )

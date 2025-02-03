@@ -1,11 +1,11 @@
 import { useContract } from '@starknet-react/core';
 import { Abi } from 'starknet';
-import { AGENT_REGISTRY_ABI } from '@/abis/AGENT_REGISTRY';
+import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI';
 import { ACTIVE_NETWORK } from '../config/starknet';
 
 export const useAgentRegistry = () => {
   const { contract } = useContract({
-    abi: AGENT_REGISTRY_ABI as Abi,
+    abi: TEECEPTION_AGENTREGISTRY_ABI as Abi,
     address: ACTIVE_NETWORK.agentRegistryAddress,
   });
 

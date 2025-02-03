@@ -1,5 +1,5 @@
 import { Contract, RpcProvider } from 'starknet'
-import { ERC20_ABI } from '../../abis/ERC20_ABI'
+import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { useAccount } from '@starknet-react/core'
 import { useEffect, useState } from 'react'
 import { ACTIVE_NETWORK } from '../config/starknet'
@@ -29,7 +29,7 @@ export function useTokenBalance(tokenSymbol: string) {
         }
 
         const provider = new RpcProvider({ nodeUrl: ACTIVE_NETWORK.rpc })
-        const contract = new Contract(ERC20_ABI, token.address, provider)
+        const contract = new Contract(TEECEPTION_ERC20_ABI, token.address, provider)
         
         const rawBalance = await contract.balanceOf(account.address)
         const balanceValue = BigInt(rawBalance.toString())

@@ -1,7 +1,7 @@
 import { Contract, RpcProvider, uint256, Abi } from 'starknet'
-import { AGENT_ABI } from '../../abis/AGENT_ABI'
-import { AGENT_REGISTRY_ABI } from '../../abis/AGENT_REGISTRY'
-import { ERC20_ABI } from '../../abis/ERC20_ABI'
+import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
+import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
+import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { ACTIVE_NETWORK } from '../config/starknet'
 import { debug } from './debug'
 
@@ -53,7 +53,7 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
 
     const provider = getProvider()
     const registry = new Contract(
-      AGENT_REGISTRY_ABI as Abi,
+      TEECEPTION_AGENTREGISTRY_ABI as Abi,
       normalizeAddress(ACTIVE_NETWORK.agentRegistryAddress),
       provider
     )
@@ -70,7 +70,7 @@ export const getAgentAddressByName = async (agentName: string): Promise<string |
       try {
         const normalizedAddress = normalizeAddress(agentAddress)
         const agent = new Contract(
-          AGENT_ABI as Abi,
+          TEECEPTION_AGENT_ABI as Abi,
           normalizedAddress,
           provider
         )
@@ -106,7 +106,7 @@ export const checkTweetPaid = async (agentAddress: string, tweetId: string): Pro
   try {
     const provider = getProvider()
     const agentContract = new Contract(
-      AGENT_ABI as Abi,
+      TEECEPTION_AGENT_ABI as Abi,
       normalizeAddress(agentAddress),
       provider
     )
@@ -147,7 +147,7 @@ const approveToken = async (
   })
 
   const tokenContract = new Contract(
-    ERC20_ABI as Abi,
+    TEECEPTION_ERC20_ABI as Abi,
     normalizedTokenAddress,
     provider
   )
@@ -177,7 +177,7 @@ export const payForTweet = async (agentAddress: string, tweetId: string, account
 
     const provider = getProvider()
     const agentContract = new Contract(
-      AGENT_ABI as Abi,
+      TEECEPTION_AGENT_ABI as Abi,
       normalizeAddress(agentAddress),
       provider
     )
@@ -219,7 +219,7 @@ export const getPromptPrice = async (agentAddress: string): Promise<bigint> => {
   try {
     const provider = getProvider()
     const agentContract = new Contract(
-      AGENT_ABI as Abi,
+      TEECEPTION_AGENT_ABI as Abi,
       normalizeAddress(agentAddress),
       provider
     )
@@ -239,7 +239,7 @@ export const getPromptPrice = async (agentAddress: string): Promise<bigint> => {
 export async function getAgentToken(agentAddress: string): Promise<string> {
   try {
     const provider = getProvider()
-    const contract = new Contract(AGENT_ABI as Abi, normalizeAddress(agentAddress), provider)
+    const contract = new Contract(TEECEPTION_AGENT_ABI as Abi, normalizeAddress(agentAddress), provider)
     const token = await contract.get_token()
     return token.toString()
   } catch (error) {
