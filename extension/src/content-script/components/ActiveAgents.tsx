@@ -19,18 +19,15 @@ interface AgentWithBalances {
     minInitialBalance: string
   }
   balance: string
+  promptPrice: string
+  prizePool: string
+  pendingPool: string
+  endTime: string
+  isFinalized: boolean
 }
 
-interface Agent {
-  name: string
-  address: string
-  systemPrompt: string
-  token: {
-    address: string
-    minPromptPrice: string
-    minInitialBalance: string
-  }
-}
+// Since we're not adding any additional fields in AgentWithBalances, we can just use the same type
+type Agent = AgentWithBalances;
 
 // Function to focus tweet compose box and set text
 const composeTweet = (agentName: string) => {
@@ -83,6 +80,14 @@ const composeTweet = (agentName: string) => {
   }
 }
 
+// Add a helper function to properly normalize addresses
+const normalizeAddress = (address: string): string => {
+  // Remove all 0x prefixes first
+  const cleanAddr = address.replace(/^(0x)+/, '')
+  // Add back single 0x prefix and ensure proper length
+  return `0x${cleanAddr}`.toLowerCase()
+}
+
 export default function ActiveAgents({
   setCurrentView,
 }: {
@@ -102,7 +107,13 @@ export default function ActiveAgents({
         name: agent.name,
         address: agent.address,
         systemPrompt: agent.systemPrompt,
-        token: agent.token
+        token: agent.token,
+        promptPrice: agent.promptPrice,
+        prizePool: agent.prizePool,
+        pendingPool: agent.pendingPool,
+        endTime: agent.endTime,
+        isFinalized: agent.isFinalized,
+        balance: agent.balance
       })))
     }
   }, [agents, agentsLoading])
@@ -125,7 +136,18 @@ export default function ActiveAgents({
         const uniqueTokens = new Set(agentList.map(agent => agent.token.address))
         const tokenImagePromises = Array.from(uniqueTokens).map(async (tokenAddress) => {
           try {
-            const tokenContract = new Contract(TEECEPTION_ERC20_ABI, tokenAddress, provider)
+            // Skip invalid token addresses
+            if (!tokenAddress || tokenAddress === '0x0') {
+              return [tokenAddress, ''] as [string, string];
+            }
+
+            const cleanAddress = normalizeAddress(tokenAddress)
+            debug.log('ActiveAgents', 'Normalized token address', { 
+              original: tokenAddress, 
+              normalized: cleanAddress 
+            })
+
+            const tokenContract = new Contract(TEECEPTION_ERC20_ABI, cleanAddress, provider)
             const symbol = await tokenContract.symbol()
             const token = ACTIVE_NETWORK.tokens[symbol.toString()]
             return [tokenAddress, token?.image || ''] as [string, string]
@@ -141,18 +163,30 @@ export default function ActiveAgents({
         const agentsWithTokenBalances = await Promise.all(
           agentList.map(async (agent) => {
             try {
-              const tokenContract = new Contract(TEECEPTION_ERC20_ABI, agent.token.address, provider)
+              // Skip balance fetch for invalid token addresses
+              if (!agent.token.address || agent.token.address === '0x0') {
+                return agent;
+              }
+
+              const cleanAddress = normalizeAddress(agent.token.address)
+              debug.log('ActiveAgents', 'Normalized token address for balance', { 
+                original: agent.token.address, 
+                normalized: cleanAddress 
+              })
+
+              const tokenContract = new Contract(TEECEPTION_ERC20_ABI, cleanAddress, provider)
               const balance = await tokenContract.balance_of(agent.address)
               return {
                 ...agent,
                 balance: balance.toString()
               }
             } catch (err) {
-              debug.error('ActiveAgents', 'Error fetching token balance:', err)
-              return {
-                ...agent,
-                balance: '0'
-              }
+              debug.error('ActiveAgents', 'Error fetching token balance:', {
+                address: agent.address,
+                tokenAddress: agent.token.address,
+                error: err
+              })
+              return agent
             }
           })
         )
@@ -171,6 +205,10 @@ export default function ActiveAgents({
 
   // Sort agents by total value in their respective tokens
   const sortedAgents = [...agentsWithBalances].sort((a, b) => {
+    // Put error state agents at the bottom
+    if (a.token.address === '0x0' && b.token.address !== '0x0') return 1;
+    if (a.token.address !== '0x0' && b.token.address === '0x0') return -1;
+    
     const balanceA = BigInt(a.balance || '0')
     const balanceB = BigInt(b.balance || '0')
     return balanceB > balanceA ? 1 : balanceB < balanceA ? -1 : 0
@@ -253,27 +291,42 @@ export default function ActiveAgents({
                 </button>
 
                 <div className="text-white text-base">
-                  <h3 className="text-white">{agent.name}</h3>
+                  <h3 className="text-white flex items-center gap-2">
+                    {agent.name}
+                    {agent.isFinalized && (
+                      <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-500 rounded">Finalized</span>
+                    )}
+                  </h3>
                   <p className="text-[#A4A4A4] text-sm">
-                    Min price: {formatBalance(agent.token.minPromptPrice)}
+                    Price: {formatBalance(agent.promptPrice)}
                   </p>
                 </div>
 
                 <div className="text-right flex items-center justify-end gap-2">
-                  <img 
-                    src={tokenImages[agent.token.address]} 
-                    alt="Token" 
-                    className="w-4 h-4 rounded-full"
-                  />
-                  <p className="text-white">
-                    {formatBalance(agent.balance)}
-                  </p>
+                  {tokenImages[agent.token.address] && (
+                    <img 
+                      src={tokenImages[agent.token.address]} 
+                      alt="Token" 
+                      className="w-4 h-4 rounded-full"
+                    />
+                  )}
+                  <div>
+                    <p className="text-white">
+                      {agent.token.address === '0x0' ? 'Error' : formatBalance(agent.balance)}
+                    </p>
+                    {agent.token.address !== '0x0' && (
+                      <p className="text-[#A4A4A4] text-xs">
+                        Prize pool: {formatBalance(agent.prizePool)}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex justify-end">
                   <button
                     onClick={() => composeTweet(agent.name)}
-                    className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70"
+                    className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={agent.isFinalized}
                   >
                     Reply
                   </button>
@@ -282,7 +335,20 @@ export default function ActiveAgents({
 
               {expandedAgents.has(agent.address) && (
                 <div className="px-8 py-4 text-[#A4A4A4] text-sm bg-[#16181C] border-b border-b-[#2F3336]">
-                  {agent.systemPrompt}
+                  <div className="mb-2">
+                    <span className="text-white">System Prompt:</span>
+                    <p className="mt-1">{agent.systemPrompt}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <span className="text-white">Pending Pool:</span>
+                      <p>{formatBalance(agent.pendingPool)}</p>
+                    </div>
+                    <div>
+                      <span className="text-white">End Time:</span>
+                      <p>{new Date(parseInt(agent.endTime) * 1000).toLocaleString()}</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

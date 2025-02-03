@@ -170,6 +170,11 @@ export default function LaunchAgent({
     if (endDate <= now) {
       newErrors.endTime = 'End time must be in the future'
     }
+    // Add validation for maximum timestamp (max u64)
+    const endTimeSeconds = Math.floor(endDate.getTime() / 1000)
+    if (endTimeSeconds > Number.MAX_SAFE_INTEGER) {
+      newErrors.endTime = 'End time is too far in the future'
+    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -192,6 +197,7 @@ export default function LaunchAgent({
       if (isNaN(feeNumber) || isNaN(balanceNumber) || !formData.endTime) return undefined
 
       try {
+        const selectedToken = ACTIVE_NETWORK.tokens[formData.selectedToken]
         const promptPrice = uint256.bnToUint256(
           BigInt(Math.floor(feeNumber * Math.pow(10, selectedToken.decimals)))
         )
@@ -203,18 +209,15 @@ export default function LaunchAgent({
         return [
           tokenContract.populate("approve", [
             registryAddress,
-            initialBalance.low,
-            initialBalance.high
+            initialBalance,
           ]),
           registry.populate("register_agent", [
             formData.agentName,
             formData.systemPrompt,
             selectedToken.address,
-            promptPrice.low,
-            promptPrice.high,
-            initialBalance.low,
-            initialBalance.high,
-            endTimeSeconds,
+            promptPrice,
+            initialBalance,
+            endTimeSeconds
           ])
         ]
       } catch (error) {

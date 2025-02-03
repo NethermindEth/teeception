@@ -5,7 +5,7 @@ import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI';
 import { debug } from '../utils/debug';
 import { useAgentRegistry } from './useAgentRegistry';
 import { getProvider } from '../utils/contracts';
-
+import { byteArray } from 'starknet';
 interface AgentDetails {
     address: string;
     name: string;
@@ -16,6 +16,25 @@ interface AgentDetails {
         minInitialBalance: string;
     };
     balance: string;
+    promptPrice: string;
+    prizePool: string;
+    pendingPool: string;
+    endTime: string;
+    isFinalized: boolean;
+}
+
+const normalizeAddress = (address: string | number | bigint): string => {
+    // If it's a number/bigint, convert to hex string
+    if (typeof address === 'number' || typeof address === 'bigint') {
+        return `0x${address.toString(16)}`.toLowerCase();
+    }
+    
+    // For string addresses
+    const trimmed = address.trim();
+    // Remove all 0x prefixes and any leading zeros after that
+    const cleanAddr = trimmed.replace(/^(0x)+/, '').replace(/^0+/, '');
+    // Add back single 0x prefix
+    return `0x${cleanAddr}`.toLowerCase();
 }
 
 export const useAgents = () => {
@@ -37,7 +56,6 @@ export const useAgents = () => {
             try {
                 debug.log('useAgents', 'Starting to fetch agents');
                 
-                // Call get_agents directly through the contract
                 const rawAgentAddresses = await registry.get_agents(0, 100).catch((e: any) => {
                     debug.error('useAgents', 'Failed to get agents from registry', e);
                     throw e;
@@ -50,7 +68,6 @@ export const useAgents = () => {
                     throw new Error('Unexpected response format from get_agents');
                 }
 
-                // If there are no agents, we can return early
                 if (rawAgentAddresses.length === 0) {
                     debug.log('useAgents', 'No agents found');
                     setAgents([]);
@@ -61,10 +78,7 @@ export const useAgents = () => {
 
                 const addresses = rawAgentAddresses.map((address: string) => {
                     try {
-                        const hexAddress = `0x${BigInt(address).toString(16)}`;
-                        // Ensure the address is properly formatted as a hex string with 0x prefix
-                        const paddedHex = hexAddress.toLowerCase().padStart(66, '0');
-                        return paddedHex.startsWith('0x') ? paddedHex as `0x${string}` : `0x${paddedHex}` as `0x${string}`;
+                        return normalizeAddress(address) as `0x${string}`;
                     } catch (e) {
                         debug.error('useAgents', 'Failed to format address', { address, error: e });
                         throw e;
@@ -78,13 +92,21 @@ export const useAgents = () => {
                         try {
                             debug.log('useAgents', 'Initializing agent contract', { address });
                             
-                            // Initialize contract directly instead of using hook
                             const agent = new Contract(TEECEPTION_AGENT_ABI as Abi, address, provider);
                             
                             debug.log('useAgents', 'Fetching agent details', { address });
                             
-                            // Get agent details and token info
-                            const [nameResult, systemPromptResult, tokenAddress] = await Promise.all([
+                            // Get all agent details in parallel
+                            const [
+                                nameResult,
+                                systemPromptResult,
+                                tokenAddress,
+                                promptPriceResult,
+                                prizePoolResult,
+                                pendingPoolResult,
+                                endTimeResult,
+                                isFinalizedResult
+                            ] = await Promise.all([
                                 agent.get_name().catch((e: any) => {
                                     debug.error('useAgents', 'Error fetching name', { address, error: e });
                                     return 'Unknown';
@@ -96,6 +118,26 @@ export const useAgents = () => {
                                 agent.get_token().catch((e: any) => {
                                     debug.error('useAgents', 'Error fetching token', { address, error: e });
                                     throw e;
+                                }),
+                                agent.get_prompt_price().catch((e: any) => {
+                                    debug.error('useAgents', 'Error fetching prompt price', { address, error: e });
+                                    return { low: 0, high: 0 };
+                                }),
+                                agent.get_prize_pool().catch((e: any) => {
+                                    debug.error('useAgents', 'Error fetching prize pool', { address, error: e });
+                                    return { low: 0, high: 0 };
+                                }),
+                                agent.get_pending_pool().catch((e: any) => {
+                                    debug.error('useAgents', 'Error fetching pending pool', { address, error: e });
+                                    return { low: 0, high: 0 };
+                                }),
+                                agent.get_end_time().catch((e: any) => {
+                                    debug.error('useAgents', 'Error fetching end time', { address, error: e });
+                                    return 0;
+                                }),
+                                agent.is_finalized().catch((e: any) => {
+                                    debug.error('useAgents', 'Error fetching finalized status', { address, error: e });
+                                    return false;
                                 })
                             ]);
 
@@ -103,23 +145,22 @@ export const useAgents = () => {
                                 address, 
                                 name: nameResult, 
                                 systemPrompt: systemPromptResult,
-                                tokenAddress 
-                            });
-
-                            // Get token params from registry
-                            const tokenParams = await registry.get_token_params(tokenAddress).catch((e: any) => {
-                                debug.error('useAgents', 'Error fetching token params', { address, tokenAddress, error: e });
-                                throw e;
+                                tokenAddress,
+                                promptPrice: promptPriceResult,
+                                prizePool: prizePoolResult,
+                                pendingPool: pendingPoolResult,
+                                endTime: endTimeResult,
+                                isFinalized: isFinalizedResult
                             });
 
                             const hexTokenAddress = `0x${BigInt(tokenAddress).toString(16)}`;
                             const normalizedTokenAddress = (hexTokenAddress.startsWith('0x') ? 
                                 hexTokenAddress : `0x${hexTokenAddress}`).toLowerCase().padStart(66, '0') as `0x${string}`;
-                            
-                            debug.log('useAgents', 'Got token params', { 
-                                address, 
-                                tokenAddress: normalizedTokenAddress,
-                                tokenParams 
+
+                            // Get token params from registry
+                            const tokenParams = await registry.get_token_params(tokenAddress).catch((e: any) => {
+                                debug.error('useAgents', 'Error fetching token params', { address, tokenAddress, error: e });
+                                throw e;
                             });
 
                             // Initialize token contract directly
@@ -134,10 +175,17 @@ export const useAgents = () => {
                                 BigInt(balanceResult.low) + (BigInt(balanceResult.high || 0) << BigInt(128)) :
                                 BigInt(0);
 
-                            debug.log('useAgents', 'Got token balance', { 
-                                address, 
-                                balance: balanceValue.toString() 
-                            });
+                            const promptPriceValue = promptPriceResult.low !== undefined ?
+                                BigInt(promptPriceResult.low) + (BigInt(promptPriceResult.high || 0) << BigInt(128)) :
+                                BigInt(0);
+
+                            const prizePoolValue = prizePoolResult.low !== undefined ?
+                                BigInt(prizePoolResult.low) + (BigInt(prizePoolResult.high || 0) << BigInt(128)) :
+                                BigInt(0);
+
+                            const pendingPoolValue = pendingPoolResult.low !== undefined ?
+                                BigInt(pendingPoolResult.low) + (BigInt(pendingPoolResult.high || 0) << BigInt(128)) :
+                                BigInt(0);
 
                             return {
                                 address,
@@ -149,6 +197,11 @@ export const useAgents = () => {
                                     minInitialBalance: tokenParams.min_initial_balance.toString(),
                                 },
                                 balance: balanceValue.toString(),
+                                promptPrice: promptPriceValue.toString(),
+                                prizePool: prizePoolValue.toString(),
+                                pendingPool: pendingPoolValue.toString(),
+                                endTime: endTimeResult.toString(),
+                                isFinalized: isFinalizedResult
                             };
                         } catch (err) {
                             debug.error('useAgents', 'Error processing agent', { address, error: err });
@@ -162,6 +215,11 @@ export const useAgents = () => {
                                     minInitialBalance: '0',
                                 },
                                 balance: '0',
+                                promptPrice: '0',
+                                prizePool: '0',
+                                pendingPool: '0',
+                                endTime: '0',
+                                isFinalized: false
                             };
                         }
                     })
@@ -182,11 +240,9 @@ export const useAgents = () => {
             }
         };
 
-        // Reset loading state when registry changes
         setLoading(true);
         fetchAgentDetails();
 
-        // Cleanup function to handle component unmount
         return () => {
             setLoading(true);
             setError(null);
