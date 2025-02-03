@@ -4,6 +4,7 @@ services:
     restart: always
     build:
       context: .
+      dockerfile: agent.Dockerfile
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
       - tee:/app/storage
