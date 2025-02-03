@@ -266,7 +266,9 @@ export default function ActiveAgents({
           {sortedAgents.map((agent) => (
             <div key={agent.address}>
               <div
-                className={`grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C] pr-2`}
+                className={`grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C] ${
+                  expandedAgents.has(agent.address) ? 'bg-[#16181C]' : ''
+                } pr-2`}
                 style={{
                   gridTemplateColumns: `32px auto repeat(${supportedTokenList.length}, 200px) 100px`,
                 }}
