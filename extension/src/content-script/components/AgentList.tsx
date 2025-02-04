@@ -313,10 +313,10 @@ export default function AgentList({
   }
 
   return (
-    <div className="flex flex-col h-[600px] p-4">
-      <section className="pt-5">
+    <div className="flex flex-col h-[600px]">
+      <section className="flex flex-col flex-1 min-h-0">
         {/* Header */}
-        <div className="flex justify-between items-center border-b border-b-[#2F3336] pb-4">
+        <div className="flex justify-between items-center border-b border-b-[#2F3336] p-4 pb-4">
           <div className="text-[#A4A4A4] text-sm">Active agents ({filteredAgents.length})</div>
           <label className="flex items-center gap-2 text-[#A4A4A4] text-sm">
             <input
@@ -329,123 +329,129 @@ export default function AgentList({
           </label>
         </div>
 
-        <div className="pt-3 max-h-[calc(100vh-240px)] overflow-scroll pr-4 pb-12">
-          {filteredAgents.map((agent) => {
-            const now = Math.floor(Date.now() / 1000)
-            const isExpired = parseInt(agent.endTime) <= now
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-4">
+          <div className="pt-3 pb-4">
+            {filteredAgents.map((agent) => {
+              const now = Math.floor(Date.now() / 1000)
+              const isExpired = parseInt(agent.endTime) <= now
 
-            return (
-              <div key={agent.address}>
-                <div
-                  className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
-                  style={{ gridTemplateColumns: '32px minmax(200px, 1fr) 180px 100px' }}
-                >
-                  <button
-                    onClick={(e) => toggleAgentPrompt(agent.address, e)}
-                    className="text-[#A4A4A4] hover:text-white flex items-center justify-center"
+              return (
+                <div key={agent.address}>
+                  <div
+                    className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
+                    style={{ gridTemplateColumns: '32px minmax(150px, 1fr) 120px 80px' }}
                   >
-                    {expandedAgents.has(agent.address) ? (
-                      <ChevronUp size={16} />
-                    ) : (
-                      <ChevronDown size={16} />
-                    )}
-                  </button>
-
-                  <div className="text-white text-base min-w-0">
-                    <h3 className="text-white flex items-center gap-2 min-w-0">
-                      <TruncatedName name={agent.name} />
-                      {agent.isFinalized && (
-                        <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-500 rounded flex-shrink-0">Finalized</span>
+                    <button
+                      onClick={(e) => toggleAgentPrompt(agent.address, e)}
+                      className="text-[#A4A4A4] hover:text-white flex items-center justify-center"
+                    >
+                      {expandedAgents.has(agent.address) ? (
+                        <ChevronUp size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
                       )}
-                      <CountdownDisplay endTime={agent.endTime} />
-                    </h3>
-                    <p className="text-[#A4A4A4] text-sm">
-                      Price: {formatBalance(agent.promptPrice)}
-                    </p>
-                  </div>
+                    </button>
 
-                  <div className="text-right flex items-center justify-end gap-2">
-                    {tokenImages[agent.token.address] && (
-                      <img 
-                        src={tokenImages[agent.token.address]} 
-                        alt="Token" 
-                        className="w-4 h-4 rounded-full"
-                      />
-                    )}
-                    <div>
-                      <p className="text-white">
-                        {(() => {
-                          try {
-                            if (!agent.token?.address || agent.token.address === '0x0') {
-                              return 'Error'
-                            }
-
-                            const matchingToken = Object.values(ACTIVE_NETWORK.tokens).find(token => {
-                              try {
-                                return token && token.address && 
-                                       normalizeAddress(token.address) === normalizeAddress(agent.token.address)
-                              } catch (err) {
-                                debug.error('AgentList', 'Error comparing token addresses:', {
-                                  token,
-                                  agentToken: agent.token,
-                                  error: err
-                                })
-                                return false
-                              }
-                            })
-
-                            return `${formatBalance(agent.prizePool)} ${matchingToken?.symbol || 'Unknown'}`
-                          } catch (err) {
-                            debug.error('AgentList', 'Error formatting token display:', err)
-                            return 'Error'
-                          }
-                        })()}
+                    <div className="text-white text-base min-w-0 pr-2">
+                      <h3 className="text-white flex items-center gap-1.5 min-w-0 flex-wrap">
+                        <TruncatedName name={agent.name} />
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          {agent.isFinalized && (
+                            <span className="text-xs px-1.5 py-0.5 bg-red-500/20 text-red-500 rounded flex-shrink-0">Finalized</span>
+                          )}
+                          <CountdownDisplay endTime={agent.endTime} />
+                        </div>
+                      </h3>
+                      <p className="text-[#A4A4A4] text-sm truncate">
+                        Price: {formatBalance(agent.promptPrice)}
                       </p>
                     </div>
+
+                    <div className="text-right flex items-center justify-end gap-1.5">
+                      {tokenImages[agent.token.address] && (
+                        <img 
+                          src={tokenImages[agent.token.address]} 
+                          alt="Token" 
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-white truncate">
+                          {(() => {
+                            try {
+                              if (!agent.token?.address || agent.token.address === '0x0') {
+                                return 'Error'
+                              }
+
+                              const matchingToken = Object.values(ACTIVE_NETWORK.tokens).find(token => {
+                                try {
+                                  return token && token.address && 
+                                         normalizeAddress(token.address) === normalizeAddress(agent.token.address)
+                                } catch (err) {
+                                  debug.error('AgentList', 'Error comparing token addresses:', {
+                                    token,
+                                    agentToken: agent.token,
+                                    error: err
+                                  })
+                                  return false
+                                }
+                              })
+
+                              return `${formatBalance(agent.prizePool)} ${matchingToken?.symbol || 'Unknown'}`
+                            } catch (err) {
+                              debug.error('AgentList', 'Error formatting token display:', err)
+                              return 'Error'
+                            }
+                          })()}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => composeTweet(agent.name, setIsShowAgentView)}
+                        className="bg-white rounded-full px-3 py-1 text-black text-sm hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                        disabled={agent.isFinalized}
+                      >
+                        Reply
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => composeTweet(agent.name, setIsShowAgentView)}
-                      className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={agent.isFinalized}
-                    >
-                      Reply
-                    </button>
-                  </div>
+                  {expandedAgents.has(agent.address) && (
+                    <div className="px-8 py-4 text-[#A4A4A4] text-sm bg-[#16181C] border-b border-b-[#2F3336]">
+                      <div className="mb-2">
+                        <span className="text-white">System Prompt:</span>
+                        <p className="mt-1">{agent.systemPrompt}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 mt-4">
+                        <div>
+                          <span className="text-white">Pending Pool:</span>
+                          <p>{formatBalance(agent.pendingPool)}</p>
+                        </div>
+                        <div>
+                          <span className="text-white">End Time:</span>
+                          <p>{new Date(parseInt(agent.endTime) * 1000).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )
+            })}
 
-                {expandedAgents.has(agent.address) && (
-                  <div className="px-8 py-4 text-[#A4A4A4] text-sm bg-[#16181C] border-b border-b-[#2F3336]">
-                    <div className="mb-2">
-                      <span className="text-white">System Prompt:</span>
-                      <p className="mt-1">{agent.systemPrompt}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 mt-4">
-                      <div>
-                        <span className="text-white">Pending Pool:</span>
-                        <p>{formatBalance(agent.pendingPool)}</p>
-                      </div>
-                      <div>
-                        <span className="text-white">End Time:</span>
-                        <p>{new Date(parseInt(agent.endTime) * 1000).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {filteredAgents.length === 0 && (
+              <div className="text-center text-[#A4A4A4] py-4">
+                {showExpired ? 'No agents found' : 'No active agents found'}
               </div>
-            )
-          })}
-
-          {filteredAgents.length === 0 && (
-            <div className="text-center text-[#A4A4A4] py-4">
-              {showExpired ? 'No agents found' : 'No active agents found'}
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </section>
 
-      <div className="flex flex-col gap-3 px-4 py-8 absolute bottom-0 left-0 right-0">
+      {/* Footer buttons */}
+      <div className="flex flex-col gap-3 p-4 border-t border-[#2F3336] bg-black">
         <button
           onClick={() => setCurrentView(AGENT_VIEWS.LAUNCH_AGENT)}
           className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-base hover:bg-white/70 border border-transparent"
