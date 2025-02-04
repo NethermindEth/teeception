@@ -69,6 +69,65 @@ const composeTweet = (agentName: string, setIsShowAgentView: (show: boolean) => 
   }
 }
 
+// Add CountdownDisplay component
+function CountdownDisplay({ endTime }: { endTime: string }) {
+  const [timeLeft, setTimeLeft] = useState<string>('')
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = Math.floor(Date.now() / 1000)
+      const end = parseInt(endTime)
+      const diff = end - now
+
+      if (diff <= 0) {
+        return 'Expired'
+      }
+
+      const days = Math.floor(diff / 86400)
+      const hours = Math.floor((diff % 86400) / 3600)
+      const minutes = Math.floor((diff % 3600) / 60)
+
+      if (days > 0) {
+        return `${days}d ${hours}h`
+      } else if (hours > 0) {
+        return `${hours}h ${minutes}m`
+      } else if (minutes > 0) {
+        return `${minutes}m`
+      } else {
+        return 'Expiring...'
+      }
+    }
+
+    setTimeLeft(calculateTimeLeft())
+    const interval = setInterval(() => {
+      setTimeLeft(calculateTimeLeft())
+    }, 60000) // Update every minute
+
+    return () => clearInterval(interval)
+  }, [endTime])
+
+  const now = Math.floor(Date.now() / 1000)
+  const isExpired = parseInt(endTime) <= now
+
+  return isExpired ? (
+    <span className="text-xs px-2 py-0.5 bg-gray-500/20 text-gray-500 rounded">Expired</span>
+  ) : (
+    <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-500 rounded">{timeLeft}</span>
+  )
+}
+
+// Add TruncatedName component for consistent name handling
+function TruncatedName({ name, maxLength = 35 }: { name: string; maxLength?: number }) {
+  const shouldTruncate = name.length > maxLength
+  const displayName = shouldTruncate ? `${name.slice(0, maxLength - 3)}...` : name
+
+  return (
+    <span title={shouldTruncate ? name : undefined} className="inline-block truncate">
+      {displayName}
+    </span>
+  )
+}
+
 export default function AgentList({
   setCurrentView,
   setIsShowAgentView,
@@ -83,6 +142,7 @@ export default function AgentList({
   const [agentList, setAgentList] = useState<Agent[]>([])
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set())
   const [tokenImages, setTokenImages] = useState<Record<string, string>>({})
+  const [showExpired, setShowExpired] = useState(false)
 
   useEffect(() => {
     if (!agentsLoading) {
@@ -177,15 +237,30 @@ export default function AgentList({
     fetchTokenBalances()
   }, [agentList, agentsLoading])
 
-  // Sort agents by total value in their respective tokens
+  // Modify sort function to handle expired agents
   const sortedAgents = [...agentsWithBalances].sort((a, b) => {
-    // Put error state agents at the bottom
-    if (a.token.address === '0x0' && b.token.address !== '0x0') return 1;
-    if (a.token.address !== '0x0' && b.token.address === '0x0') return -1;
+    const now = Math.floor(Date.now() / 1000)
+    const isExpiredA = parseInt(a.endTime) <= now
+    const isExpiredB = parseInt(b.endTime) <= now
+
+    // Put expired agents at the bottom
+    if (isExpiredA && !isExpiredB) return 1
+    if (!isExpiredA && isExpiredB) return -1
+
+    // Put error state agents at the bottom of their respective groups
+    if (a.token.address === '0x0' && b.token.address !== '0x0') return 1
+    if (a.token.address !== '0x0' && b.token.address === '0x0') return -1
     
     const balanceA = BigInt(a.prizePool || '0')
     const balanceB = BigInt(b.prizePool || '0')
     return balanceB > balanceA ? 1 : balanceB < balanceA ? -1 : 0
+  })
+
+  // Filter out expired agents unless showExpired is true
+  const filteredAgents = sortedAgents.filter(agent => {
+    const now = Math.floor(Date.now() / 1000)
+    const isExpired = parseInt(agent.endTime) <= now
+    return showExpired || !isExpired
   })
 
   const formatBalance = (balance: string, decimals: number = 18) => {
@@ -241,115 +316,131 @@ export default function AgentList({
     <div className="flex flex-col h-[600px] p-4">
       <section className="pt-5">
         {/* Header */}
-        <div className="grid border-b border-b-[#2F3336]" style={{ gridTemplateColumns: 'auto 200px' }}>
-          <div className="text-[#A4A4A4] text-sm py-4">Active agents ({agentList.length})</div>
-          <div className="text-[#A4A4A4] text-sm py-4 text-right">Balance</div>
+        <div className="flex justify-between items-center border-b border-b-[#2F3336] pb-4">
+          <div className="text-[#A4A4A4] text-sm">Active agents ({filteredAgents.length})</div>
+          <label className="flex items-center gap-2 text-[#A4A4A4] text-sm">
+            <input
+              type="checkbox"
+              checked={showExpired}
+              onChange={(e) => setShowExpired(e.target.checked)}
+              className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+            Show expired agents
+          </label>
         </div>
 
         <div className="pt-3 max-h-[calc(100vh-240px)] overflow-scroll pr-4 pb-12">
-          {sortedAgents.map((agent) => (
-            <div key={agent.address}>
-              <div
-                className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
-                style={{ gridTemplateColumns: '32px auto 200px 100px' }}
-              >
-                <button
-                  onClick={(e) => toggleAgentPrompt(agent.address, e)}
-                  className="text-[#A4A4A4] hover:text-white flex items-center justify-center"
+          {filteredAgents.map((agent) => {
+            const now = Math.floor(Date.now() / 1000)
+            const isExpired = parseInt(agent.endTime) <= now
+
+            return (
+              <div key={agent.address}>
+                <div
+                  className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
+                  style={{ gridTemplateColumns: '32px minmax(200px, 1fr) 180px 100px' }}
                 >
-                  {expandedAgents.has(agent.address) ? (
-                    <ChevronUp size={16} />
-                  ) : (
-                    <ChevronDown size={16} />
-                  )}
-                </button>
-
-                <div className="text-white text-base">
-                  <h3 className="text-white flex items-center gap-2">
-                    {agent.name}
-                    {agent.isFinalized && (
-                      <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-500 rounded">Finalized</span>
+                  <button
+                    onClick={(e) => toggleAgentPrompt(agent.address, e)}
+                    className="text-[#A4A4A4] hover:text-white flex items-center justify-center"
+                  >
+                    {expandedAgents.has(agent.address) ? (
+                      <ChevronUp size={16} />
+                    ) : (
+                      <ChevronDown size={16} />
                     )}
-                  </h3>
-                  <p className="text-[#A4A4A4] text-sm">
-                    Price: {formatBalance(agent.promptPrice)}
-                  </p>
-                </div>
+                  </button>
 
-                <div className="text-right flex items-center justify-end gap-2">
-                  {tokenImages[agent.token.address] && (
-                    <img 
-                      src={tokenImages[agent.token.address]} 
-                      alt="Token" 
-                      className="w-4 h-4 rounded-full"
-                    />
-                  )}
-                  <div>
-                    <p className="text-white">
-                      {(() => {
-                        try {
-                          if (!agent.token?.address || agent.token.address === '0x0') {
-                            return 'Error'
-                          }
-
-                          const matchingToken = Object.values(ACTIVE_NETWORK.tokens).find(token => {
-                            try {
-                              return token && token.address && 
-                                     normalizeAddress(token.address) === normalizeAddress(agent.token.address)
-                            } catch (err) {
-                              debug.error('AgentList', 'Error comparing token addresses:', {
-                                token,
-                                agentToken: agent.token,
-                                error: err
-                              })
-                              return false
-                            }
-                          })
-
-                          return `${formatBalance(agent.prizePool)} ${matchingToken?.symbol || 'Unknown'}`
-                        } catch (err) {
-                          debug.error('AgentList', 'Error formatting token display:', err)
-                          return 'Error'
-                        }
-                      })()}
+                  <div className="text-white text-base min-w-0">
+                    <h3 className="text-white flex items-center gap-2 min-w-0">
+                      <TruncatedName name={agent.name} />
+                      {agent.isFinalized && (
+                        <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-500 rounded flex-shrink-0">Finalized</span>
+                      )}
+                      <CountdownDisplay endTime={agent.endTime} />
+                    </h3>
+                    <p className="text-[#A4A4A4] text-sm">
+                      Price: {formatBalance(agent.promptPrice)}
                     </p>
                   </div>
+
+                  <div className="text-right flex items-center justify-end gap-2">
+                    {tokenImages[agent.token.address] && (
+                      <img 
+                        src={tokenImages[agent.token.address]} 
+                        alt="Token" 
+                        className="w-4 h-4 rounded-full"
+                      />
+                    )}
+                    <div>
+                      <p className="text-white">
+                        {(() => {
+                          try {
+                            if (!agent.token?.address || agent.token.address === '0x0') {
+                              return 'Error'
+                            }
+
+                            const matchingToken = Object.values(ACTIVE_NETWORK.tokens).find(token => {
+                              try {
+                                return token && token.address && 
+                                       normalizeAddress(token.address) === normalizeAddress(agent.token.address)
+                              } catch (err) {
+                                debug.error('AgentList', 'Error comparing token addresses:', {
+                                  token,
+                                  agentToken: agent.token,
+                                  error: err
+                                })
+                                return false
+                              }
+                            })
+
+                            return `${formatBalance(agent.prizePool)} ${matchingToken?.symbol || 'Unknown'}`
+                          } catch (err) {
+                            debug.error('AgentList', 'Error formatting token display:', err)
+                            return 'Error'
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => composeTweet(agent.name, setIsShowAgentView)}
+                      className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={agent.isFinalized}
+                    >
+                      Reply
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => composeTweet(agent.name, setIsShowAgentView)}
-                    className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={agent.isFinalized}
-                  >
-                    Reply
-                  </button>
-                </div>
+                {expandedAgents.has(agent.address) && (
+                  <div className="px-8 py-4 text-[#A4A4A4] text-sm bg-[#16181C] border-b border-b-[#2F3336]">
+                    <div className="mb-2">
+                      <span className="text-white">System Prompt:</span>
+                      <p className="mt-1">{agent.systemPrompt}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <span className="text-white">Pending Pool:</span>
+                        <p>{formatBalance(agent.pendingPool)}</p>
+                      </div>
+                      <div>
+                        <span className="text-white">End Time:</span>
+                        <p>{new Date(parseInt(agent.endTime) * 1000).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+            )
+          })}
 
-              {expandedAgents.has(agent.address) && (
-                <div className="px-8 py-4 text-[#A4A4A4] text-sm bg-[#16181C] border-b border-b-[#2F3336]">
-                  <div className="mb-2">
-                    <span className="text-white">System Prompt:</span>
-                    <p className="mt-1">{agent.systemPrompt}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <span className="text-white">Pending Pool:</span>
-                      <p>{formatBalance(agent.pendingPool)}</p>
-                    </div>
-                    <div>
-                      <span className="text-white">End Time:</span>
-                      <p>{new Date(parseInt(agent.endTime) * 1000).toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+          {filteredAgents.length === 0 && (
+            <div className="text-center text-[#A4A4A4] py-4">
+              {showExpired ? 'No agents found' : 'No active agents found'}
             </div>
-          ))}
-
-          {sortedAgents.length === 0 && (
-            <div className="text-center text-[#A4A4A4] py-4">No agents found</div>
           )}
         </div>
       </section>
