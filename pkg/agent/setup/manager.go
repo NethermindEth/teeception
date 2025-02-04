@@ -32,6 +32,7 @@ type SetupManager struct {
 type SetupOutput struct {
 	TwitterUsername              string     `json:"twitter_username"`
 	TwitterPassword              string     `json:"twitter_password"`
+	ProtonEmail                  string     `json:"proton_email"`
 	ProtonPassword               string     `json:"proton_password"`
 	TwitterConsumerKey           string     `json:"twitter_consumer_key"`
 	TwitterConsumerSecret        string     `json:"twitter_consumer_secret"`
@@ -173,6 +174,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		TwitterConsumerSecret:    m.twitterAppSecret,
 		TwitterUsername:          m.twitterAccount,
 		TwitterPassword:          twitterPassword,
+		ProtonEmail:              m.protonEmail,
 		ProtonPassword:           protonPassword,
 		StarknetPrivateKeySeed:   starknetPrivateKeySeed[:],
 		StarknetRpcUrls:          m.starknetRpcUrls,

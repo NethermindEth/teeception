@@ -3,6 +3,7 @@ package twitter
 type TwitterClientConfig struct {
 	Username          string
 	Password          string
+	Email             string
 	ConsumerKey       string
 	ConsumerSecret    string
 	AccessToken       string

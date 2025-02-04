@@ -35,6 +35,7 @@ func main_impl() error {
 		TwitterClientConfig: &twitter.TwitterClientConfig{
 			Username:          output.TwitterUsername,
 			Password:          output.TwitterPassword,
+			Email:             output.ProtonEmail,
 			ConsumerKey:       output.TwitterConsumerKey,
 			ConsumerSecret:    output.TwitterConsumerSecret,
 			AccessToken:       output.TwitterAccessToken,

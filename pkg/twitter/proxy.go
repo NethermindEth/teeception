@@ -27,6 +27,7 @@ func (p *TwitterProxy) Initialize(config *TwitterClientConfig) error {
 	body := map[string]string{
 		"username":          config.Username,
 		"password":          config.Password,
+		"email":             config.Email,
 		"consumerKey":       config.ConsumerKey,
 		"consumerSecret":    config.ConsumerSecret,
 		"accessToken":       config.AccessToken,
