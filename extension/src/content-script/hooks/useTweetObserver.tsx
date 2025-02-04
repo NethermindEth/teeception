@@ -1,12 +1,18 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { SELECTORS } from '../constants/selectors'
 import { extractAgentName } from '../utils/twitter'
-import { checkTweetPaid, getAgentAddressByName } from '../utils/contracts'
+import { getAgentAddressByName } from '../utils/contracts'
 import { debug } from '../utils/debug'
 import { TWITTER_CONFIG } from '../config/starknet'
-import { Contract } from 'starknet'
+import { Contract, RpcProvider } from 'starknet'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { useAccount } from '@starknet-react/core'
+
+// Initialize Nethermind provider
+const NETHERMIND_API_KEY = 'BqyrrrCXajIYmrrDurtUBKlmsOCGcYCkm4PyBACuMtvtGmwODFz11RikUh1KueKd'
+const provider = new RpcProvider({
+  nodeUrl: `https://rpc.nethermind.io/sepolia-juno/?apikey=${NETHERMIND_API_KEY}`,
+})
 
 interface TweetData {
   id: string
@@ -223,42 +229,6 @@ export const useTweetObserver = (
     }
   }, [account?.address])
 
-  const createAttemptsList = (attempts: number[], tweetId: string) => {
-    const dropdown = document.createElement('select')
-    dropdown.className = 'bg-transparent text-green-500 border border-green-500 rounded px-2 py-1 text-sm ml-2'
-    dropdown.style.cssText = `
-      background-color: rgba(0, 200, 83, 0.1);
-      border: 1px solid rgb(0, 200, 83);
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 13px;
-      color: rgb(0, 200, 83);
-      cursor: pointer;
-      outline: none;
-    `
-    
-    const defaultOption = document.createElement('option')
-    defaultOption.value = ''
-    defaultOption.textContent = `${attempts.length} Attempt${attempts.length !== 1 ? 's' : ''}`
-    dropdown.appendChild(defaultOption)
-    
-    attempts.forEach((promptId, index) => {
-      const option = document.createElement('option')
-      option.value = promptId.toString()
-      option.textContent = `Attempt ${index + 1}`
-      dropdown.appendChild(option)
-    })
-    
-    dropdown.addEventListener('change', (e) => {
-      const promptId = (e.target as HTMLSelectElement).value
-      if (promptId) {
-        window.open(`https://teeception.ai/tweet/${tweetId}/prompt/${promptId}`, '_blank')
-      }
-    })
-    
-    return dropdown
-  }
-
   const shouldProcessTweet = (tweet: HTMLElement, tweetId: string): boolean => {
     // Don't process if already processing
     if (processingTweets.current.has(tweetId)) return false
@@ -380,10 +350,11 @@ export const useTweetObserver = (
           return
         }
 
-        // Create contract instance
+        // Create contract instance with custom provider
         const agentContract = new Contract(
           TEECEPTION_AGENT_ABI,
           agentAddress,
+          provider
         )
 
         // Get the current cache state first

@@ -30,8 +30,12 @@ const policies = {
 };
 
 const cartridgeConnector = new ControllerConnector({
-  rpc: ACTIVE_NETWORK.rpc,
-  policies
+  policies,
+  defaultChainId: ACTIVE_NETWORK.chainId,
+  chains: [
+    { rpcUrl: "https://api.cartridge.gg/x/starknet/sepolia" },
+    { rpcUrl: "https://api.cartridge.gg/x/starknet/mainnet" },
+  ],
 });
 
 export function StarknetProvider({ children }: { children: React.ReactNode }) {
