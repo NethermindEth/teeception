@@ -41,6 +41,7 @@ func (a *Agent) StartServer(ctx context.Context) error {
 			"deployed_at":        a.accountDeploymentState.DeployedAt,
 			"balance":            a.accountDeploymentState.Balance.String(),
 			"balance_updated_at": a.accountDeploymentState.BalanceUpdatedAt,
+			"waiting":            a.accountDeploymentState.Waiting,
 		})
 	})
 

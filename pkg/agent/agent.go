@@ -61,6 +61,7 @@ type AgentAccountDeploymentState struct {
 	DeployedAt       int64
 	Balance          *big.Int
 	BalanceUpdatedAt int64
+	Waiting          bool
 }
 
 type AgentConfig struct {
@@ -754,6 +755,10 @@ func (a *Agent) waitForAccountDeployment(ctx context.Context) error {
 
 		time.Sleep(10 * time.Second)
 	}
+
+	a.accountDeploymentState.Waiting = true
+	time.Sleep(2 * time.Minute)
+	a.accountDeploymentState.Waiting = false
 
 	return nil
 }
