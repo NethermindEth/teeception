@@ -53,7 +53,7 @@ class TwitterClientApi {
             res.sendStatus(200)
         } catch (err) {
             console.error('Failed to initialize:', err)
-            res.sendStatus(500)
+            res.status(500).send(`${err}`)
         }
     }
 
@@ -72,7 +72,7 @@ class TwitterClientApi {
             res.send(tweet.text)
         } catch (err) {
             console.error('Failed to get tweet:', err)
-            res.sendStatus(500)
+            res.status(500).send(`${err}`)
         }
     }
 
@@ -92,7 +92,7 @@ class TwitterClientApi {
             res.sendStatus(200)
         } catch (err) {
             console.error('Failed to reply to tweet:', err)
-            res.sendStatus(500)
+            res.status(500).send(`${err}`)
         }
     }
 
