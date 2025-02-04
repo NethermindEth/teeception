@@ -167,21 +167,22 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 	}
 
 	output := &SetupOutput{
-		TwitterAuthTokens:        authTokens,
-		TwitterAccessToken:       oauthTokenPair.Token,
-		TwitterAccessTokenSecret: oauthTokenPair.TokenSecret,
-		TwitterConsumerKey:       m.twitterAppKey,
-		TwitterConsumerSecret:    m.twitterAppSecret,
-		TwitterUsername:          m.twitterAccount,
-		TwitterPassword:          twitterPassword,
-		ProtonEmail:              m.protonEmail,
-		ProtonPassword:           protonPassword,
-		StarknetPrivateKeySeed:   starknetPrivateKeySeed[:],
-		StarknetRpcUrls:          m.starknetRpcUrls,
-		AgentRegistryAddress:     agentRegistryAddress,
-		OpenAIKey:                m.openAiKey,
-		DstackTappdEndpoint:      m.dstackTappdEndpoint,
-		UnencumberEncryptionKey:  m.unencumberEncryptionKey,
+		TwitterAuthTokens:            authTokens,
+		TwitterAccessToken:           oauthTokenPair.Token,
+		TwitterAccessTokenSecret:     oauthTokenPair.TokenSecret,
+		TwitterConsumerKey:           m.twitterAppKey,
+		TwitterConsumerSecret:        m.twitterAppSecret,
+		TwitterUsername:              m.twitterAccount,
+		TwitterPassword:              twitterPassword,
+		ProtonEmail:                  m.protonEmail,
+		ProtonPassword:               protonPassword,
+		StarknetPrivateKeySeed:       starknetPrivateKeySeed[:],
+		StarknetRpcUrls:              m.starknetRpcUrls,
+		AgentRegistryAddress:         agentRegistryAddress,
+		AgentRegistryDeploymentBlock: m.agentRegistryDeploymentBlock,
+		OpenAIKey:                    m.openAiKey,
+		DstackTappdEndpoint:          m.dstackTappdEndpoint,
+		UnencumberEncryptionKey:      m.unencumberEncryptionKey,
 	}
 
 	if debug.IsDebugShowSetup() {
