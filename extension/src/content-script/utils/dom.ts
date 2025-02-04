@@ -10,7 +10,7 @@ export const createModalContainer = () => {
   let container = document.getElementById('jack-the-ether-modal-container')
   
   if (!container) {
-    debug.log('DOM', 'Creating new modal container')
+     
     container = document.createElement('div')
     container.id = 'jack-the-ether-modal-container'
     container.style.position = 'fixed'
@@ -34,7 +34,7 @@ export const getTweetText = (): string => {
   try {
     const tweetBox = document.querySelector(SELECTORS.TWEET_TEXTAREA)
     const text = tweetBox?.textContent || ''
-    debug.log('DOM', 'Retrieved tweet text', { text })
+     
     return text
   } catch (error) {
     debug.error('DOM', 'Failed to get tweet text', error)

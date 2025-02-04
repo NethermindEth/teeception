@@ -1,73 +1,81 @@
 import React from 'react'
-import { Button } from "@/components/ui/button"
+import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
-import { CONFIG } from '../../config'
-import { cn } from "@/lib/utils"
-import { AlertTriangle } from "lucide-react"
+import { cn } from '@/lib/utils'
+import { MessageCircle } from 'lucide-react'
 import { debug } from '../../utils/debug'
 
 interface ConfirmationModalProps {
   open: boolean
   onConfirm: () => void
   onCancel: () => void
+  agentName?: string
+  checkForNewTweets: () => void
 }
 
 /**
  * Modal component that shows a confirmation dialog when a user mentions a specific account in their tweet
  */
-export const ConfirmationModal = ({ open, onConfirm, onCancel }: ConfirmationModalProps) => {
-  debug.log('ConfirmationModal', 'Rendering', { open })
+export const ConfirmationModal = ({
+  open,
+  onConfirm,
+  onCancel,
+  agentName,
+  checkForNewTweets,
+}: ConfirmationModalProps) => {
+  const handleConfirm = () => {
+    debug.log('ConfirmationModal', 'Starting tweet send process')
+    onConfirm()
+    
+    // Try multiple checks with shorter intervals
+    const checkIntervals = [100, 200, 300] // Check at 100ms, 200ms, and 300ms after sending
+    checkIntervals.forEach(delay => {
+      setTimeout(() => {
+        debug.log('ConfirmationModal', 'Checking for new tweets', { delay })
+        checkForNewTweets()
+      }, delay)
+    })
+  }
 
   return (
     <Dialog open={open} onClose={onCancel}>
       <div className="space-y-6">
-        {/* Header with Icon */}
         <div className="flex gap-4 items-start">
-          <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-            <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-500" />
-          </div>
           <div className="space-y-2 flex-1">
-            <h2 className={cn(
-              "text-xl font-semibold tracking-tight",
-              "text-black dark:text-white"
-            )}>
-              Account Mention Detected
+            <h2 className="text-xl font-semibold tracking-tight text-white flex items-center gap-2">
+              <MessageCircle className="w-5 h-5" />
+              Challenge Confirmation
             </h2>
-            <p className={cn(
-              "text-sm leading-6",
-              "text-muted-foreground"
-            )}>
-              You're about to tweet a message mentioning{' '}
-              <span className="font-medium text-foreground">
-                {CONFIG.accountName}
-              </span>.
-              Are you sure you want to proceed?
-            </p>
+            <div className="space-y-4">
+              <p className={cn('text-sm leading-6', 'text-muted-foreground')}>
+                You're about to send a challenge to <span className="font-medium">{agentName}</span>
+              </p>
+              <ul className="text-sm leading-6 text-muted-foreground space-y-2 list-disc pl-4">
+                <li>Your tweet will be sent to initiate the challenge</li>
+                <li>You'll need to pay for the challenge attempt before it's processed</li>
+                <li>A button to pay and activate the challenge will appear on your tweet</li>
+              </ul>
+            </div>
           </div>
         </div>
-
         {/* Actions */}
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={() => {
-              debug.log('ConfirmationModal', 'Cancel button clicked')
-              onCancel()
-            }}
-          >
-            Cancel
-          </Button>
+        <div className="flex flex-col justify-end gap-3">
           <Button
             variant="default"
-            onClick={() => {
-              debug.log('ConfirmationModal', 'Confirm button clicked')
-              onConfirm()
-            }}
+            size="lg"
+            onClick={handleConfirm}
           >
-            Confirm Tweet
+            Send Tweet
+          </Button>
+          <Button
+            size="lg"
+            variant="ghost"
+            onClick={onCancel}
+          >
+            Cancel
           </Button>
         </div>
       </div>
     </Dialog>
   )
-} 
+}

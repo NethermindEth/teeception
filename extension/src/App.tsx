@@ -1,7 +1,7 @@
-import Popup from "./Popup";
+import Popup from './Popup'
 
-const App: React.FC = () => {
-  return <Popup />;
-};
+const App = () => {
+  return <Popup />
+}
 
-export default App;
+export default App

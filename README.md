@@ -128,3 +128,66 @@ See [LICENSE](LICENSE) file for details.
 ## Disclaimer
 
 This platform is for educational purposes and responsible red teaming. Use your powers for good, and happy hacking!
+
+## Development Setup
+
+### Prerequisites
+- Node.js and npm (for extension development)
+- Scarb (Cairo package manager)
+- jq (JSON processor for scripts)
+
+### Installation
+1. Install root dependencies:
+```bash
+npm install
+```
+
+2. Install jq if not already installed:
+```bash
+# macOS
+brew install jq
+
+# Ubuntu/Debian
+sudo apt-get install jq
+```
+
+3. Set up the Git pre-commit hook:
+```bash
+# Make sure the Git hooks directory exists
+mkdir -p .git/hooks
+
+# Copy the pre-commit hook
+cp scripts/pre-commit .git/hooks/
+chmod +x .git/hooks/pre-commit
+```
+
+### ABI Synchronization
+The project maintains automatic synchronization between the Cairo contract ABIs and the TypeScript interfaces used in the extension. This is handled through a Git pre-commit hook that:
+
+1. Builds the contracts using Scarb
+2. Extracts the ABIs from the contract class files using jq
+3. Updates the TypeScript ABI files in `extension/src/abis/`
+4. Verifies that all changes are committed
+
+If you see an error about ABI files being out of sync during commit, simply add the updated ABI files to your commit.
+
+### Manual ABI Sync
+To manually synchronize the ABIs:
+
+```bash
+./scripts/sync-abis.sh
+```
+
+## Project Structure
+
+### Contracts
+- `contracts/` - Cairo smart contracts
+- `contracts/target/release/*.contract_class.json` - Compiled contract files containing ABIs
+
+### Extension
+- `extension/` - Browser extension code
+- `extension/src/abis/` - TypeScript ABI definitions (auto-generated)
+
+### Scripts
+- `scripts/` - Development and maintenance scripts
+- `scripts/sync-abis.ts` - ABI synchronization script

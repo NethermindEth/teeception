@@ -82,6 +82,36 @@ fn deploy_test_token(token_holder: ContractAddress) -> ContractAddress {
     address.into()
 }
 
+fn deploy_registry_with_token(tee: ContractAddress) -> (ContractAddress, ContractAddress) {
+    let token_contract = declare("ERC20").unwrap();
+    let agent_contract = declare("Agent").unwrap();
+    let registry_contract = declare("AgentRegistry").unwrap();
+    
+    // Deploy token first
+    let mut token_calldata = ArrayTrait::new();
+    let name = ByteArray::from_string("Test Token");
+    let symbol = ByteArray::from_string("TST");
+    let initial_supply: u256 = 1000000;
+    let recipient = starknet::get_contract_address();
+    
+    name.serialize(ref token_calldata);
+    symbol.serialize(ref token_calldata);
+    initial_supply.serialize(ref token_calldata);
+    recipient.serialize(ref token_calldata);
+    
+    let (token_address, _) = token_contract.deploy(@token_calldata).unwrap();
+
+    // Deploy registry with token
+    let mut registry_calldata = ArrayTrait::new();
+    agent_contract.class_hash.serialize(ref registry_calldata);
+    tee.serialize(ref registry_calldata);
+    token_address.serialize(ref registry_calldata);
+    
+    let (registry_address, _) = registry_contract.deploy(@registry_calldata).unwrap();
+    
+    (registry_address, token_address)
+}
+
 #[test]
 fn test_register_agent() {
     let setup = setup();
@@ -1014,4 +1044,80 @@ fn test_withdraw_after_drain() {
     // Creator should be able to withdraw after drain
     start_cheat_caller_address(agent_address, setup.creator);
     agent.withdraw(); // Should succeed
+}
+
+#[test]
+fn test_successful_agent_transfer() {
+    // Deploy registry with token
+    let tee = starknet::contract_address_const::<0x1>();
+    let (registry_address, token_address) = deploy_registry_with_token(tee);
+    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
+    let token = IERC20Dispatcher { contract_address: token_address };
+
+    // Register an agent
+    registry.register_agent(
+        ByteArray::from_string("Test Agent"),
+        ByteArray::from_string("Test Prompt")
+    );
+    
+    let agents = registry.get_agents();
+    let agent_address = *agents.at(0);
+    
+    // Send some tokens to the agent
+    let agent_initial_balance: u256 = 100;
+    token.transfer(agent_address, agent_initial_balance);
+    
+    // Verify agent received the tokens
+    let balance_before = token.balance_of(agent_address);
+    assert(balance_before == agent_initial_balance, 'Wrong initial balance');
+    
+    // Create a new recipient address
+    let new_owner = starknet::contract_address_const::<0x123>();
+    
+    // Start spoofing the TEE address for the transfer
+    starknet::testing::set_caller_address(tee);
+    
+    // Transfer the agent to a new address
+    registry.transfer(agent_address, new_owner);
+    
+    // Verify tokens were transferred to new owner
+    let balance_after_agent = token.balance_of(agent_address);
+    let balance_after_new_owner = token.balance_of(new_owner);
+    
+    assert(balance_after_agent == 0, 'Agent should have 0 balance');
+    assert(balance_after_new_owner == agent_initial_balance, 'New owner wrong balance');
+}
+
+#[test]
+fn test_get_token_address() {
+    let tee = starknet::contract_address_const::<0x1>();
+    let (registry_address, token_address) = deploy_registry_with_token(tee);
+    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
+    
+    let stored_token = registry.get_token();
+    assert(stored_token == token_address, 'Wrong token address');
+}
+
+#[test]
+#[should_panic(expected: ('Only tee can transfer',))]
+fn test_transfer_not_tee() {
+    let tee = starknet::contract_address_const::<0x1>();
+    let (registry_address, _) = deploy_registry_with_token(tee);
+    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
+
+    // Register an agent
+    registry.register_agent(
+        ByteArray::from_string("Test Agent"),
+        ByteArray::from_string("Test Prompt")
+    );
+    
+    let agents = registry.get_agents();
+    let agent_address = *agents.at(0);
+    
+    // Try to transfer without being TEE
+    starknet::testing::set_caller_address(starknet::contract_address_const::<0x999>());
+    registry.transfer(
+        agent_address,
+        starknet::contract_address_const::<0x123>()
+    );
 }
