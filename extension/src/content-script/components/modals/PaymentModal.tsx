@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
 import { cn } from '@/lib/utils'
-import { CreditCard, Loader2, CheckCircle2 } from 'lucide-react'
+import { CreditCard, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { debug } from '../../utils/debug'
 import { getPromptPrice, getAgentAddressByName, getAgentToken } from '../../utils/contracts'
 import { ACTIVE_NETWORK } from '../../config/starknet'
@@ -12,6 +12,7 @@ import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { uint256 } from 'starknet'
 import { SELECTORS } from '../../constants/selectors'
+import { Contract } from 'starknet'
 
 interface TweetPrice {
   price: bigint
@@ -50,6 +51,7 @@ export const PaymentModal = ({
   const [loading, setLoading] = useState(true)
   const [price, setPrice] = useState<TweetPrice | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [existingAttempts, setExistingAttempts] = useState<bigint>(0n)
   const [txStatus, setTxStatus] = useState<TransactionStatus>({
     approve: 'idle',
     payment: 'idle'
@@ -124,6 +126,7 @@ export const PaymentModal = ({
       setLoading(true)
       setError(null)
       setPrice(null)
+      setExistingAttempts(0n)
       setTxStatus({ approve: 'idle', payment: 'idle' })
       
       // Get agent address
@@ -136,6 +139,30 @@ export const PaymentModal = ({
       // Get the agent's token
       const token = await getAgentToken(address)
       setTokenAddress(token)
+
+      // Check if user has already paid for this tweet
+      if (account?.address) {
+        try {
+          // Create contract instance with properly formatted address
+          const formattedAddress = `0x${BigInt(address).toString(16).padStart(64, '0')}`
+
+          const agentContract = new Contract(
+            TEECEPTION_AGENT_ABI,
+            formattedAddress
+          )
+
+          const userPromptCount = await agentContract.get_user_tweet_prompts_count(
+            `0x${BigInt(account.address).toString(16).padStart(64, '0')}`,
+            BigInt(tweetId)
+          )
+
+          setExistingAttempts(userPromptCount)
+        } catch (error) {
+          debug.error('PaymentModal', 'Error getting prompt count', error)
+          // Don't throw here, just log the error and continue
+        }
+      } else {
+      }
       
       // Find token symbol from address
       const tokenInfo = Object.entries(ACTIVE_NETWORK.tokens).find(
@@ -162,7 +189,7 @@ export const PaymentModal = ({
     if (open) {
       fetchPrice()
     }
-  }, [open])
+  }, [open, account?.address]) // Also refetch when wallet changes
 
   const formattedPrice = price 
     ? `${Number(price.price) / Math.pow(10, ACTIVE_NETWORK.tokens[price.token].decimals)} ${price.token}`
@@ -201,17 +228,12 @@ export const PaymentModal = ({
           updateBanner(tweetId)
         }
         
-        // Start periodic checks for chain state
-        const checkInterval = setInterval(() => {
+        // Only check once after a reasonable delay to confirm chain state
+        setTimeout(() => {
           if (checkUnpaidTweets) {
             checkUnpaidTweets()
           }
-        }, 2000) // Check every 2 seconds
-        
-        // Stop checking after 30 seconds
-        setTimeout(() => {
-          clearInterval(checkInterval)
-        }, 30000)
+        }, 5000) // Single check after 5 seconds
         
         onConfirm()
       }
@@ -259,6 +281,18 @@ export const PaymentModal = ({
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {existingAttempts > 0n && (
+                    <div className="flex items-center gap-2 p-4 bg-yellow-500/10 rounded-lg text-yellow-500">
+                      <AlertTriangle className="w-5 h-5" />
+                      <div>
+                        <p className="text-sm font-medium">You've paid for this challenge {existingAttempts.toString()} time{existingAttempts === 1n ? '' : 's'} before</p>
+                        <p className="text-sm text-yellow-500/80">
+                          You can always pay to run the same tweet against {agentName} again to get a new response. 
+                          Are you sure you want to pay for another attempt?
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="bg-white/5 p-4 rounded-lg">
                     <div className="text-sm text-muted-foreground">Challenge Fee</div>
                     <div className="text-xl font-medium text-white">{formattedPrice}</div>

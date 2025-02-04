@@ -13,13 +13,25 @@ interface TweetData {
   isPaid: boolean
   agentName: string
   overlayContainer?: HTMLDivElement
+  promptCount: bigint
 }
 
 // Use sessionStorage to persist cache across page navigations
 const getTweetCache = () => {
   try {
     const cached = sessionStorage.getItem('tweetCache')
-    return cached ? new Map<string, TweetData>(JSON.parse(cached)) : new Map<string, TweetData>()
+    if (!cached) return new Map<string, TweetData>()
+    
+    // Parse and convert numeric strings back to bigint
+    const parsed = JSON.parse(cached, (key, value) => {
+      // Convert promptCount back to bigint
+      if (key === 'promptCount' && typeof value === 'string') {
+        return BigInt(value)
+      }
+      return value
+    })
+    
+    return new Map<string, TweetData>(parsed)
   } catch (error) {
     debug.error('TweetObserver', 'Error reading tweet cache', error)
     return new Map<string, TweetData>()
@@ -29,9 +41,12 @@ const getTweetCache = () => {
 const setTweetCache = (cache: Map<string, TweetData>) => {
   try {
     const serializable = Array.from(cache.entries()).map(([key, value]) => {
-      // Don't serialize DOM elements
+      // Don't serialize DOM elements and convert bigint to string
       const { overlayContainer, ...rest } = value
-      return [key, rest]
+      return [key, {
+        ...rest,
+        promptCount: rest.promptCount.toString() // Convert bigint to string for storage
+      }]
     })
     sessionStorage.setItem('tweetCache', JSON.stringify(serializable))
   } catch (error) {
@@ -91,13 +106,122 @@ export const useTweetObserver = (
   onPayClick: (tweetId: string, agentName: string) => void,
   currentUser: string
 ) => {
-  const { account } = useAccount()
+  // Initialize cache from sessionStorage
   const tweetCache = useRef<Map<string, TweetData>>(getTweetCache())
+  const processingTweets = useRef(new Set<string>())
+  const unpaidTweets = useRef(new Set<string>())
+  const lastProcessTime = useRef(new Map<string, number>())
   const observer = useRef<MutationObserver | null>(null)
-  const processingTweets = useRef<Set<string>>(new Set())
   const processTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastProcessTime = useRef<Map<string, number>>(new Map())
-  const unpaidTweets = useRef<Set<string>>(new Set())
+
+  const { account } = useAccount()
+
+  // Wait for wallet before initial processing
+  useEffect(() => {
+    if (account?.address) {
+      processExistingTweets()
+    }
+  }, [account?.address])
+
+  // Only set up observers after wallet is ready
+  useEffect(() => {
+    if (!account?.address) {
+      return
+    }
+
+    // Set up navigation listener
+    const handleNavigation = () => {
+      processExistingTweets()
+    }
+
+    // Handle both Twitter's client-side routing and browser navigation
+    window.addEventListener('popstate', handleNavigation)
+    window.addEventListener('pushstate', handleNavigation)
+    window.addEventListener('replacestate', handleNavigation)
+
+    // Watch for scroll events
+    let scrollTimeout: NodeJS.Timeout | null = null
+    const handleScroll = () => {
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout)
+      }
+      scrollTimeout = setTimeout(() => {
+        processExistingTweets()
+        scrollTimeout = null
+      }, 500)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    // Set up mutation observer
+    let mutationTimeout: NodeJS.Timeout | null = null
+    observer.current = new MutationObserver((mutations) => {
+      if (mutationTimeout) {
+        clearTimeout(mutationTimeout)
+      }
+
+      mutationTimeout = setTimeout(() => {
+        let shouldProcess = false
+        for (const mutation of mutations) {
+          if (mutation.type === 'childList') {
+            const addedNodes = Array.from(mutation.addedNodes)
+            const hasRelevantAddition = addedNodes.some((node) => {
+              if (node instanceof HTMLElement) {
+                return (
+                  node.matches(SELECTORS.TWEET) ||
+                  node.matches('[data-testid="tweet"]') ||
+                  node.matches('[data-testid="tweetText"]')
+                )
+              }
+              return false
+            })
+            if (hasRelevantAddition) {
+              shouldProcess = true
+              break
+            }
+          }
+        }
+
+        if (shouldProcess) {
+          processExistingTweets()
+        }
+        mutationTimeout = null
+      }, 500)
+    })
+
+    observer.current.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-testid'],
+    })
+
+    // Single interval for checking all tweets
+    const checkInterval = setInterval(() => {
+      if (account?.address) {
+        processExistingTweets()
+      }
+    }, 5000)
+
+    return () => {
+      if (processTimeoutRef.current) {
+        clearTimeout(processTimeoutRef.current)
+      }
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout)
+      }
+      if (mutationTimeout) {
+        clearTimeout(mutationTimeout)
+      }
+      if (checkInterval) {
+        clearInterval(checkInterval)
+      }
+      window.removeEventListener('popstate', handleNavigation)
+      window.removeEventListener('pushstate', handleNavigation)
+      window.removeEventListener('replacestate', handleNavigation)
+      window.removeEventListener('scroll', handleScroll)
+      observer.current?.disconnect()
+    }
+  }, [account?.address])
 
   const createAttemptsList = (attempts: number[], tweetId: string) => {
     const dropdown = document.createElement('select')
@@ -214,12 +338,6 @@ export const useTweetObserver = (
         processingTweets.current.add(tweetId)
         lastProcessTime.current.set(tweetId, Date.now())
 
-        // Remove existing banner if present
-        const existingBanner = tweet.nextElementSibling
-        if (existingBanner?.classList.contains('tweet-challenge-banner')) {
-          existingBanner.remove()
-        }
-
         // Get agent address
         const agentAddress = await getAgentAddressByName(agentName)
 
@@ -253,7 +371,8 @@ export const useTweetObserver = (
           tweetCache.current.set(tweetId, {
             id: tweetId,
             isPaid: false,
-            agentName: agentName // Store the non-existent agent name
+            agentName: agentName, // Store the non-existent agent name
+            promptCount: 0n
           })
           setTweetCache(tweetCache.current)
 
@@ -267,17 +386,49 @@ export const useTweetObserver = (
           agentAddress,
         )
 
-        // Get all prompts for this tweet
-        const prompts = await agentContract.get_user_tweet_prompts(
-          account?.address ? `0x${BigInt(account.address).toString(16).padStart(64, '0')}` : '0x0',
-          BigInt(tweetId),
-          0,
-          100 // Reasonable limit for attempts
-        )
+        // Get the current cache state first
+        const cachedState = tweetCache.current.get(tweetId)
+
+        // Get total prompt count for this tweet from all users
+        let totalPromptCount = cachedState?.promptCount || 0n
+        let isPaid = cachedState?.isPaid || false
 
         // Check if we have a temporary paid state
         const tempPaidTweets = getTempPaidTweets()
-        const isPaid = prompts && prompts.length > 0 || tempPaidTweets.has(tweetId)
+        const hasTempPaid = tempPaidTweets.has(tweetId)
+
+        // If we have a wallet, always check the contract
+        if (account?.address) {
+          const userPromptCount = await agentContract.get_user_tweet_prompts_count(
+            `0x${BigInt(account.address).toString(16).padStart(64, '0')}`,
+            BigInt(tweetId)
+          )
+          totalPromptCount = userPromptCount
+          isPaid = totalPromptCount > 0 || hasTempPaid
+
+          // Always update cache when we have fresh contract data
+          tweetCache.current.set(tweetId, {
+            id: tweetId,
+            isPaid,
+            agentName,
+            promptCount: totalPromptCount
+          })
+          setTweetCache(tweetCache.current)
+        }
+        // If no wallet but we have cached state or temp paid, use that
+        else if (cachedState || hasTempPaid) {
+          isPaid = isPaid || hasTempPaid
+        }
+        // Only show as unpaid if we have no wallet AND no cached state AND no temp paid
+        else {
+          isPaid = false
+        }
+
+        // Remove any existing banner before adding new one
+        const existingBanner = tweet.nextSibling as HTMLElement
+        if (existingBanner?.classList?.contains('tweet-challenge-banner')) {
+          existingBanner.remove()
+        }
 
         // Reset tweet border style
         tweet.style.border = isPaid ? 
@@ -289,7 +440,7 @@ export const useTweetObserver = (
         banner.className = 'tweet-challenge-banner'
 
         if (isPaid) {
-          // Paid tweet - show green banner with attempts dropdown
+          // Paid tweet - show green banner with attempts count and challenge again button
           banner.style.cssText = `
             padding: 12px 16px;
             background-color: rgba(0, 200, 83, 0.1);
@@ -307,18 +458,14 @@ export const useTweetObserver = (
           bannerLeft.style.cssText = 'display: flex; align-items: center;'
 
           const bannerText = document.createElement('span')
-          bannerText.textContent = 'Challenge attempts:'
+          bannerText.textContent = `${totalPromptCount} Challenge Attempt${totalPromptCount !== 1n ? 's' : ''}`
           bannerLeft.appendChild(bannerText)
-          
-          // Add dropdown for attempts
-          const attemptsList = createAttemptsList(prompts, tweetId)
-          bannerLeft.appendChild(attemptsList)
           
           banner.appendChild(bannerLeft)
 
-          const viewButton = document.createElement('button')
-          viewButton.textContent = 'View Latest'
-          viewButton.style.cssText = `
+          const challengeAgainButton = document.createElement('button')
+          challengeAgainButton.textContent = 'Challenge Again'
+          challengeAgainButton.style.cssText = `
             background-color: rgb(0, 200, 83);
             color: white;
             padding: 6px 16px;
@@ -328,10 +475,8 @@ export const useTweetObserver = (
             cursor: pointer;
             border: none;
           `
-          viewButton.addEventListener('click', () =>
-            window.open(`https://teeception.ai/tweet/${tweetId}/prompt/${prompts[prompts.length - 1]}`, '_blank')
-          )
-          banner.appendChild(viewButton)
+          challengeAgainButton.addEventListener('click', () => onPayClick(tweetId, agentName))
+          banner.appendChild(challengeAgainButton)
         } else {
           // Unpaid tweet - show red banner
           banner.style.cssText = `
@@ -369,13 +514,7 @@ export const useTweetObserver = (
         // Insert banner after the tweet
         tweet.parentNode?.insertBefore(banner, tweet.nextSibling)
 
-        // Update cache
-        tweetCache.current.set(tweetId, {
-          id: tweetId,
-          isPaid,
-          agentName,
-        })
-        setTweetCache(tweetCache.current)
+        processingTweets.current.delete(tweetId)
 
         // Track unpaid tweets for rechecking
         if (!isPaid && agentAddress) {
@@ -419,106 +558,55 @@ export const useTweetObserver = (
     }, 500) // Increased delay to 500ms
   }, [processTweet])
 
+  // Add an interval to recheck unpaid tweets periodically
   useEffect(() => {
-    // Process existing tweets immediately on mount
-    processExistingTweets()
+    const checkInterval = setInterval(() => {
+      const tweets = unpaidTweets.current
+      if (tweets.size === 0) return
 
-    // Set up navigation listener
-    const handleNavigation = () => {
-      processExistingTweets()
-    }
+      // Find all tweet elements currently in the DOM
+      const tweetElements = document.querySelectorAll('article[data-testid="tweet"]')
+      tweetElements.forEach(tweetElement => {
+        const timeElement = tweetElement.querySelector(SELECTORS.TWEET_TIME)
+        const tweetUrl = timeElement?.closest('a')?.href
+        const tweetId = tweetUrl?.split('/').pop()
 
-    // Handle both Twitter's client-side routing and browser navigation
-    window.addEventListener('popstate', handleNavigation)
-    window.addEventListener('pushstate', handleNavigation)
-    window.addEventListener('replacestate', handleNavigation)
-
-    // Also watch for scroll events as Twitter uses virtual scrolling
-    let scrollTimeout: NodeJS.Timeout | null = null
-    const handleScroll = () => {
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout)
-      }
-      scrollTimeout = setTimeout(() => {
-        processExistingTweets()
-        scrollTimeout = null
-      }, 500) // Increased delay to 500ms
-    }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-
-    // Set up mutation observer with more specific targeting
-    let mutationTimeout: NodeJS.Timeout | null = null
-    observer.current = new MutationObserver((mutations) => {
-      // Skip if we already have a pending update
-      if (mutationTimeout) {
-        clearTimeout(mutationTimeout)
-      }
-
-      mutationTimeout = setTimeout(() => {
-        let shouldProcess = false
-        for (const mutation of mutations) {
-          if (mutation.type === 'childList') {
-            const addedNodes = Array.from(mutation.addedNodes)
-            const hasRelevantAddition = addedNodes.some((node) => {
-              if (node instanceof HTMLElement) {
-                return (
-                  node.matches(SELECTORS.TWEET) ||
-                  node.matches('[data-testid="tweet"]') ||
-                  node.matches('[data-testid="tweetText"]')
-                )
-              }
-              return false
-            })
-            if (hasRelevantAddition) {
-              shouldProcess = true
-              break
-            }
-          }
+        // Only process tweets that are unpaid and in our tracking set
+        if (tweetId && tweets.has(tweetId) && !processingTweets.current.has(tweetId)) {
+          processTweet(tweetElement as HTMLElement)
         }
+      })
+    }, 5000) // Check every 5 seconds
 
-        if (shouldProcess) {
-          processExistingTweets()
+    return () => clearInterval(checkInterval)
+  }, [])
+
+  // Add an interval to refresh paid tweets less frequently
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      // Get all tweets from cache that are marked as paid
+      const paidTweets = Array.from(tweetCache.current.entries())
+        .filter(([_, data]) => data.isPaid)
+        .map(([id]) => id)
+
+      if (paidTweets.length === 0) return
+
+      // Find all tweet elements currently in the DOM
+      const tweetElements = document.querySelectorAll('article[data-testid="tweet"]')
+      tweetElements.forEach(tweetElement => {
+        const timeElement = tweetElement.querySelector(SELECTORS.TWEET_TIME)
+        const tweetUrl = timeElement?.closest('a')?.href
+        const tweetId = tweetUrl?.split('/').pop()
+
+        // Only process tweets that are paid and in our cache
+        if (tweetId && paidTweets.includes(tweetId) && !processingTweets.current.has(tweetId)) {
+          processTweet(tweetElement as HTMLElement)
         }
-        mutationTimeout = null
-      }, 500) // Increased delay to 500ms
-    })
+      })
+    }, 30000) // Check every 30 seconds
 
-    observer.current.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['data-testid'],
-    })
-
-    // Reduce the frequency of the periodic check
-    const checkInterval = setInterval(processExistingTweets, 5000) // Increased to 5 seconds
-
-    // Add periodic check for unpaid tweets
-    const unpaidCheckInterval = setInterval(checkUnpaidTweets, 10000) // Check every 10 seconds
-
-    return () => {
-      if (processTimeoutRef.current) {
-        clearTimeout(processTimeoutRef.current)
-      }
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout)
-      }
-      if (mutationTimeout) {
-        clearTimeout(mutationTimeout)
-      }
-      if (checkInterval) {
-        clearInterval(checkInterval)
-      }
-      if (unpaidCheckInterval) {
-        clearInterval(unpaidCheckInterval)
-      }
-      window.removeEventListener('popstate', handleNavigation)
-      window.removeEventListener('pushstate', handleNavigation)
-      window.removeEventListener('replacestate', handleNavigation)
-      window.removeEventListener('scroll', handleScroll)
-      observer.current?.disconnect()
-    }
-  }, [processExistingTweets, checkUnpaidTweets])
+    return () => clearInterval(refreshInterval)
+  }, [])
 
   // Return both functions
   return {
