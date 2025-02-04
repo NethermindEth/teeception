@@ -45,7 +45,11 @@ func (p *TwitterProxy) Initialize(config *TwitterClientConfig) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to initialize: %d", resp.StatusCode)
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to initialize (status %d), and failed to read response body: %w", resp.StatusCode, err)
+		}
+		return fmt.Errorf("failed to initialize (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	return nil
