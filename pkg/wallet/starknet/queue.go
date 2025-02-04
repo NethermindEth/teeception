@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -90,7 +91,12 @@ func (q *TxQueue) Run(ctx context.Context) error {
 	}
 	nonce, err := acc.Nonce(ctx, rpc.WithBlockTag("pending"), q.account.Address())
 	if err != nil {
-		return fmt.Errorf("failed to get initial nonce: %w", FormatRpcError(err))
+		formattedErr := FormatRpcError(err)
+		if strings.Contains(formattedErr.Error(), "Contract not found") {
+			nonce = new(felt.Felt).SetUint64(0)
+		} else {
+			return fmt.Errorf("failed to get initial nonce: %w", formattedErr)
+		}
 	}
 	q.nonce = nonce
 
