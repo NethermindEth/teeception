@@ -27,7 +27,12 @@ export default function Home() {
   }
 
   const howItWorks = () => {
-    console.log('how it works handler called')
+    window.scrollTo({
+      top: document.getElementById('how_it_works')?.offsetTop,
+      behavior: 'smooth',
+    })
+    // Set url hash
+    window.history.pushState({}, '', window.location.pathname + '#how_it_works')
   }
 
   return (
