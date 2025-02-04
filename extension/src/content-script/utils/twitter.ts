@@ -120,13 +120,6 @@ export const sendTweet = async (): Promise<boolean> => {
       }
     }
     
-    debug.log('Twitter', 'Found tweet buttons', { 
-      tweetButtonExists: !!tweetButton,
-      inlineButtonExists: !!inlineTweetButton,
-      tweetButtonClasses: tweetButton?.className,
-      inlineButtonClasses: inlineTweetButton?.className
-    })
-
     // Create a promise that resolves when the tweet is sent
     const tweetSentPromise = new Promise<boolean>((resolve) => {
        
@@ -134,12 +127,6 @@ export const sendTweet = async (): Promise<boolean> => {
       const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
           if (mutation.target instanceof Element) {
-            debug.log('Twitter', 'Mutation detected', {
-              target: mutation.target,
-              textContent: mutation.target.textContent,
-              type: mutation.type
-            })
-            
             if (mutation.target.textContent?.includes('Your Tweet was sent')) {
                
               observer.disconnect()
@@ -172,14 +159,7 @@ export const sendTweet = async (): Promise<boolean> => {
       return false
     }
 
-    debug.log('Twitter', 'Clicking button', {
-      className: buttonToClick.className,
-      textContent: buttonToClick.textContent,
-      dataset: buttonToClick.dataset
-    })
-
     buttonToClick.click()
-     
 
     const success = await tweetSentPromise
      

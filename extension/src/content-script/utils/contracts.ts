@@ -142,12 +142,6 @@ const approveToken = async (
 ): Promise<string> => {
   const provider = getProvider()
   const normalizedTokenAddress = normalizeAddress(tokenAddress)
-  debug.log('Contracts', 'Approving token', {
-    rawTokenAddress: tokenAddress,
-    normalizedTokenAddress,
-    spenderAddress,
-    amount: amount.toString()
-  })
 
   const tokenContract = new Contract(
     TEECEPTION_ERC20_ABI as Abi,
@@ -172,11 +166,6 @@ const approveToken = async (
  */
 export const payForTweet = async (agentAddress: string, tweetId: string, account: any): Promise<string> => {
   try {
-    debug.log('Contracts', 'Paying for tweet', { 
-      agentAddress, 
-      tweetId,
-      accountAddress: account.address
-    })
 
     const provider = getProvider()
     const agentContract = new Contract(
@@ -188,11 +177,6 @@ export const payForTweet = async (agentAddress: string, tweetId: string, account
     // Get token and price
     const tokenAddress = await getAgentToken(agentAddress)
     const price = await getPromptPrice(agentAddress)
-    
-    debug.log('Contracts', 'Approving token spend', {
-      tokenAddress,
-      price: price.toString()
-    })
 
     // Approve token spending
     await approveToken(tokenAddress, agentAddress, price, account)

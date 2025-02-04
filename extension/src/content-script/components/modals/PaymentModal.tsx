@@ -102,13 +102,6 @@ export const PaymentModal = ({
           .map(b => b.toString(16).padStart(2, '0'))
           .join('')
         
-        debug.log('PaymentModal', 'Preparing transaction', {
-          tweetId,
-          tweetIdHex,
-          tweetText,
-          promptHex
-        })
-        
         return [
           tokenContract.populate("approve", [
             agentContract.address,
@@ -135,8 +128,6 @@ export const PaymentModal = ({
       
       // Get agent address
       const address = await getAgentAddressByName(agentName)
-      debug.log('PaymentModal', 'Got agent address', { address })
-      
       if (!address) {
         throw new Error(`Agent ${agentName} not found`)
       }
@@ -144,18 +135,12 @@ export const PaymentModal = ({
       
       // Get the agent's token
       const token = await getAgentToken(address)
-      debug.log('PaymentModal', 'Got token address', { token })
       setTokenAddress(token)
       
       // Find token symbol from address
       const tokenInfo = Object.entries(ACTIVE_NETWORK.tokens).find(
         ([_, t]) => BigInt(t.address).toString() === token
       )
-      debug.log('PaymentModal', 'Found token info', { 
-        token,
-        foundToken: tokenInfo ? tokenInfo[0] : null,
-        allTokens: ACTIVE_NETWORK.tokens
-      })
 
       if (!tokenInfo) {
         throw new Error(`Unsupported token: ${token}`)
@@ -163,11 +148,6 @@ export const PaymentModal = ({
 
       // Get the price for the challenge
       const challengePrice = await getPromptPrice(address)
-      debug.log('PaymentModal', 'Got challenge price', { 
-        price: challengePrice.toString(),
-        token: tokenInfo[0],
-        decimals: ACTIVE_NETWORK.tokens[tokenInfo[0]].decimals
-      })
       
       setPrice({ price: challengePrice, token: tokenInfo[0] })
     } catch (error) {
@@ -208,7 +188,6 @@ export const PaymentModal = ({
       setTxStatus(prev => ({ ...prev, approve: 'loading' }))
 
       const response = await sendAsync()
-      debug.log('PaymentModal', 'Transaction sent', { response })
 
       if (response?.transaction_hash) {
         await account.waitForTransaction(response.transaction_hash)
@@ -216,7 +195,6 @@ export const PaymentModal = ({
         
         // Mark the tweet as temporarily paid and update UI immediately
         if (markTweetAsPaid) {
-          debug.log('PaymentModal', 'Marking tweet as temporarily paid', { tweetId })
           markTweetAsPaid(tweetId)
         }
         if (updateBanner) {
@@ -226,7 +204,6 @@ export const PaymentModal = ({
         // Start periodic checks for chain state
         const checkInterval = setInterval(() => {
           if (checkUnpaidTweets) {
-            debug.log('PaymentModal', 'Checking chain state')
             checkUnpaidTweets()
           }
         }, 2000) // Check every 2 seconds

@@ -175,7 +175,6 @@ export const useTweetObserver = (
 
   // Function to check unpaid tweets for updates
   const checkUnpaidTweets = useCallback(async () => {
-    debug.log('TweetObserver', 'Checking unpaid tweets', { count: unpaidTweets.current.size })
     for (const tweetId of unpaidTweets.current) {
       const cachedData = tweetCache.current.get(tweetId)
       if (!cachedData || cachedData.isPaid) {

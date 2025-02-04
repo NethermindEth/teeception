@@ -24,14 +24,12 @@ export const ConfirmationModal = ({
   checkForNewTweets,
 }: ConfirmationModalProps) => {
   const handleConfirm = () => {
-    debug.log('ConfirmationModal', 'Starting tweet send process')
     onConfirm()
     
     // Try multiple checks with shorter intervals
     const checkIntervals = [100, 200, 300] // Check at 100ms, 200ms, and 300ms after sending
     checkIntervals.forEach(delay => {
       setTimeout(() => {
-        debug.log('ConfirmationModal', 'Checking for new tweets', { delay })
         checkForNewTweets()
       }, delay)
     })

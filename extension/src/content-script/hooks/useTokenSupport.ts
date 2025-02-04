@@ -37,12 +37,6 @@ export function useTokenSupport() {
           await registry.is_token_supported(ACTIVE_NETWORK.tokens.STRK.address)
           // Test token params call
           const testParams = await registry.get_token_params(ACTIVE_NETWORK.tokens.STRK.address)
-          debug.log('useTokenSupport', 'Test token params call result:', {
-            token: 'STRK',
-            params: testParams,
-            raw_min_prompt_price: testParams.min_prompt_price.toString(),
-            raw_min_initial_balance: testParams.min_initial_balance.toString()
-          })
         } catch (err) {
           debug.error('useTokenSupport', 'Test contract call failed', err)
           throw new Error('Failed to connect to registry contract')
@@ -60,22 +54,9 @@ export function useTokenSupport() {
             if (isSupported) {
               try {
                 const params = await registry.get_token_params(token.address)
-                debug.log('useTokenSupport', 'Token params raw', { 
-                  symbol,
-                  params,
-                  min_prompt_price_raw: params.min_prompt_price.toString(),
-                  min_initial_balance_raw: params.min_initial_balance.toString()
-                })
                 
                 minPromptPrice = BigInt(params.min_prompt_price.toString())
                 minInitialBalance = BigInt(params.min_initial_balance.toString())
-                
-                debug.log('useTokenSupport', 'Token params processed', { 
-                  symbol,
-                  minPromptPrice: minPromptPrice.toString(),
-                  minInitialBalance: minInitialBalance.toString(),
-                  displayValue: Number(minInitialBalance) / Math.pow(10, ACTIVE_NETWORK.tokens[symbol].decimals)
-                })
               } catch (priceErr) {
                 debug.error('useTokenSupport', 'Error getting token params', { 
                   symbol, 

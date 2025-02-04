@@ -45,21 +45,16 @@ export const useAgents = () => {
     useEffect(() => {
         const fetchAgentDetails = async () => {
             if (!registry) {
-                debug.log('useAgents', 'Registry not available yet');
                 setError('Registry not available');
                 setLoading(false);
                 return;
             }
 
             try {
-                debug.log('useAgents', 'Starting to fetch agents');
-                
                 const rawAgentAddresses = await registry.get_agents(0, 100).catch((e: any) => {
                     debug.error('useAgents', 'Failed to get agents from registry', e);
                     throw e;
                 });
-                
-                debug.log('useAgents', 'Got raw agent addresses', { rawAgentAddresses });
 
                 if (!Array.isArray(rawAgentAddresses)) {
                     debug.error('useAgents', 'Unexpected response format from get_agents', { rawAgentAddresses });
@@ -67,7 +62,6 @@ export const useAgents = () => {
                 }
 
                 if (rawAgentAddresses.length === 0) {
-                    debug.log('useAgents', 'No agents found');
                     setAgents([]);
                     setError(null);
                     setLoading(false);
@@ -83,16 +77,10 @@ export const useAgents = () => {
                     }
                 });
                 
-                debug.log('useAgents', 'Formatted addresses', { addresses });
-
                 const agentDetails = await Promise.all(
                     addresses.map(async (address: `0x${string}`) => {
                         try {
-                            debug.log('useAgents', 'Initializing agent contract', { address });
-                            
                             const agent = new Contract(TEECEPTION_AGENT_ABI as Abi, address, provider);
-                            
-                            debug.log('useAgents', 'Fetching agent details', { address });
                             
                             // Get all agent details in parallel
                             const [
@@ -138,18 +126,6 @@ export const useAgents = () => {
                                     return false;
                                 })
                             ]);
-
-                            debug.log('useAgents', 'Got agent details', { 
-                                address, 
-                                name: nameResult, 
-                                systemPrompt: systemPromptResult,
-                                tokenAddress,
-                                promptPrice: promptPriceResult,
-                                prizePool: prizePoolResult,
-                                pendingPool: pendingPoolResult,
-                                endTime: endTimeResult,
-                                isFinalized: isFinalizedResult
-                            });
 
                             const hexTokenAddress = `0x${BigInt(tokenAddress).toString(16)}`;
                             const normalizedTokenAddress = (hexTokenAddress.startsWith('0x') ? 
@@ -208,10 +184,6 @@ export const useAgents = () => {
                         }
                     })
                 );
-
-                debug.log('useAgents', 'Successfully fetched all agent details', { 
-                    agentCount: agentDetails.length 
-                });
 
                 setAgents(agentDetails);
                 setError(null);

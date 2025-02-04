@@ -124,10 +124,6 @@ export default function AgentList({
             }
 
             const cleanAddress = normalizeAddress(tokenAddress)
-            debug.log('AgentList', 'Normalized token address', { 
-              original: tokenAddress, 
-              normalized: cleanAddress 
-            })
 
             const tokenContract = new Contract(TEECEPTION_ERC20_ABI, cleanAddress, provider)
             const symbol = await tokenContract.symbol()
@@ -151,10 +147,6 @@ export default function AgentList({
               }
 
               const cleanAddress = normalizeAddress(agent.token.address)
-              debug.log('AgentList', 'Normalized token address for balance', { 
-                original: agent.token.address, 
-                normalized: cleanAddress 
-              })
 
               const tokenContract = new Contract(TEECEPTION_ERC20_ABI, cleanAddress, provider)
               const balance = await tokenContract.balance_of(agent.address)
@@ -254,13 +246,11 @@ export default function AgentList({
           <div className="text-[#A4A4A4] text-sm py-4 text-right">Balance</div>
         </div>
 
-        <div className="pt-3 max-h-[400px] overflow-scroll pr-4 pb-12">
+        <div className="pt-3 max-h-[calc(100vh-240px)] overflow-scroll pr-4 pb-12">
           {sortedAgents.map((agent) => (
             <div key={agent.address}>
               <div
-               className={`grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C] ${
-                expandedAgents.has(agent.address) ? 'bg-[#16181C]' : ''
-              } pr-2`}
+                className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
                 style={{ gridTemplateColumns: '32px auto 200px 100px' }}
               >
                 <button
@@ -316,16 +306,6 @@ export default function AgentList({
                             }
                           })
 
-                          debug.log('AgentList', 'Token lookup:', {
-                            agentToken: agent.token.address,
-                            normalizedAgentToken: normalizeAddress(agent.token.address),
-                            availableTokens: Object.values(ACTIVE_NETWORK.tokens).map(t => ({
-                              symbol: t.symbol,
-                              address: t.address,
-                              normalized: normalizeAddress(t.address)
-                            }))
-                          })
-
                           return `${formatBalance(agent.prizePool)} ${matchingToken?.symbol || 'Unknown'}`
                         } catch (err) {
                           debug.error('AgentList', 'Error formatting token display:', err)
@@ -338,7 +318,7 @@ export default function AgentList({
 
                 <div className="flex justify-end">
                   <button
-                    onClick={(e) => composeTweet(agent.name, setIsShowAgentView)}
+                    onClick={() => composeTweet(agent.name, setIsShowAgentView)}
                     className="bg-white rounded-full px-4 py-1.5 text-black text-sm hover:bg-white/70 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={agent.isFinalized}
                   >
