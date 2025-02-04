@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"time"
 
@@ -11,12 +13,11 @@ import (
 	"github.com/NethermindEth/teeception/pkg/twitter"
 )
 
-func main() {
+func main_impl() error {
 	ctx := context.Background()
 	output, err := setup.Setup(ctx)
 	if err != nil {
-		slog.Error("failed to setup", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to setup: %w", err)
 	}
 
 	twitterClientMode := os.Getenv("X_CLIENT_MODE")
@@ -26,8 +27,7 @@ func main() {
 
 	unencumberData, err := setup.NewUnencumberDataFromSetupOutput(output)
 	if err != nil {
-		slog.Error("failed to create unencumber data", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create unencumber data: %w", err)
 	}
 
 	agentConfig, err := agent.NewAgentConfigFromParams(&agent.AgentConfigParams{
@@ -53,19 +53,39 @@ func main() {
 		SafeBlockDelta:               0,
 	})
 	if err != nil {
-		slog.Error("failed to create agent config", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create agent config: %w", err)
 	}
 
 	agent, err := agent.NewAgent(agentConfig)
 	if err != nil {
-		slog.Error("failed to create agent", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create agent: %w", err)
 	}
 
 	err = agent.Run(ctx)
 	if err != nil {
-		slog.Error("failed to run agent", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to run agent: %w", err)
 	}
+
+	return nil
+}
+
+func main() {
+	var lastError error
+	if err := main_impl(); err != nil {
+		lastError = err
+		slog.Error("failed to run agent", "error", err)
+
+		// Set up HTTP handler to return the error
+		http.HandleFunc("/error", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintf(w, "agent error: %v", lastError)
+		})
+
+		// Start HTTP server and hang
+		slog.Info("Starting error reporting server on :8080")
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			slog.Error("HTTP server failed", "error", err)
+		}
+	}
+
+	os.Exit(0)
 }
