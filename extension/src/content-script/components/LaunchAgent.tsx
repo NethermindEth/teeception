@@ -25,7 +25,8 @@ interface FormData {
   initialBalance: string
   systemPrompt: string
   selectedToken: string
-  endTime: string // New field for end time
+  endTime: string
+  isCustomEndTime: boolean
 }
 
 interface FormErrors {
@@ -45,6 +46,15 @@ enum TransactionStep {
   FAILED = 'failed'
 }
 
+const DURATION_OPTIONS = [
+  { label: '1 Day', days: 1, default: false },
+  { label: '1 Week', days: 7, default: false },
+  { label: '2 Weeks', days: 14, default: false },
+  { label: '1 Month', days: 30, default: true },
+] as const;
+
+type DurationOption = typeof DURATION_OPTIONS[number];
+
 export default function LaunchAgent({
   setCurrentView,
 }: {
@@ -54,13 +64,21 @@ export default function LaunchAgent({
   const { address: registryAddress } = useAgentRegistry()
   const { supportedTokens, isLoading: isLoadingSupport } = useTokenSupport()
   
-  const [formData, setFormData] = useState<FormData>({
-    agentName: '',
-    feePerMessage: '',
-    initialBalance: '',
-    systemPrompt: '',
-    selectedToken: Object.keys(ACTIVE_NETWORK.tokens)[0],
-    endTime: '',
+  const [formData, setFormData] = useState<FormData>(() => {
+    // Set default end time to 1 month
+    const defaultDate = new Date()
+    const defaultOption = DURATION_OPTIONS.find(opt => opt.default)
+    defaultDate.setDate(defaultDate.getDate() + (defaultOption?.days || 30))
+    
+    return {
+      agentName: '',
+      feePerMessage: '',
+      initialBalance: '',
+      systemPrompt: '',
+      selectedToken: Object.keys(ACTIVE_NETWORK.tokens)[0],
+      endTime: defaultDate.toISOString().split('T')[0],
+      isCustomEndTime: false,
+    }
   })
 
   const { contract: registry } = useContract({
@@ -105,16 +123,6 @@ export default function LaunchAgent({
       }))
     }
   }, [supportedTokenList, formData.selectedToken, supportedTokens])
-
-  // Set default end time to 1 year from now
-  useEffect(() => {
-    const oneYearFromNow = new Date()
-    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
-    setFormData(prev => ({
-      ...prev,
-      endTime: oneYearFromNow.toISOString().split('T')[0]
-    }))
-  }, [])
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -272,7 +280,10 @@ export default function LaunchAgent({
   ].includes(transactionStep)
 
   const selectedTokenSupport = supportedTokens[formData.selectedToken]
-  const isFormValid = Object.values(formData).every((value) => value.trim() !== '')
+  const isFormValid = Object.entries(formData).every(([key, value]) => {
+    if (key === 'isCustomEndTime') return true // Skip boolean field
+    return typeof value === 'string' && value.trim() !== ''
+  })
 
   // Base container styles that will be shared across all states
   const containerStyles = "min-h-[600px] transition-all duration-200 ease-in-out"
@@ -484,16 +495,53 @@ export default function LaunchAgent({
               </Tooltip>
             </TooltipProvider>
           </div>
-          <div>
-            <input
-              type="date"
-              name="endTime"
-              value={formData.endTime}
-              onChange={handleInputChange}
-              className="w-full border border-[#818181] rounded-sm bg-transparent outline-none min-h-[34px] p-2 focus:border-white text-white"
-              min={new Date().toISOString().split('T')[0]}
-              disabled={isTransacting}
-            />
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              {DURATION_OPTIONS.map((option) => (
+                <button
+                  key={option.label}
+                  onClick={() => {
+                    const date = new Date()
+                    date.setDate(date.getDate() + option.days)
+                    setFormData(prev => ({
+                      ...prev,
+                      endTime: date.toISOString().split('T')[0],
+                      isCustomEndTime: false
+                    }))
+                  }}
+                  disabled={isTransacting}
+                  className={`px-3 py-1.5 rounded-sm text-xs border ${
+                    !formData.isCustomEndTime && formData.endTime === new Date(new Date().setDate(new Date().getDate() + option.days)).toISOString().split('T')[0]
+                      ? 'border-white text-white'
+                      : 'border-[#818181] text-[#818181] hover:border-white hover:text-white'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setFormData(prev => ({ ...prev, isCustomEndTime: true }))}
+                className={`text-xs ${
+                  formData.isCustomEndTime ? 'text-white' : 'text-[#818181] hover:text-white'
+                }`}
+                disabled={isTransacting}
+              >
+                Custom date
+              </button>
+            </div>
+            {formData.isCustomEndTime && (
+              <input
+                type="date"
+                name="endTime"
+                value={formData.endTime}
+                onChange={handleInputChange}
+                className="w-full border border-[#818181] rounded-sm bg-transparent outline-none min-h-[34px] p-2 focus:border-white text-white"
+                min={new Date().toISOString().split('T')[0]}
+                disabled={isTransacting}
+              />
+            )}
             {errors.endTime && <p className="text-red-500 mt-1">{errors.endTime}</p>}
           </div>
         </div>
