@@ -18,6 +18,7 @@ class TwitterClientApi {
      * @typedef {Object} InitializeRequest
      * @property {string} username - Twitter username
      * @property {string} password - Twitter password 
+     * @property {string} email - Twitter email
      * @property {string} consumerKey - Twitter API consumer key
      * @property {string} consumerSecret - Twitter API consumer secret
      * @property {string} accessToken - Twitter API access token
@@ -42,7 +43,7 @@ class TwitterClientApi {
             await this.scraper.login(
                 initializeRequest.username,
                 initializeRequest.password,
-                undefined,
+                initializeRequest.email,
                 undefined,
                 initializeRequest.consumerKey,
                 initializeRequest.consumerSecret,
