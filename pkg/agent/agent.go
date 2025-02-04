@@ -583,21 +583,31 @@ func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, prom
 	return txHash, nil
 }
 
-func (a *Agent) quote(ctx context.Context) (string, error) {
+type QuoteData struct {
+	Quote      string
+	ReportData *quote.ReportData
+}
+
+func (a *Agent) quote(ctx context.Context) (*QuoteData, error) {
 	slog.Info("requesting quote")
 
-	quote, err := a.quoter.Quote(ctx, &quote.ReportData{
+	reportData := &quote.ReportData{
 		Address:         a.account.Address(),
 		ContractAddress: a.agentRegistryAddress,
 		TwitterUsername: a.twitterClientConfig.Username,
-	})
+	}
+
+	quote, err := a.quoter.Quote(ctx, reportData)
 	if err != nil {
-		return "", fmt.Errorf("failed to get quote: %v", err)
+		return nil, fmt.Errorf("failed to get quote: %v", err)
 	}
 
 	slog.Info("quote generated successfully")
 
-	return quote, nil
+	return &QuoteData{
+		Quote:      quote,
+		ReportData: reportData,
+	}, nil
 }
 
 func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error {

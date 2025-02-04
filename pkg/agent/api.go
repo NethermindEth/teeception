@@ -45,13 +45,22 @@ func (a *Agent) StartServer(ctx context.Context) error {
 	})
 
 	router.GET("/quote", func(c *gin.Context) {
-		quote, err := a.quote(c.Request.Context())
+		quoteData, err := a.quote(c.Request.Context())
 		if err != nil {
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
 
-		c.JSON(http.StatusOK, quote)
+		resp := gin.H{
+			"report_data": gin.H{
+				"address":          quoteData.ReportData.Address.String(),
+				"contract_address": quoteData.ReportData.ContractAddress.String(),
+				"twitter_username": quoteData.ReportData.TwitterUsername,
+			},
+			"quote": quoteData.Quote,
+		}
+
+		c.JSON(http.StatusOK, resp)
 	})
 
 	server := &http.Server{
