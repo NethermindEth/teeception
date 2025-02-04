@@ -3,16 +3,10 @@ import { SELECTORS } from '../constants/selectors'
 import { extractAgentName } from '../utils/twitter'
 import { getAgentAddressByName } from '../utils/contracts'
 import { debug } from '../utils/debug'
-import { TWITTER_CONFIG } from '../config/starknet'
-import { Contract, RpcProvider } from 'starknet'
+import { TWITTER_CONFIG, provider } from '../config/starknet'
+import { Contract } from 'starknet'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { useAccount } from '@starknet-react/core'
-
-// Initialize Nethermind provider
-const NETHERMIND_API_KEY = 'BqyrrrCXajIYmrrDurtUBKlmsOCGcYCkm4PyBACuMtvtGmwODFz11RikUh1KueKd'
-const provider = new RpcProvider({
-  nodeUrl: `https://rpc.nethermind.io/sepolia-juno/?apikey=${NETHERMIND_API_KEY}`,
-})
 
 interface TweetData {
   id: string

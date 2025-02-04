@@ -13,6 +13,7 @@ import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { uint256 } from 'starknet'
 import { SELECTORS } from '../../constants/selectors'
 import { Contract } from 'starknet'
+import { provider } from '../../config/starknet'
 
 interface TweetPrice {
   price: bigint
@@ -80,9 +81,8 @@ export const PaymentModal = ({
       if (!tokenContract || !agentContract || !price) return undefined
 
       try {
-        // Convert tweet ID to hex string with 0x prefix and pad to 32 bytes
-        const tweetIdHex = '0x' + BigInt(tweetId).toString(16).padStart(64, '0')
-        
+        const tweetIdBigInt = BigInt(tweetId);
+
         // Find the tweet element and get its text
         const tweetElement = document.querySelector(`article[data-testid="tweet"]`)
         const tweetTextElement = tweetElement?.querySelector(SELECTORS.TWEET_TEXT)
@@ -110,7 +110,7 @@ export const PaymentModal = ({
             uint256.bnToUint256(price.price)
           ]),
           agentContract.populate("pay_for_prompt", [
-            tweetIdHex,
+            tweetIdBigInt,
             promptHex
           ])
         ]
@@ -148,7 +148,8 @@ export const PaymentModal = ({
 
           const agentContract = new Contract(
             TEECEPTION_AGENT_ABI,
-            formattedAddress
+            formattedAddress,
+            provider
           )
 
           const userPromptCount = await agentContract.get_user_tweet_prompts_count(
