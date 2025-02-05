@@ -258,7 +258,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 	if !ok {
 		currentInfo = &AgentBalance{
 			Pending:         true,
-			Token:           nil,
+			Token:           new(felt.Felt),
 			Amount:          big.NewInt(0),
 			AmountUpdatedAt: 0,
 			EndTime:         0,
