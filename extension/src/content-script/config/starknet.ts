@@ -18,7 +18,7 @@ export const STARKNET_CONFIG = {
     explorer: 'https://sepolia.voyager.online',
     rpc: 'https://api.cartridge.gg/x/starknet/sepolia',
     starkgate: 'https://sepolia.starkgate.starknet.io',
-    agentRegistryAddress: '0x03e485dd9b325e3e3020a5724a5d167659e52089124ff461f1cfeac387d2ae59',
+    agentRegistryAddress: '0x00f415ab3f224935ed532dfa06485881c526fef8cb31e6e7e95cafc95fdc5e8d',
     tokens: {
       STRK: {
         address: '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
@@ -72,5 +72,5 @@ export const provider = new RpcProvider({
 })
 
 export const TWITTER_CONFIG = {
-  accountName: '@jack_the_ether',
+  accountName: '@teetestt84759',
 }

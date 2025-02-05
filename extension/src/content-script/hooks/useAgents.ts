@@ -3,7 +3,7 @@ import { Contract, Abi } from 'starknet';
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI';
 import { debug } from '../utils/debug';
 import { useAgentRegistry } from './useAgentRegistry';
-import { getProvider } from '../utils/contracts';
+import { provider } from '../config/starknet';
 
 interface AgentDetails {
     address: string;
@@ -40,7 +40,6 @@ export const useAgents = () => {
     const [agents, setAgents] = useState<AgentDetails[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const provider = getProvider();
 
     useEffect(() => {
         const fetchAgentDetails = async () => {
