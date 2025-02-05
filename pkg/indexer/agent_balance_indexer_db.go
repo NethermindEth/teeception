@@ -110,13 +110,13 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 
 		rateA, ok := priceCache.GetTokenRate(balA.Token)
 		if !ok {
-			slog.Error("failed to get USD rate for agent", "agent", balA.Token)
+			slog.Error("failed to get USD rate for agent", "token", balA.Token)
 			return 0
 		}
 
 		rateB, ok := priceCache.GetTokenRate(balB.Token)
 		if !ok {
-			slog.Error("failed to get USD rate for agent", "agent", balB.Token)
+			slog.Error("failed to get USD rate for agent", "token", balB.Token)
 			return 0
 		}
 
