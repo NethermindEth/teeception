@@ -16,6 +16,10 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: '#TEECEPTION',
   description: 'Teeception: The Prompt Hacking Arena',
+  icons: {
+    icon: '/icons/shield.svg',
+    shortcut: '/icons/shield.svg',
+  },
 }
 
 export default function RootLayout({
