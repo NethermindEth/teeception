@@ -20,7 +20,23 @@ const Popup = () => {
 
       <div className="w-full flex flex-col gap-1">
         <p className="text-[#B8B8B8] text-[10.42px]">powered by</p>
-        <img src="/icons/starknet-dark-theme.png" alt="starknet" className="w-[76px] h-[17px]" />
+        <div className="flex items-center gap-3">
+          <a href="https://starknet.io" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+            <img src="/icons/starknet.svg" alt="starknet" className="w-[76px] h-[17px]" />
+          </a>
+          <span className="text-[#B8B8B8] text-lg">×</span>
+          <a href="https://phala.network" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+            <img src="/icons/phala.svg" alt="phala network" className="w-[28px] h-[28px] bg-black rounded-sm" />
+          </a>
+          <span className="text-[#B8B8B8] text-lg">×</span>
+          <a href="https://nethermind.io" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+            <img 
+              src="https://cdn.prod.website-files.com/63bcd69729ab7f3ec1ad210a/64bf04d14176fe2fb1aff258_Nethermind_Light_Horizontal%201.webp" 
+              alt="nethermind" 
+              className="h-[17px] w-auto"
+            />
+          </a>
+        </div>
         <p className="text-[#B8B8B8] text-xs">©2025 Nethermind. All Rights Reserved</p>
       </div>
     </div>

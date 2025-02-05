@@ -6,11 +6,25 @@ export const Footer = () => {
     <div className="flex items-center flex-wrap gap-3 justify-between max-w-[1560px] mx-auto px-4">
       <ul className="text-[#B8B8B8] flex flex-col gap-1">
         <li>
-          <p className="text-[10.42px] ">powered by</p>
+          <p className="text-[10.42px]">powered by</p>
         </li>
 
-        <li>
-          <Image src="/icons/starknet-dark-theme.png" width={76} height={17} alt="starknet" />
+        <li className="flex items-center gap-3">
+          <Link href="https://starknet.io" target="_blank" className="hover:opacity-80 transition-opacity">
+            <Image src="/icons/starknet.svg" width={76} height={17} alt="starknet" />
+          </Link>
+          <span className="text-[#B8B8B8] text-lg">×</span>
+          <Link href="https://phala.network" target="_blank" className="hover:opacity-80 transition-opacity">
+            <Image src="/icons/phala.svg" width={28} height={28} alt="phala network" className="bg-black rounded-sm" />
+          </Link>
+          <span className="text-[#B8B8B8] text-lg">×</span>
+          <Link href="https://nethermind.io" target="_blank" className="hover:opacity-80 transition-opacity">
+            <img 
+              src="https://cdn.prod.website-files.com/63bcd69729ab7f3ec1ad210a/64bf04d14176fe2fb1aff258_Nethermind_Light_Horizontal%201.webp" 
+              alt="nethermind" 
+              className="h-[17px] w-auto"
+            />
+          </Link>
         </li>
 
         <li className="text-xs">©2025 Nethermind. All Rights Reserved</li>
@@ -22,18 +36,22 @@ export const Footer = () => {
           className="underline hover:no-underline text-sm"
           target="_blank"
         >
-          Smart contracts resource
+          onchain contracts
         </Link>
       </div>
 
       <div className="flex items-center gap-4">
-        <button>
-          <Image src="/icons/x.png" width={20} height={20} alt="starknet" />
-        </button>
+        <Link href="https://x.com/nethermindeth" target="_blank" className="hover:opacity-80 transition-opacity">
+          <Image src="/icons/x.png" width={20} height={20} alt="X (Twitter)" />
+        </Link>
 
-        <button>
-          <Image src="/icons/telegram.png" width={20} height={20} alt="starknet" />
-        </button>
+        <Link href="https://t.me/nm_teeception" target="_blank" className="hover:opacity-80 transition-opacity">
+          <Image src="/icons/telegram.png" width={20} height={20} alt="Telegram" />
+        </Link>
+
+        <Link href="https://github.com/NethermindEth/teeception" target="_blank" className="hover:opacity-80 transition-opacity">
+          <Image src="/icons/github.svg" width={20} height={20} alt="GitHub" />
+        </Link>
       </div>
     </div>
   )
