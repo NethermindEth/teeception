@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
-import { ChevronLeft, ChevronRight, Copy } from 'lucide-react'
-import { useAccount, useConnect } from '@starknet-react/core'
+import { ChevronLeft, ChevronRight, Copy, X } from 'lucide-react'
+import { useAccount, useConnect, useDisconnect } from '@starknet-react/core'
 import { useState, useEffect } from 'react'
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
 import { useTokenBalance } from '../hooks/useTokenBalance'
@@ -17,6 +17,7 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
   const { balance: tokenBalance, isLoading: loading } = useTokenBalance('STRK')
   const [copied, setCopied] = useState(false)
   const { connectAsync, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: connectors as StarknetkitConnector[],
   })
@@ -81,10 +82,10 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
             ${isShowAgentView ? 'w-[500px]' : 'w-[300px]'}
           `}
         >
-          <div className="px-5 py-3 flex items-center">
+          <div className="px-4 py-3 flex items-center">
             <button
               onClick={() => setIsShowAgentView(!isShowAgentView)}
-              className="w-[26px] h-[26px] bg-white rounded-full flex items-center justify-center hover:opacity-80 transition-opacity shrink-0"
+              className="w-[26px] h-[26px] bg-white rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
             >
               {isShowAgentView ? (
                 <ChevronRight className="text-black" width={20} height={20} />
@@ -93,18 +94,18 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
               )}
             </button>
 
-            <div className="text-[#A4A4A4] text-xs flex items-center gap-4 justify-end flex-1">
-              <div className="w-[6px] h-[6px] bg-[#58F083] rounded-full shrink-0"></div>
+            <div className="flex items-center gap-3 mx-4 flex-1">
+              <div className="w-[6px] h-[6px] bg-[#58F083] rounded-full"></div>
 
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      className="flex items-center gap-1.5 shrink-0"
+                      className="flex items-center gap-1.5"
                       onClick={handleCopyAddress}
                     >
-                      <p>{addressDisplay}</p>
-                      <Copy width={12} height={12} className={copied ? 'text-[#58F083]' : ''} />
+                      <p className="text-[#A4A4A4] text-xs">{addressDisplay}</p>
+                      <Copy width={12} height={12} className={copied ? 'text-[#58F083]' : 'text-[#A4A4A4]'} />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -116,8 +117,8 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <p className="shrink-0">
-                      {loading ? '...' : `${tokenBalance?.formatted || '0'} STRK`}
+                    <p className="text-[#A4A4A4] text-xs">
+                      {loading ? '...' : `${Number(tokenBalance?.formatted || 0).toFixed(2)} STRK`}
                     </p>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -126,6 +127,22 @@ export default function Header({ isShowAgentView, setIsShowAgentView }: HeaderPr
                 </Tooltip>
               </TooltipProvider>
             </div>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => disconnect()}
+                    className="hover:opacity-80 transition-opacity"
+                  >
+                    <X className="text-red-500" width={16} height={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Disconnect wallet</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <AgentView isShowAgentView={isShowAgentView} setIsShowAgentView={setIsShowAgentView} />
         </div>
