@@ -1,11 +1,5 @@
-import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
-import { useAccount, useContract, useBalance } from '@starknet-react/core'
+import { useAccount, useBalance } from '@starknet-react/core'
 import { ACTIVE_NETWORK } from '../config/starknet'
-
-interface TokenBalance {
-  balance: bigint
-  formatted: string
-}
 
 export function useTokenBalance(tokenSymbol: string) {
   const { address } = useAccount()
