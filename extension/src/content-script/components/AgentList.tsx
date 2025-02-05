@@ -26,7 +26,7 @@ interface AgentWithBalances {
 }
 
 // Since we're not adding any additional fields in AgentWithBalances, we can just use the same type
-type Agent = AgentWithBalances;
+type Agent = AgentWithBalances
 
 // Function to focus tweet compose box and set text
 const composeTweet = (agentName: string, setIsShowAgentView: (show: boolean) => void) => {
@@ -50,7 +50,9 @@ const composeTweet = (agentName: string, setIsShowAgentView: (show: boolean) => 
     } else if (retryCount < maxRetries) {
       setTimeout(() => tryInsertWithRetry(retryCount + 1), 200)
     } else {
-      debug.error('AgentList', 'Failed to find textarea after max retries', { agentName })
+      debug.error('AgentList', 'Failed to find textarea after max retries', {
+        agentName,
+      })
     }
   }
 
@@ -146,41 +148,43 @@ export default function AgentList({
 
   useEffect(() => {
     if (!agentsLoading) {
-      setAgentList(agents.map(agent => ({
-        name: agent.name,
-        address: agent.address,
-        systemPrompt: agent.systemPrompt,
-        token: agent.token,
-        promptPrice: agent.promptPrice,
-        prizePool: agent.prizePool,
-        pendingPool: agent.pendingPool,
-        endTime: agent.endTime,
-        isFinalized: agent.isFinalized,
-      })))
+      setAgentList(
+        agents.map((agent) => ({
+          name: agent.name,
+          address: agent.address,
+          systemPrompt: agent.systemPrompt,
+          token: agent.token,
+          promptPrice: agent.promptPrice,
+          prizePool: agent.prizePool,
+          pendingPool: agent.pendingPool,
+          endTime: agent.endTime,
+          isFinalized: agent.isFinalized,
+        }))
+      )
     }
   }, [agents, agentsLoading])
 
   useEffect(() => {
     const fetchTokenBalances = async () => {
-      if (agentsLoading) return;
-      
-      setLoading(true);
-      
+      if (agentsLoading) return
+
+      setLoading(true)
+
       try {
         if (!agentList.length) {
-          setAgentsWithBalances([]);
-          return;
+          setAgentsWithBalances([])
+          return
         }
 
         const provider = getProvider()
 
         // Create a map of token addresses to fetch images only once
-        const uniqueTokens = new Set(agentList.map(agent => agent.token.address))
+        const uniqueTokens = new Set(agentList.map((agent) => agent.token.address))
         const tokenImagePromises = Array.from(uniqueTokens).map(async (tokenAddress) => {
           try {
             // Skip invalid token addresses
             if (!tokenAddress || tokenAddress === '0x0') {
-              return [tokenAddress, ''] as [string, string];
+              return [tokenAddress, ''] as [string, string]
             }
 
             const cleanAddress = normalizeAddress(tokenAddress)
@@ -203,7 +207,7 @@ export default function AgentList({
             try {
               // Skip balance fetch for invalid token addresses
               if (!agent.token.address || agent.token.address === '0x0') {
-                return agent;
+                return agent
               }
 
               const cleanAddress = normalizeAddress(agent.token.address)
@@ -212,13 +216,13 @@ export default function AgentList({
               const balance = await tokenContract.balance_of(agent.address)
               return {
                 ...agent,
-                balance: balance.toString()
+                balance: balance.toString(),
               }
             } catch (err) {
               debug.error('AgentList', 'Error fetching token balance:', {
                 address: agent.address,
                 tokenAddress: agent.token.address,
-                error: err
+                error: err,
               })
               return agent
             }
@@ -230,7 +234,7 @@ export default function AgentList({
         debug.error('AgentList', 'Error fetching token balances:', err)
         setError('Failed to fetch token balances')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
 
@@ -250,14 +254,14 @@ export default function AgentList({
     // Put error state agents at the bottom of their respective groups
     if (a.token.address === '0x0' && b.token.address !== '0x0') return 1
     if (a.token.address !== '0x0' && b.token.address === '0x0') return -1
-    
+
     const balanceA = BigInt(a.prizePool || '0')
     const balanceB = BigInt(b.prizePool || '0')
     return balanceB > balanceA ? 1 : balanceB < balanceA ? -1 : 0
   })
 
   // Filter out expired agents unless showExpired is true
-  const filteredAgents = sortedAgents.filter(agent => {
+  const filteredAgents = sortedAgents.filter((agent) => {
     const now = Math.floor(Date.now() / 1000)
     const isExpired = parseInt(agent.endTime) <= now
     return showExpired || !isExpired
@@ -340,7 +344,9 @@ export default function AgentList({
                 <div key={agent.address}>
                   <div
                     className="grid items-center py-4 border-b border-b-[#2F3336] hover:bg-[#16181C]"
-                    style={{ gridTemplateColumns: '32px minmax(150px, 1fr) 120px 80px' }}
+                    style={{
+                      gridTemplateColumns: '32px minmax(150px, 1fr) 120px 80px',
+                    }}
                   >
                     <button
                       onClick={(e) => toggleAgentPrompt(agent.address, e)}
@@ -358,7 +364,9 @@ export default function AgentList({
                         <TruncatedName name={agent.name} />
                         <div className="flex gap-1.5 flex-shrink-0">
                           {agent.isFinalized && (
-                            <span className="text-xs px-1.5 py-0.5 bg-red-500/20 text-red-500 rounded flex-shrink-0">Finalized</span>
+                            <span className="text-xs px-1.5 py-0.5 bg-red-500/20 text-red-500 rounded flex-shrink-0">
+                              Finalized
+                            </span>
                           )}
                           <CountdownDisplay endTime={agent.endTime} />
                         </div>
@@ -370,9 +378,9 @@ export default function AgentList({
 
                     <div className="text-right flex items-center justify-end gap-1.5">
                       {tokenImages[agent.token.address] && (
-                        <img 
-                          src={tokenImages[agent.token.address]} 
-                          alt="Token" 
+                        <img
+                          src={tokenImages[agent.token.address]}
+                          alt="Token"
                           className="w-4 h-4 rounded-full flex-shrink-0"
                         />
                       )}
@@ -384,21 +392,29 @@ export default function AgentList({
                                 return 'Error'
                               }
 
-                              const matchingToken = Object.values(ACTIVE_NETWORK.tokens).find(token => {
-                                try {
-                                  return token && token.address && 
-                                         normalizeAddress(token.address) === normalizeAddress(agent.token.address)
-                                } catch (err) {
-                                  debug.error('AgentList', 'Error comparing token addresses:', {
-                                    token,
-                                    agentToken: agent.token,
-                                    error: err
-                                  })
-                                  return false
+                              const matchingToken = Object.values(ACTIVE_NETWORK.tokens).find(
+                                (token) => {
+                                  try {
+                                    return (
+                                      token &&
+                                      token.address &&
+                                      normalizeAddress(token.address) ===
+                                        normalizeAddress(agent.token.address)
+                                    )
+                                  } catch (err) {
+                                    debug.error('AgentList', 'Error comparing token addresses:', {
+                                      token,
+                                      agentToken: agent.token,
+                                      error: err,
+                                    })
+                                    return false
+                                  }
                                 }
-                              })
+                              )
 
-                              return `${formatBalance(agent.prizePool)} ${matchingToken?.symbol || 'Unknown'}`
+                              return `${formatBalance(agent.prizePool)} ${
+                                matchingToken?.symbol || 'Unknown'
+                              }`
                             } catch (err) {
                               debug.error('AgentList', 'Error formatting token display:', err)
                               return 'Error'
@@ -459,8 +475,10 @@ export default function AgentList({
           Launch Agent
         </button>
         <button
-          className="bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-white hover:text-black"
-          onClick={() => setCurrentView(AGENT_VIEWS.LEADERBOARD)}
+          className="block bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-white hover:text-black"
+          onClick={() => {
+            window.open('https://teeception.ai/#leaderboard', '_blank')
+          }}
         >
           Visit leaderboard
         </button>
