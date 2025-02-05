@@ -193,6 +193,11 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			continue
 		}
 
+		if agentAddr == nil || balance.Token == nil || balance.Amount == nil {
+			slog.Error("agent processing error", "agent", agentAddr.String())
+			continue
+		}
+
 		agentDatas = append(agentDatas, &AgentData{
 			Pending: balance.Pending,
 			Address: agentAddr.String(),
@@ -232,12 +237,18 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 		return
 	}
 
+	if agentAddr == nil || balance.Token == nil || balance.Amount == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent processing error"})
+		return
+	}
+
 	c.JSON(http.StatusOK, &AgentData{
 		Pending: balance.Pending,
 		Address: agentAddr.String(),
 		Name:    info.Name,
 		Token:   balance.Token.String(),
 		Balance: balance.Amount.String(),
+		EndTime: strconv.FormatUint(balance.EndTime, 10),
 	})
 }
 
