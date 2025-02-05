@@ -153,7 +153,7 @@ func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Ev
 
 	i.pushAgent(agentRegisteredEvent)
 
-	slog.Debug("enqueueing balance update for agent registered", "address", agentRegisteredEvent.Agent.String())
+	slog.Info("enqueueing balance update for agent registered", "address", agentRegisteredEvent.Agent.String())
 	i.enqueueBalanceUpdate(agentRegisteredEvent.Agent)
 }
 
@@ -227,21 +227,7 @@ func (i *AgentBalanceIndexer) processQueue(ctx context.Context, blockNumber uint
 	for addrBytes := range addresses {
 		addr.SetBytes(addrBytes[:])
 
-		slog.Debug("processing balance update", "address", addr.String())
-
-		// If not an agent, skip
-		info, ok := i.agentIdx.GetAgentInfo(addr)
-		if !ok {
-			slog.Warn("agent not found in agent index", "address", addr.String())
-			continue
-		}
-
-		currentTime := time.Now().Unix()
-
-		if info.EndTime < uint64(currentTime) {
-			slog.Debug("agent has expired", "address", addr.String(), "end_time", info.EndTime, "block", blockNumber)
-			continue
-		}
+		slog.Info("processing balance update", "address", addr.String())
 
 		if err := i.updateBalance(ctx, addr, blockNumber); err != nil {
 			slog.Error("failed to update agent balance", "error", err, "agent", addr)
@@ -266,6 +252,8 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 			EndTime:         0,
 		}
 	}
+
+	slog.Info("updating balance", "agent", agent, "token", currentInfo.Token, "block", blockNum)
 
 	if currentInfo.Token == nil {
 		// We need the token address from metadata
