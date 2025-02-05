@@ -42,11 +42,11 @@ export const Footer = () => {
 
       <div className="flex items-center gap-4">
         <Link href="https://x.com/nethermindeth" target="_blank" className="hover:opacity-80 transition-opacity">
-          <Image src="/icons/x.png" width={20} height={20} alt="X (Twitter)" />
+          <Image src="/icons/x.svg" width={20} height={20} alt="X (Twitter)" />
         </Link>
 
         <Link href="https://t.me/nm_teeception" target="_blank" className="hover:opacity-80 transition-opacity">
-          <Image src="/icons/telegram.png" width={20} height={20} alt="Telegram" />
+          <Image src="/icons/telegram.svg" width={20} height={20} alt="Telegram" />
         </Link>
 
         <Link href="https://github.com/NethermindEth/teeception" target="_blank" className="hover:opacity-80 transition-opacity">
