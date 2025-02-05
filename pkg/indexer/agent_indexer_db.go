@@ -1,11 +1,14 @@
 package indexer
 
+import "strings"
+
 // AgentIndexerDatabaseReader is the database reader for an AgentIndexer.
 type AgentIndexerDatabaseReader interface {
 	GetAgentInfo(addr [32]byte) (AgentInfo, bool)
 	GetAddressesByCreator(creator [32]byte) [][32]byte
 	GetAddresses() [][32]byte
 	GetLastIndexedBlock() uint64
+	GetAgentInfosByName(name string, offset uint64, limit uint64) ([]*AgentInfo, uint64, bool)
 }
 
 // AgentIndexerDatabaseWriter is the database writer for an AgentIndexer.
@@ -63,6 +66,24 @@ func (db *AgentIndexerDatabaseInMemory) GetAddressesByCreator(creator [32]byte) 
 // GetAddresses returns all addresses.
 func (db *AgentIndexerDatabaseInMemory) GetAddresses() [][32]byte {
 	return db.addresses
+}
+
+// GetAgentInfosByName returns all agent infos with a given name prefix.
+func (db *AgentIndexerDatabaseInMemory) GetAgentInfosByName(namePrefix string, offset uint64, limit uint64) ([]*AgentInfo, uint64, bool) {
+	agentInfos := make([]*AgentInfo, 0)
+	resultCount := uint64(0)
+
+	for _, info := range db.agents {
+		if strings.HasPrefix(info.Name, namePrefix) {
+			resultCount++
+			if resultCount < offset || resultCount >= offset+limit {
+				continue
+			}
+			agentInfos = append(agentInfos, &info)
+		}
+	}
+
+	return agentInfos, resultCount, resultCount > 0
 }
 
 // GetLastIndexedBlock returns the last indexed block.

@@ -328,3 +328,26 @@ func (i *AgentIndexer) ReadState(f func(AgentIndexerDatabaseReader)) {
 
 	f(i.db)
 }
+
+type AgentInfosByNamePrefixResult struct {
+	AgentInfos []*AgentInfo
+	Total      uint64
+	LastBlock  uint64
+}
+
+// GetAgentInfosByNamePrefix returns a list of agent infos by name prefix.
+func (i *AgentIndexer) GetAgentInfosByNamePrefix(namePrefix string, offset uint64, limit uint64) (*AgentInfosByNamePrefixResult, bool) {
+	i.agentsMu.RLock()
+	defer i.agentsMu.RUnlock()
+
+	agentInfos, total, ok := i.db.GetAgentInfosByName(namePrefix, offset, limit)
+	if !ok {
+		return nil, false
+	}
+
+	return &AgentInfosByNamePrefixResult{
+		AgentInfos: agentInfos,
+		Total:      total,
+		LastBlock:  i.db.GetLastIndexedBlock(),
+	}, true
+}

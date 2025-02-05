@@ -143,6 +143,7 @@ func (s *UIService) startServer(ctx context.Context) error {
 	router.GET("/leaderboard", s.HandleGetLeaderboard)
 	router.GET("/agent/:address", s.HandleGetAgent)
 	router.GET("/user/agents", s.HandleGetUserAgents)
+	router.GET("/search", s.HandleSearchAgents)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
@@ -349,12 +350,31 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 			continue
 		}
 
+		usage, ok := s.agentUsageIndexer.GetAgentUsage(info.Address)
+		if !ok {
+			slog.Error("failed to get agent usage", "agent", info.Address)
+			continue
+		}
+
+		latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
+		for _, prompt := range usage.LatestPrompts {
+			latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
+				Prompt:    prompt.Prompt,
+				IsSuccess: prompt.IsSuccess,
+				DrainedTo: prompt.DrainedTo.String(),
+			})
+		}
+
 		agentDatas = append(agentDatas, &AgentData{
-			Pending: balance.Pending,
-			Address: info.Address.String(),
-			Name:    info.Name,
-			Token:   balance.Token.String(),
-			Balance: balance.Amount.String(),
+			Pending:       balance.Pending,
+			Address:       info.Address.String(),
+			Name:          info.Name,
+			Token:         balance.Token.String(),
+			Balance:       balance.Amount.String(),
+			EndTime:       strconv.FormatUint(balance.EndTime, 10),
+			PromptPrice:   info.PromptPrice.String(),
+			BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
+			LatestPrompts: latestPrompts,
 		})
 	}
 
@@ -365,4 +385,77 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 		PageSize:  s.pageSize,
 		LastBlock: int(agents.LastBlock),
 	})
+}
+
+func (s *UIService) HandleSearchAgents(c *gin.Context) {
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
+	}
+
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		page = 0
+	}
+
+	start := uint64(page) * uint64(s.pageSize)
+	limit := uint64(s.pageSize)
+
+	agents, ok := s.agentIndexer.GetAgentInfosByNamePrefix(name, start, limit)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no agents found for name"})
+		return
+	}
+
+	agentDatas := make([]*AgentData, 0, len(agents.AgentInfos))
+	for _, info := range agents.AgentInfos {
+		agentData, err := s.agentDataFromAgentInfo(info)
+		if err != nil {
+			slog.Error("failed to get agent data", "error", err)
+			continue
+		}
+		agentDatas = append(agentDatas, agentData)
+	}
+
+	c.JSON(http.StatusOK, &AgentPageResponse{
+		Agents:    agentDatas,
+		Total:     int(agents.Total),
+		Page:      page,
+		PageSize:  s.pageSize,
+		LastBlock: int(agents.LastBlock),
+	})
+}
+
+func (s *UIService) agentDataFromAgentInfo(info *indexer.AgentInfo) (*AgentData, error) {
+	balance, ok := s.agentBalanceIndexer.GetBalance(info.Address)
+	if !ok {
+		return nil, fmt.Errorf("failed to get agent balance", "agent", info.Address)
+	}
+
+	usage, ok := s.agentUsageIndexer.GetAgentUsage(info.Address)
+	if !ok {
+		return nil, fmt.Errorf("failed to get agent usage", "agent", info.Address)
+	}
+
+	latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
+	for _, prompt := range usage.LatestPrompts {
+		latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
+			Prompt:    prompt.Prompt,
+			IsSuccess: prompt.IsSuccess,
+			DrainedTo: prompt.DrainedTo.String(),
+		})
+	}
+
+	return &AgentData{
+		Pending:       balance.Pending,
+		Address:       info.Address.String(),
+		Name:          info.Name,
+		Token:         balance.Token.String(),
+		Balance:       balance.Amount.String(),
+		EndTime:       strconv.FormatUint(balance.EndTime, 10),
+		PromptPrice:   info.PromptPrice.String(),
+		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
+		LatestPrompts: latestPrompts,
+	}, nil
 }
