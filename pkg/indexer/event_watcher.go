@@ -625,6 +625,10 @@ func (w *EventWatcher) parseEvent(raw rpc.EmittedEvent) (Event, bool) {
 		slog.Debug("parsed prompt paid event")
 		ev.Type = EventPromptPaid
 		return ev, true
+	case selector.Cmp(promptConsumedSelector) == 0:
+		slog.Debug("parsed prompt consumed event")
+		ev.Type = EventPromptConsumed
+		return ev, true
 	case selector.Cmp(tokenAddedSelector) == 0:
 		slog.Debug("parsed token added event")
 		ev.Type = EventTokenAdded
@@ -648,10 +652,10 @@ func (w *EventWatcher) broadcast(eventLists map[EventType][]*Event, fromBlock ui
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	for eventType, eventList := range eventLists {
+	for _, eventType := range EventTypeItems {
 		for _, sub := range w.subs[eventType] {
 			sub.ch <- &EventSubscriptionData{
-				Events:    eventList,
+				Events:    eventLists[eventType],
 				FromBlock: fromBlock,
 				ToBlock:   toBlock,
 			}
