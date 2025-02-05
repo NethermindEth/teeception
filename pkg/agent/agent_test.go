@@ -29,6 +29,7 @@ type MockTwitterClientMethods struct {
 	Initialize   func(config *twitter.TwitterClientConfig) error
 	GetTweetText func(tweetID uint64) (string, error)
 	ReplyToTweet func(tweetID uint64, reply string) error
+	SendTweet    func(tweet string) error
 }
 
 type MockTwitterClient struct {
@@ -45,6 +46,10 @@ func (m *MockTwitterClient) GetTweetText(tweetID uint64) (string, error) {
 
 func (m *MockTwitterClient) ReplyToTweet(tweetID uint64, reply string) error {
 	return m.Methods.ReplyToTweet(tweetID, reply)
+}
+
+func (m *MockTwitterClient) SendTweet(tweet string) error {
+	return m.Methods.SendTweet(tweet)
 }
 
 type MockChatCompletionMethods struct {
@@ -672,6 +677,9 @@ func TestProcessPromptPaidEvent(t *testing.T) {
 						return tt.tweetText, nil
 					},
 					ReplyToTweet: func(tweetID uint64, reply string) error {
+						return nil
+					},
+					SendTweet: func(tweet string) error {
 						return nil
 					},
 				},

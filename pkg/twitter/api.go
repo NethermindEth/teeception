@@ -17,12 +17,14 @@ import (
 const (
 	getTweetURL   = "https://api.x.com/2/tweets/%d?tweet.fields=text"
 	replyTweetURL = "https://api.twitter.com/2/tweets/%d/reply"
+	sendTweetURL  = "https://api.twitter.com/2/tweets"
 
 	backoffMaxElapsedTime  = 15 * time.Minute
 	backoffInitialInterval = 1 * time.Second
 	backoffMaxInterval     = 5 * time.Minute
 
 	replyMaxSize = 280
+	tweetMaxSize = 280
 )
 
 type TwitterApiClient struct {
@@ -164,6 +166,43 @@ func (c *TwitterApiClient) ReplyToTweet(tweetID uint64, reply string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to reply to tweet: %v", resp.Status)
+	}
+
+	return nil
+}
+
+func (c *TwitterApiClient) SendTweet(tweet string) error {
+	slog.Info("sending tweet", "tweet", tweet)
+
+	if len(tweet) > tweetMaxSize {
+		tweet = tweet[:tweetMaxSize]
+	}
+
+	payload := struct {
+		Text string `json:"text"`
+	}{
+		Text: tweet,
+	}
+
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tweet payload: %v", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, sendTweetURL, strings.NewReader(string(payloadBytes)))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doWithRetry(req)
+	if err != nil {
+		return fmt.Errorf("failed to send tweet: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("failed to send tweet: %v", resp.Status)
 	}
 
 	return nil

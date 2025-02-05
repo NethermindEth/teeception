@@ -78,6 +78,10 @@ func (p *TwitterProxy) GetTweetText(tweetID uint64) (string, error) {
 func (p *TwitterProxy) ReplyToTweet(tweetID uint64, reply string) error {
 	slog.Info("replying to tweet", "tweet_id", tweetID, "reply", reply)
 
+	if len(reply) > replyMaxSize {
+		reply = reply[:replyMaxSize]
+	}
+
 	body := map[string]string{
 		"reply": reply,
 	}
@@ -95,6 +99,35 @@ func (p *TwitterProxy) ReplyToTweet(tweetID uint64, reply string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to reply to tweet: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (p *TwitterProxy) SendTweet(tweet string) error {
+	slog.Info("sending tweet", "tweet", tweet)
+
+	if len(tweet) > tweetMaxSize {
+		tweet = tweet[:tweetMaxSize]
+	}
+
+	body := map[string]string{
+		"tweet": tweet,
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("failed to marshal body: %w", err)
+	}
+
+	resp, err := p.httpClient.Post(fmt.Sprintf("%s/tweet", p.url), "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to send tweet: %d", resp.StatusCode)
 	}
 
 	return nil

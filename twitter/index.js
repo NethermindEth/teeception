@@ -98,6 +98,24 @@ class TwitterClientApi {
     }
 
     /**
+     * Send a tweet
+     * @param {express.Request} req - Express request object containing tweet text
+     * @param {express.Response} res - Express response object
+     * @returns {Promise<void>}
+     */
+    async sendTweet(req, res) {
+        try {
+            console.log('sendTweet', req.body)
+
+            const { tweet } = req.body
+            await this.scraper.sendTweet(tweet)
+            res.sendStatus(200)
+        } catch (err) {
+            console.error('Failed to send tweet:', err)
+            res.status(500).send(`${err}`)
+        }
+    }
+    /**
      * Start the API server
      * @param {number} port - Port number to listen on
      * @returns {Promise<void>}
@@ -106,6 +124,7 @@ class TwitterClientApi {
         this.app.post('/initialize', this.initialize.bind(this))
         this.app.get('/tweet/:id', this.getTweet.bind(this))
         this.app.post('/reply/:id', this.replyToTweet.bind(this))
+        this.app.post('/tweet', this.sendTweet.bind(this))
 
         return new Promise((resolve) => {
             this.app.listen(port, () => {
