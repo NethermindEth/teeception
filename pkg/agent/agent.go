@@ -277,9 +277,11 @@ func (a *Agent) Run(ctx context.Context) error {
 		return a.StartServer(ctx)
 	})
 
-	err = a.waitForAccountDeployment(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to wait for account deployment: %w", err)
+	if !debug.IsDebugDisableWaitingForDeployment() {
+		err = a.waitForAccountDeployment(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to wait for account deployment: %w", err)
+		}
 	}
 
 	g.Go(func() error {
@@ -513,10 +515,14 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		}
 	}
 
-	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, drainTo)
-	if err != nil {
-		slog.Warn("failed to consume prompt", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", snaccount.FormatRpcError(err))
-		return fmt.Errorf("failed to consume prompt: %v", err)
+	txHash := new(felt.Felt)
+	if !debug.IsDebugDisableConsumption() {
+		var err error
+		txHash, err = a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, drainTo)
+		if err != nil {
+			slog.Warn("failed to consume prompt", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", snaccount.FormatRpcError(err))
+			return fmt.Errorf("failed to consume prompt: %v", err)
+		}
 	}
 
 	if !debug.IsDebugDisableReplies() {
