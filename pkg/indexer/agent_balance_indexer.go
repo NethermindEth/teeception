@@ -151,22 +151,24 @@ func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Ev
 		return
 	}
 
-	i.pushAgent(agentRegisteredEvent.Agent)
+	i.pushAgent(agentRegisteredEvent)
 
 	slog.Debug("enqueueing balance update for agent registered", "address", agentRegisteredEvent.Agent.String())
 	i.enqueueBalanceUpdate(agentRegisteredEvent.Agent)
 }
 
-func (i *AgentBalanceIndexer) pushAgent(addr *felt.Felt) {
+func (i *AgentBalanceIndexer) pushAgent(ev *AgentRegisteredEvent) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	i.db.SetAgentBalance(addr.Bytes(), &AgentBalance{
+	slog.Debug("pushing agent", "address", ev.Agent.String())
+
+	i.db.SetAgentBalance(ev.Agent.Bytes(), &AgentBalance{
 		Pending:         true,
-		Token:           nil,
+		Token:           ev.TokenAddress,
 		Amount:          big.NewInt(0),
 		AmountUpdatedAt: 0,
-		EndTime:         0,
+		EndTime:         ev.EndTime,
 	})
 }
 
@@ -258,7 +260,7 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 	if !ok {
 		currentInfo = &AgentBalance{
 			Pending:         true,
-			Token:           new(felt.Felt),
+			Token:           nil,
 			Amount:          big.NewInt(0),
 			AmountUpdatedAt: 0,
 			EndTime:         0,
