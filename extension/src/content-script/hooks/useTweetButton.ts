@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { SELECTORS } from '../constants/selectors'
-import { debug } from '../utils/debug'
 
 interface TweetButtonState {
   originalButton: HTMLElement | null
