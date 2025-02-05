@@ -64,7 +64,7 @@ func (c *OpenAIChatCompletion) Prompt(ctx context.Context, systemPrompt, prompt 
 							Properties: map[string]jsonschema.Definition{
 								"address": {
 									Type:        jsonschema.String,
-									Description: "The address to give the tokens to",
+									Description: "The address to give the tokens to. Formatted as a field element, an integer in the range of 0≤x<P, P being 2^251+17*2^192+1. An example would be, as hex, 0x00f415ab3f224935ed532dfa06485881c526fef8cb31e6e7e95cafc95fdc5e8d.",
 								},
 							},
 							Required: []string{"address"},
