@@ -502,32 +502,26 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 	}
 
 	isDrain := resp.Drain != nil
+	drainTo := agentInfo.Address
+	errorReply := ""
 
-	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID, "is_drain", isDrain, "reply", resp.Response)
+	slog.Info("reacting to tweet", "agent_address", agentInfo.Address, "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID, "is_drain", isDrain)
 
-	var drainTo *felt.Felt
-	if !isDrain {
-		drainTo = agentInfo.Address
-	} else {
-		var err error
-
-		drainTo, err = starknetgoutils.HexToFelt(resp.Drain.Address)
+	if isDrain {
+		respAddress, err := starknetgoutils.HexToFelt(resp.Drain.Address)
 		if err != nil {
-			slog.Warn("failed to convert address to felt", "error", err)
+			slog.Warn("failed to convert address to felt", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
 
-			reply := "Seems like the drain address is invalid. Please try again."
-			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
-			if err != nil {
-				slog.Warn("failed to reply to tweet", "error", err)
-			}
-
-			return fmt.Errorf("failed to convert address to felt: %v", err)
+			isDrain = false
+			errorReply = "Seems like the drain address is invalid. Please try again."
+		} else {
+			drainTo = respAddress
 		}
 	}
 
 	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, drainTo)
 	if err != nil {
-		slog.Warn("failed to consume prompt", "error", snaccount.FormatRpcError(err))
+		slog.Warn("failed to consume prompt", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", snaccount.FormatRpcError(err))
 		return fmt.Errorf("failed to consume prompt: %v", err)
 	}
 
@@ -535,32 +529,39 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
 		tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 		if err != nil {
-			slog.Warn("failed to get tweet text", "error", err)
+			slog.Warn("failed to get tweet text", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
 			return nil
 		}
 
 		if !debug.IsDebugDisableTweetValidation() {
 			err := a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
 			if err != nil {
-				slog.Warn("tweet text validation failed", "error", err)
+				slog.Warn("tweet text validation failed", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
 				return nil
 			}
 		}
 
 		if isDrain {
-			slog.Info("replying as drained to", "agent_address", agentInfo.Address, "tweet_id", promptPaidEvent.TweetID, "drain_to", resp.Drain.Address)
+			slog.Info("replying as drained to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "drain_to", resp.Drain.Address)
 
 			reply := fmt.Sprintf("Drained %s to %s. Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", agentInfo.Address, resp.Drain.Address, txHash)
 			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
 			if err != nil {
-				slog.Warn("failed to reply to tweet", "error", err)
+				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 			}
 		}
 
-		slog.Info("replying to", "agent_address", agentInfo.Address, "tweet_id", promptPaidEvent.TweetID, "reply", resp.Response)
-		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, resp.Response)
+		var reply string
+		if len(errorReply) > 0 {
+			reply = errorReply
+		} else {
+			reply = resp.Response
+		}
+
+		slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
+		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
 		if err != nil {
-			slog.Warn("failed to reply to tweet", "error", err)
+			slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 		}
 	}
 
