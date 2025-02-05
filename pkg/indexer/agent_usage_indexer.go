@@ -32,20 +32,12 @@ type AgentUsageIndexer struct {
 	db              AgentUsageIndexerDatabase
 	registryAddress *felt.Felt
 
-	lastAgentRegisteredBlock uint64
-	lastPromptConsumedBlock  uint64
-	lastPromptPaidBlock      uint64
-	maxPrompts               uint64
-	pending                  map[[32]byte]*AgentUsageIndexerPendingUsage
-	promptCache              *lru.Cache[string, string]
+	maxPrompts  uint64
+	promptCache *lru.Cache[string, string]
 
-	agentRegisteredCh    chan *EventSubscriptionData
-	promptConsumedCh     chan *EventSubscriptionData
-	promptPaidCh         chan *EventSubscriptionData
-	agentRegisteredSubID int64
-	promptConsumedSubID  int64
-	promptPaidSubID      int64
-	eventWatcher         *EventWatcher
+	eventCh      chan *EventSubscriptionData
+	eventSubID   int64
+	eventWatcher *EventWatcher
 }
 
 type AgentUsageIndexerPendingUsage struct {
@@ -72,12 +64,8 @@ func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
 		}
 	}
 
-	agentRegisteredCh := make(chan *EventSubscriptionData, 1000)
-	promptConsumedCh := make(chan *EventSubscriptionData, 1000)
-	promptPaidCh := make(chan *EventSubscriptionData, 1000)
-	agentRegisteredSubID := config.EventWatcher.Subscribe(EventAgentRegistered, agentRegisteredCh)
-	promptConsumedSubID := config.EventWatcher.Subscribe(EventPromptConsumed, promptConsumedCh)
-	promptPaidSubID := config.EventWatcher.Subscribe(EventPromptPaid, promptPaidCh)
+	eventCh := make(chan *EventSubscriptionData, 1000)
+	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventPromptConsumed|EventPromptPaid, eventCh)
 
 	promptCache, err := lru.New[string, string](1000)
 	if err != nil {
@@ -86,22 +74,14 @@ func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
 	}
 
 	return &AgentUsageIndexer{
-		client:                   config.Client,
-		registryAddress:          config.RegistryAddress,
-		db:                       config.InitialState.Db,
-		maxPrompts:               config.MaxPrompts,
-		lastAgentRegisteredBlock: config.InitialState.Db.GetLastIndexedBlock(),
-		lastPromptConsumedBlock:  config.InitialState.Db.GetLastIndexedBlock(),
-		lastPromptPaidBlock:      config.InitialState.Db.GetLastIndexedBlock(),
-		pending:                  make(map[[32]byte]*AgentUsageIndexerPendingUsage),
-		promptCache:              promptCache,
-		agentRegisteredCh:        agentRegisteredCh,
-		promptConsumedCh:         promptConsumedCh,
-		promptPaidCh:             promptPaidCh,
-		agentRegisteredSubID:     agentRegisteredSubID,
-		promptConsumedSubID:      promptConsumedSubID,
-		promptPaidSubID:          promptPaidSubID,
-		eventWatcher:             config.EventWatcher,
+		client:          config.Client,
+		registryAddress: config.RegistryAddress,
+		db:              config.InitialState.Db,
+		maxPrompts:      config.MaxPrompts,
+		promptCache:     promptCache,
+		eventCh:         eventCh,
+		eventSubID:      eventSubID,
+		eventWatcher:    config.EventWatcher,
 	}
 }
 
@@ -115,41 +95,23 @@ func (i *AgentUsageIndexer) Run(ctx context.Context) error {
 
 func (i *AgentUsageIndexer) run(ctx context.Context) error {
 	defer func() {
-		i.eventWatcher.Unsubscribe(i.agentRegisteredSubID)
-		i.eventWatcher.Unsubscribe(i.promptConsumedSubID)
-		i.eventWatcher.Unsubscribe(i.promptPaidSubID)
+		i.eventWatcher.Unsubscribe(i.eventSubID)
 	}()
-
-	updateLastIndexedBlock := func() {
-		i.db.SetLastIndexedBlock(min(i.lastAgentRegisteredBlock, i.lastPromptConsumedBlock, i.lastPromptPaidBlock))
-	}
 
 	for {
 		select {
-		case data := <-i.agentRegisteredCh:
+		case data := <-i.eventCh:
 			i.mu.Lock()
-			i.lastAgentRegisteredBlock = data.ToBlock
 			for _, ev := range data.Events {
-				i.onAgentRegisteredEvent(ev)
+				if ev.Type == EventAgentRegistered {
+					i.onAgentRegisteredEvent(ev)
+				} else if ev.Type == EventPromptConsumed {
+					i.onPromptConsumedEvent(ev)
+				} else if ev.Type == EventPromptPaid {
+					i.onPromptPaidEvent(ev)
+				}
 			}
-			updateLastIndexedBlock()
-			i.cleanupPending()
-			i.mu.Unlock()
-		case data := <-i.promptPaidCh:
-			i.mu.Lock()
-			i.lastPromptPaidBlock = data.ToBlock
-			for _, ev := range data.Events {
-				i.onPromptPaidEvent(ev)
-			}
-			updateLastIndexedBlock()
-			i.mu.Unlock()
-		case data := <-i.promptConsumedCh:
-			i.mu.Lock()
-			i.lastPromptConsumedBlock = data.ToBlock
-			for _, ev := range data.Events {
-				i.onPromptConsumedEvent(ev)
-			}
-			updateLastIndexedBlock()
+			i.db.SetLastIndexedBlock(data.ToBlock)
 			i.mu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
@@ -168,19 +130,10 @@ func (i *AgentUsageIndexer) onAgentRegisteredEvent(ev *Event) {
 		return
 	}
 
-	pendingUsage, ok := i.pending[agentRegisteredEvent.Agent.Bytes()]
-	if !ok {
-		pendingUsage = &AgentUsageIndexerPendingUsage{
-			Usage: &AgentUsage{
-				BreakAttempts: 0,
-				LatestPrompts: make([]*AgentUsageLatestPrompt, 0, i.maxPrompts+1),
-			},
-		}
-	} else {
-		delete(i.pending, agentRegisteredEvent.Agent.Bytes())
-	}
-
-	i.db.SetAgentUsage(agentRegisteredEvent.Agent.Bytes(), pendingUsage.Usage)
+	i.db.SetAgentUsage(agentRegisteredEvent.Agent.Bytes(), &AgentUsage{
+		BreakAttempts: 0,
+		LatestPrompts: make([]*AgentUsageLatestPrompt, 0, i.maxPrompts+1),
+	})
 }
 
 func (i *AgentUsageIndexer) onPromptConsumedEvent(ev *Event) {
@@ -188,26 +141,9 @@ func (i *AgentUsageIndexer) onPromptConsumedEvent(ev *Event) {
 	if !ok {
 		return
 	}
-	// Check if agent exists
+
 	if !i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
-		if ev.Raw.BlockNumber <= i.lastAgentRegisteredBlock {
-			slog.Debug("ignoring prompt consumed event for unregistered agent", "agent", ev.Raw.FromAddress)
-			return
-		}
-
-		pendingUsage, ok := i.pending[ev.Raw.FromAddress.Bytes()]
-		if !ok {
-			pendingUsage = &AgentUsageIndexerPendingUsage{
-				Usage: &AgentUsage{
-					BreakAttempts: 0,
-					LatestPrompts: make([]*AgentUsageLatestPrompt, 0, i.maxPrompts+1),
-				},
-				Block: ev.Raw.BlockNumber,
-			}
-		}
-
-		i.addAttempt(pendingUsage.Usage, ev.Raw.FromAddress, promptConsumedEvent.PromptID, promptConsumedEvent.DrainedTo)
-		i.pending[ev.Raw.FromAddress.Bytes()] = pendingUsage
+		slog.Debug("ignoring prompt consumed event for unregistered agent", "agent", ev.Raw.FromAddress)
 		return
 	}
 
@@ -279,13 +215,5 @@ func (i *AgentUsageIndexer) addAttempt(usage *AgentUsage, agentAddr *felt.Felt, 
 	})
 	if uint64(len(usage.LatestPrompts)) > i.maxPrompts {
 		usage.LatestPrompts = usage.LatestPrompts[1:]
-	}
-}
-
-func (i *AgentUsageIndexer) cleanupPending() {
-	for addr, pendingUsage := range i.pending {
-		if pendingUsage.Block <= i.lastAgentRegisteredBlock {
-			delete(i.pending, addr)
-		}
 	}
 }

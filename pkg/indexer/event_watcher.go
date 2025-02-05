@@ -20,7 +20,7 @@ import (
 type EventType int
 
 const (
-	EventAgentRegistered EventType = iota
+	EventAgentRegistered EventType = 1 << iota
 	EventPromptPaid
 	EventPromptConsumed
 	EventTransfer
@@ -29,15 +29,30 @@ const (
 	EventTeeUnencumbered
 )
 
-var EventTypeItems = []EventType{
-	EventAgentRegistered,
-	EventPromptPaid,
-	EventPromptConsumed,
-	EventTransfer,
-	EventTokenAdded,
-	EventTokenRemoved,
-	EventTeeUnencumbered,
-}
+var (
+	EventItems = []struct {
+		SelectorBytes [32]byte
+		Type          EventType
+	}{
+		{agentRegisteredSelectorBytes, EventAgentRegistered},
+		{promptPaidSelectorBytes, EventPromptPaid},
+		{promptConsumedSelectorBytes, EventPromptConsumed},
+		{transferSelectorBytes, EventTransfer},
+		{tokenAddedSelectorBytes, EventTokenAdded},
+		{tokenRemovedSelectorBytes, EventTokenRemoved},
+		{teeUnencumberedSelectorBytes, EventTeeUnencumbered},
+	}
+
+	EventSelectors = []*felt.Felt{
+		agentRegisteredSelector,
+		promptPaidSelector,
+		promptConsumedSelector,
+		transferSelector,
+		tokenAddedSelector,
+		tokenRemovedSelector,
+		teeUnencumberedSelector,
+	}
+)
 
 type Event struct {
 	Type EventType
@@ -365,6 +380,12 @@ type EventWatcherConfig struct {
 	InitialState    *EventWatcherInitialState
 }
 
+// EventsListEntry holds a list of events and the number of subscribers watching them.
+type EventsListEntry struct {
+	events     []*Event
+	watchCount uint64
+}
+
 // EventWatcher fetches events from Starknet in block ranges, parses them, and
 // distributes them to subscribers (AgentRegistered, Transfer, PromptPaid, etc.).
 type EventWatcher struct {
@@ -377,9 +398,10 @@ type EventWatcher struct {
 	initializedAtBlock uint64
 
 	// Subscribers for specific event types
-	mu        sync.RWMutex
-	subs      map[EventType][]*EventSubscriber
-	nextSubID int64
+	mu          sync.RWMutex
+	subs        map[EventType][]*EventSubscriber
+	eventsLists map[EventType]*EventsListEntry
+	nextSubID   int64
 }
 
 // NewEventWatcher initializes a new EventWatcher.
@@ -399,6 +421,7 @@ func NewEventWatcher(cfg *EventWatcherConfig) *EventWatcher {
 		indexChunkSize:     cfg.IndexChunkSize,
 		initializedAtBlock: 0,
 		subs:               make(map[EventType][]*EventSubscriber),
+		eventsLists:        make(map[EventType]*EventsListEntry),
 	}
 }
 
@@ -417,6 +440,18 @@ func (w *EventWatcher) Subscribe(typ EventType, ch chan<- *EventSubscriptionData
 	}
 
 	w.subs[typ] = append(w.subs[typ], &subscriber)
+
+	eventsList, ok := w.eventsLists[typ]
+	if !ok {
+		eventsList = &EventsListEntry{
+			events:     make([]*Event, 0, w.indexChunkSize),
+			watchCount: 0,
+		}
+	}
+
+	eventsList.watchCount++
+	w.eventsLists[typ] = eventsList
+
 	return id
 }
 
@@ -428,6 +463,18 @@ func (w *EventWatcher) Unsubscribe(id int64) bool {
 	for typ, subscribers := range w.subs {
 		for i, sub := range subscribers {
 			if sub.id == id {
+				eventsList, ok := w.eventsLists[typ]
+				if !ok {
+					continue
+				}
+
+				eventsList.watchCount--
+				if eventsList.watchCount == 0 {
+					delete(w.eventsLists, typ)
+				} else {
+					w.eventsLists[typ] = eventsList
+				}
+
 				// Remove subscriber by swapping with last element and truncating
 				lastIdx := len(subscribers) - 1
 				subscribers[i] = subscribers[lastIdx]
@@ -462,7 +509,6 @@ func (w *EventWatcher) run(ctx context.Context) error {
 
 	tickDuration := w.startupTickRate
 
-	evs := w.allocEventLists()
 	for {
 		if w.lastIndexedBlock >= w.initializedAtBlock {
 			tickDuration = w.tickRate
@@ -472,21 +518,12 @@ func (w *EventWatcher) run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(tickDuration):
-			if err := w.indexBlocks(ctx, evs); err != nil {
+			if err := w.indexBlocks(ctx); err != nil {
 				slog.Error("indexBlocks failed", "error", err)
 				// continue attempting on next tick
 			}
 		}
 	}
-}
-
-// allocEventLists allocates event lists for each event type.
-func (w *EventWatcher) allocEventLists() map[EventType][]*Event {
-	evs := make(map[EventType][]*Event, len(EventTypeItems))
-	for _, typ := range EventTypeItems {
-		evs[typ] = make([]*Event, 0, w.indexChunkSize)
-	}
-	return evs
 }
 
 // fetchEvents fetches events from the Starknet node following a continuation token.
@@ -528,7 +565,7 @@ func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) 
 }
 
 // indexBlocks fetches blocks ranging from (lastIndexedBlock+1) to safeBlock in chunks, then parses events.
-func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType][]*Event) error {
+func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 	var currentBlock uint64
 	var err error
 
@@ -561,17 +598,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 			FromBlock: rpc.WithBlockNumber(from),
 			ToBlock:   rpc.WithBlockNumber(toBlock),
 			// We'll fetch all possible keys of interest in a single request:
-			Keys: [][]*felt.Felt{
-				{
-					agentRegisteredSelector,
-					promptPaidSelector,
-					promptConsumedSelector,
-					transferSelector,
-					tokenAddedSelector,
-					tokenRemovedSelector,
-					teeUnencumberedSelector,
-				},
-			},
+			Keys: [][]*felt.Felt{EventSelectors},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to get events from %v to %v: %w", from, toBlock, snaccount.FormatRpcError(err))
@@ -583,15 +610,19 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 		for _, rawEvent := range events {
 			parsedEvent, ok := w.parseEvent(rawEvent)
 			if ok {
-				eventLists[parsedEvent.Type] = append(eventLists[parsedEvent.Type], &parsedEvent)
+				for typ, eventList := range w.eventsLists {
+					if typ&parsedEvent.Type != 0 {
+						eventList.events = append(eventList.events, &parsedEvent)
+					}
+				}
 			}
 		}
 
-		w.broadcast(eventLists, from, toBlock)
+		w.broadcast(from, toBlock)
 
 		// clean up event lists
-		for eventType, eventList := range eventLists {
-			eventLists[eventType] = eventList[:0]
+		for _, eventList := range w.eventsLists {
+			eventList.events = eventList.events[:0]
 		}
 
 		w.mu.Lock()
@@ -608,54 +639,30 @@ func (w *EventWatcher) indexBlocks(ctx context.Context, eventLists map[EventType
 // parseEvent examines the raw keys/data to determine the event type and produce an Event struct.
 func (w *EventWatcher) parseEvent(raw rpc.EmittedEvent) (Event, bool) {
 	// The first key is the event selector
-	selector := raw.Keys[0]
+	selectorBytes := raw.Keys[0].Bytes()
 	ev := Event{
 		Raw: raw,
 	}
-	switch {
-	case selector.Cmp(agentRegisteredSelector) == 0:
-		slog.Debug("parsed agent registered event")
-		ev.Type = EventAgentRegistered
-		return ev, true
-	case selector.Cmp(transferSelector) == 0:
-		slog.Debug("parsed transfer event")
-		ev.Type = EventTransfer
-		return ev, true
-	case selector.Cmp(promptPaidSelector) == 0:
-		slog.Debug("parsed prompt paid event")
-		ev.Type = EventPromptPaid
-		return ev, true
-	case selector.Cmp(promptConsumedSelector) == 0:
-		slog.Debug("parsed prompt consumed event")
-		ev.Type = EventPromptConsumed
-		return ev, true
-	case selector.Cmp(tokenAddedSelector) == 0:
-		slog.Debug("parsed token added event")
-		ev.Type = EventTokenAdded
-		return ev, true
-	case selector.Cmp(tokenRemovedSelector) == 0:
-		slog.Debug("parsed token removed event")
-		ev.Type = EventTokenRemoved
-		return ev, true
-	case selector.Cmp(teeUnencumberedSelector) == 0:
-		slog.Debug("parsed tee unencumbered event")
-		ev.Type = EventTeeUnencumbered
-		return ev, true
-	default:
-		slog.Debug("parsed unknown event")
-		return Event{}, false
+
+	for _, item := range EventItems {
+		if selectorBytes == item.SelectorBytes {
+			ev.Type = item.Type
+			return ev, true
+		}
 	}
+
+	return Event{}, false
 }
 
 // broadcast routes the parsed events to the correct set of subscribers.
-func (w *EventWatcher) broadcast(eventLists map[EventType][]*Event, fromBlock uint64, toBlock uint64) {
+func (w *EventWatcher) broadcast(fromBlock uint64, toBlock uint64) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	for _, eventType := range EventTypeItems {
-		for _, sub := range w.subs[eventType] {
+	for typ, eventList := range w.eventsLists {
+		for _, sub := range w.subs[typ] {
 			sub.ch <- &EventSubscriptionData{
-				Events:    eventLists[eventType],
+				Events:    eventList.events,
 				FromBlock: fromBlock,
 				ToBlock:   toBlock,
 			}

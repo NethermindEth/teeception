@@ -47,11 +47,9 @@ type AgentBalanceIndexer struct {
 	tickRate       time.Duration
 	safeBlockDelta uint64
 
-	agentRegisteredCh    chan *EventSubscriptionData
-	transferCh           chan *EventSubscriptionData
-	agentRegisteredSubID int64
-	transferSubID        int64
-	eventWatcher         *EventWatcher
+	eventCh      chan *EventSubscriptionData
+	eventSubID   int64
+	eventWatcher *EventWatcher
 }
 
 // AgentBalanceIndexerInitialState is the initial state for an AgentBalanceIndexer.
@@ -79,25 +77,21 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 		}
 	}
 
-	agentRegisteredCh := make(chan *EventSubscriptionData, 1000)
-	transferCh := make(chan *EventSubscriptionData, 1000)
-	agentRegisteredSubID := config.EventWatcher.Subscribe(EventAgentRegistered, agentRegisteredCh)
-	transferSubID := config.EventWatcher.Subscribe(EventTransfer, transferCh)
+	eventCh := make(chan *EventSubscriptionData, 1000)
+	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventTransfer, eventCh)
 
 	return &AgentBalanceIndexer{
-		client:               config.Client,
-		agentIdx:             config.AgentIdx,
-		registryAddress:      config.RegistryAddress,
-		db:                   config.InitialState.Db,
-		priceCache:           config.PriceCache,
-		toUpdate:             make(map[[32]byte]struct{}),
-		tickRate:             config.TickRate,
-		safeBlockDelta:       config.SafeBlockDelta,
-		agentRegisteredCh:    agentRegisteredCh,
-		transferCh:           transferCh,
-		agentRegisteredSubID: agentRegisteredSubID,
-		transferSubID:        transferSubID,
-		eventWatcher:         config.EventWatcher,
+		client:          config.Client,
+		agentIdx:        config.AgentIdx,
+		registryAddress: config.RegistryAddress,
+		db:              config.InitialState.Db,
+		priceCache:      config.PriceCache,
+		toUpdate:        make(map[[32]byte]struct{}),
+		tickRate:        config.TickRate,
+		safeBlockDelta:  config.SafeBlockDelta,
+		eventCh:         eventCh,
+		eventSubID:      eventSubID,
+		eventWatcher:    config.EventWatcher,
 	}
 }
 
@@ -113,8 +107,7 @@ func (i *AgentBalanceIndexer) Run(ctx context.Context) error {
 
 func (i *AgentBalanceIndexer) run(ctx context.Context) error {
 	defer func() {
-		i.eventWatcher.Unsubscribe(i.agentRegisteredSubID)
-		i.eventWatcher.Unsubscribe(i.transferSubID)
+		i.eventWatcher.Unsubscribe(i.eventSubID)
 	}()
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -124,13 +117,13 @@ func (i *AgentBalanceIndexer) run(ctx context.Context) error {
 
 	for {
 		select {
-		case data := <-i.transferCh:
+		case data := <-i.eventCh:
 			for _, ev := range data.Events {
-				i.onTransferEvent(ctx, ev)
-			}
-		case data := <-i.agentRegisteredCh:
-			for _, ev := range data.Events {
-				i.onAgentRegisteredEvent(ctx, ev)
+				if ev.Type == EventTransfer {
+					i.onTransferEvent(ctx, ev)
+				} else if ev.Type == EventAgentRegistered {
+					i.onAgentRegisteredEvent(ctx, ev)
+				}
 			}
 		case <-ctx.Done():
 			return ctx.Err()

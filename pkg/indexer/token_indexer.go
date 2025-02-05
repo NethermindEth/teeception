@@ -31,8 +31,7 @@ type TokenIndexer struct {
 	priceTickRate   time.Duration
 
 	eventCh      chan *EventSubscriptionData
-	addedSubID   int64
-	removedSubID int64
+	eventSubID   int64
 	eventWatcher *EventWatcher
 }
 
@@ -59,8 +58,7 @@ func NewTokenIndexer(cfg *TokenIndexerConfig) *TokenIndexer {
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
-	addedSubID := cfg.EventWatcher.Subscribe(EventTokenAdded, eventCh)
-	removedSubID := cfg.EventWatcher.Subscribe(EventTokenRemoved, eventCh)
+	eventSubID := cfg.EventWatcher.Subscribe(EventTokenAdded|EventTokenRemoved, eventCh)
 
 	return &TokenIndexer{
 		db:              cfg.InitialState.Db,
@@ -68,8 +66,7 @@ func NewTokenIndexer(cfg *TokenIndexerConfig) *TokenIndexer {
 		priceTickRate:   cfg.PriceTickRate,
 		registryAddress: cfg.RegistryAddress,
 		eventCh:         eventCh,
-		addedSubID:      addedSubID,
-		removedSubID:    removedSubID,
+		eventSubID:      eventSubID,
 		eventWatcher:    cfg.EventWatcher,
 	}
 }
@@ -89,8 +86,7 @@ func (i *TokenIndexer) Run(ctx context.Context) error {
 
 func (i *TokenIndexer) run(ctx context.Context) error {
 	defer func() {
-		i.eventWatcher.Unsubscribe(i.addedSubID)
-		i.eventWatcher.Unsubscribe(i.removedSubID)
+		i.eventWatcher.Unsubscribe(i.eventSubID)
 	}()
 
 	for {

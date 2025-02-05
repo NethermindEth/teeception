@@ -11,6 +11,14 @@ var (
 	tokenRemovedSelector    = starknetgoutils.GetSelectorFromNameFelt("TokenRemoved")
 	teeUnencumberedSelector = starknetgoutils.GetSelectorFromNameFelt("TeeUnencumbered")
 
+	promptPaidSelectorBytes      = starknetgoutils.GetSelectorFromNameFelt("PromptPaid").Bytes()
+	promptConsumedSelectorBytes  = starknetgoutils.GetSelectorFromNameFelt("PromptConsumed").Bytes()
+	agentRegisteredSelectorBytes = starknetgoutils.GetSelectorFromNameFelt("AgentRegistered").Bytes()
+	transferSelectorBytes        = starknetgoutils.GetSelectorFromNameFelt("Transfer").Bytes()
+	tokenAddedSelectorBytes      = starknetgoutils.GetSelectorFromNameFelt("TokenAdded").Bytes()
+	tokenRemovedSelectorBytes    = starknetgoutils.GetSelectorFromNameFelt("TokenRemoved").Bytes()
+	teeUnencumberedSelectorBytes = starknetgoutils.GetSelectorFromNameFelt("TeeUnencumbered").Bytes()
+
 	isAgentRegisteredSelector = starknetgoutils.GetSelectorFromNameFelt("is_agent_registered")
 	getSystemPromptSelector   = starknetgoutils.GetSelectorFromNameFelt("get_system_prompt")
 	getPromptPriceSelector    = starknetgoutils.GetSelectorFromNameFelt("get_prompt_price")

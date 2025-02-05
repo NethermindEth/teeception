@@ -231,9 +231,7 @@ type Agent struct {
 	agentRegistryAddress *felt.Felt
 	agentRegistryBlock   uint64
 
-	promptPaidCh      chan *indexer.EventSubscriptionData
-	promptConsumedCh  chan *indexer.EventSubscriptionData
-	teeUnencumberedCh chan *indexer.EventSubscriptionData
+	eventCh chan *indexer.EventSubscriptionData
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
@@ -262,9 +260,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		agentRegistryAddress: config.AgentRegistryAddress,
 		agentRegistryBlock:   config.AgentRegistryBlock,
 
-		promptPaidCh:      make(chan *indexer.EventSubscriptionData, 1000),
-		promptConsumedCh:  make(chan *indexer.EventSubscriptionData, 1000),
-		teeUnencumberedCh: make(chan *indexer.EventSubscriptionData, 1000),
+		eventCh: make(chan *indexer.EventSubscriptionData, 1000),
 	}, nil
 }
 
@@ -287,14 +283,8 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 
 	g.Go(func() error {
-		promptPaidSubID := a.eventWatcher.Subscribe(indexer.EventPromptPaid, a.promptPaidCh)
-		defer a.eventWatcher.Unsubscribe(promptPaidSubID)
-
-		promptConsumedSubID := a.eventWatcher.Subscribe(indexer.EventPromptConsumed, a.promptConsumedCh)
-		defer a.eventWatcher.Unsubscribe(promptConsumedSubID)
-
-		teeUnencumberedSubID := a.eventWatcher.Subscribe(indexer.EventTeeUnencumbered, a.teeUnencumberedCh)
-		defer a.eventWatcher.Unsubscribe(teeUnencumberedSubID)
+		eventSubID := a.eventWatcher.Subscribe(indexer.EventPromptPaid|indexer.EventPromptConsumed|indexer.EventTeeUnencumbered, a.eventCh)
+		defer a.eventWatcher.Unsubscribe(eventSubID)
 
 		return a.eventWatcher.Run(ctx)
 	})
@@ -312,11 +302,10 @@ func (a *Agent) Run(ctx context.Context) error {
 }
 
 type agentEventStartupController struct {
-	startupTasks              map[[32]byte]map[uint64]func()
-	finishedStartup           bool
-	startupBlockNumber        uint64
-	promptPaidBlockNumber     uint64
-	promptConsumedBlockNumber uint64
+	startupTasks       map[[32]byte]map[uint64]func()
+	finishedStartup    bool
+	startupBlockNumber uint64
+	blockNumber        uint64
 }
 
 func (a *agentEventStartupController) ClearStartupTask(agentAddressBytes [32]byte, promptID uint64) {
@@ -342,20 +331,16 @@ func (a *agentEventStartupController) isPastOrAtStartupBlock(block uint64) bool 
 	return block >= a.startupBlockNumber
 }
 
-func (a *agentEventStartupController) SetPromptPaidBlockNumber(block uint64) {
-	a.promptPaidBlockNumber = block
-}
-
-func (a *agentEventStartupController) SetPromptConsumedBlockNumber(block uint64) {
-	a.promptConsumedBlockNumber = block
+func (a *agentEventStartupController) SetBlockNumber(blockNumber uint64) {
+	a.blockNumber = blockNumber
 }
 
 func (a *agentEventStartupController) IsStartupPhase() bool {
-	return !a.isPastOrAtStartupBlock(a.promptPaidBlockNumber) && !a.isPastOrAtStartupBlock(a.promptConsumedBlockNumber) && !a.finishedStartup
+	return !a.isPastOrAtStartupBlock(a.blockNumber) && !a.finishedStartup
 }
 
 func (a *agentEventStartupController) ShouldFinish() bool {
-	return a.isPastOrAtStartupBlock(a.promptPaidBlockNumber) && a.isPastOrAtStartupBlock(a.promptConsumedBlockNumber) && !a.finishedStartup
+	return a.isPastOrAtStartupBlock(a.blockNumber) && !a.finishedStartup
 }
 
 func (a *agentEventStartupController) FinishStartup(pool pond.Pool) {
@@ -391,96 +376,104 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case data := <-a.teeUnencumberedCh:
+		case data := <-a.eventCh:
 			for _, ev := range data.Events {
-				if ev.Raw.BlockNumber < a.startupBlockNumber {
-					continue
-				}
-
-				teeUnencumberedEvent, ok := ev.ToTeeUnencumberedEvent()
-				if !ok {
-					slog.Warn("failed to convert event to tee unencumbered event", "event", ev)
-					continue
-				}
-
-				if teeUnencumberedEvent.Tee.Cmp(a.account.Address()) == 0 {
-					slog.Info("found valid TeeUnencumbered event, twitter and email are now unencumbered")
-					a.isUnencumbered = true
-				}
-			}
-		case data := <-a.promptConsumedCh:
-			for _, ev := range data.Events {
-				if ev.Raw.BlockNumber > a.startupBlockNumber {
-					continue
-				}
-
-				promptConsumedEvent, ok := ev.ToPromptConsumedEvent()
-				if !ok {
-					slog.Warn("failed to convert event to prompt consumed event", "event", ev)
-					continue
-				}
-
-				startupController.ClearStartupTask(ev.Raw.FromAddress.Bytes(), promptConsumedEvent.PromptID)
-			}
-
-			startupController.SetPromptConsumedBlockNumber(data.ToBlock)
-		case data := <-a.promptPaidCh:
-			for _, ev := range data.Events {
-				promptPaidEvent, ok := ev.ToPromptPaidEvent()
-				if !ok {
-					slog.Warn("failed to convert event to prompt paid event", "event", ev)
-					continue
-				}
-
-				slog.Info("received prompt paid event", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
-
-				task := func() {
-					slog.Info("processing prompt paid event",
-						"agent_address", ev.Raw.FromAddress,
-						"tweet_id", promptPaidEvent.TweetID,
-						"prompt_id", promptPaidEvent.PromptID)
-
-					agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, ev.Raw.FromAddress, ev.Raw.BlockNumber)
-					if err != nil {
-						slog.Warn("failed to get agent info", "error", err)
-						return
-					}
-
-					timeNow := uint64(time.Now().Unix())
-
-					if timeNow >= agentInfo.EndTime {
-						slog.Info("agent is expired", "agent_address", ev.Raw.FromAddress, "end_time", agentInfo.EndTime)
-						return
-					}
-
-					isPromptConsumed, err := a.isPromptConsumed(ctx, ev.Raw.FromAddress, promptPaidEvent.PromptID)
-					if err != nil {
-						slog.Warn("failed to check if prompt is consumed", "error", err)
-						return
-					}
-
-					if isPromptConsumed {
-						slog.Info("prompt already consumed", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
-						return
-					}
-
-					err = a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
-					if err != nil {
-						slog.Warn("failed to process prompt paid event", "error", err)
-					}
-				}
-
-				if startupController.IsStartupPhase() {
-					startupController.AddStartupTask(ev.Raw.FromAddress.Bytes(), promptPaidEvent.PromptID, task)
-				} else {
-					err := a.pool.Go(task)
-					if err != nil {
-						slog.Error("failed to pool startup task", "error", err)
-					}
+				if ev.Type == indexer.EventTeeUnencumbered {
+					a.onTeeUnencumberedEvent(ev)
+				} else if ev.Type == indexer.EventPromptConsumed {
+					a.onPromptConsumedEvent(ev, startupController)
+				} else if ev.Type == indexer.EventPromptPaid {
+					a.onPromptPaidEvent(ctx, ev, startupController)
 				}
 			}
 
-			startupController.SetPromptPaidBlockNumber(data.ToBlock)
+			startupController.SetBlockNumber(data.ToBlock)
+		}
+	}
+}
+
+func (a *Agent) onTeeUnencumberedEvent(ev *indexer.Event) {
+	if ev.Raw.BlockNumber < a.startupBlockNumber {
+		return
+	}
+
+	teeUnencumberedEvent, ok := ev.ToTeeUnencumberedEvent()
+	if !ok {
+		slog.Warn("failed to convert event to tee unencumbered event", "event", ev)
+		return
+	}
+
+	if teeUnencumberedEvent.Tee.Cmp(a.account.Address()) == 0 {
+		slog.Info("found valid TeeUnencumbered event, twitter and email are now unencumbered")
+		a.isUnencumbered = true
+	}
+}
+
+func (a *Agent) onPromptConsumedEvent(ev *indexer.Event, startupController *agentEventStartupController) {
+	if ev.Raw.BlockNumber > a.startupBlockNumber {
+		return
+	}
+
+	promptConsumedEvent, ok := ev.ToPromptConsumedEvent()
+	if !ok {
+		slog.Warn("failed to convert event to prompt consumed event", "event", ev)
+		return
+	}
+
+	startupController.ClearStartupTask(ev.Raw.FromAddress.Bytes(), promptConsumedEvent.PromptID)
+}
+
+func (a *Agent) onPromptPaidEvent(ctx context.Context, ev *indexer.Event, startupController *agentEventStartupController) {
+	promptPaidEvent, ok := ev.ToPromptPaidEvent()
+	if !ok {
+		slog.Warn("failed to convert event to prompt paid event", "event", ev)
+		return
+	}
+
+	slog.Info("received prompt paid event", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
+
+	task := func() {
+		slog.Info("processing prompt paid event",
+			"agent_address", ev.Raw.FromAddress,
+			"tweet_id", promptPaidEvent.TweetID,
+			"prompt_id", promptPaidEvent.PromptID)
+
+		agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, ev.Raw.FromAddress, ev.Raw.BlockNumber)
+		if err != nil {
+			slog.Warn("failed to get agent info", "error", err)
+			return
+		}
+
+		timeNow := uint64(time.Now().Unix())
+
+		if timeNow >= agentInfo.EndTime {
+			slog.Info("agent is expired", "agent_address", ev.Raw.FromAddress, "end_time", agentInfo.EndTime)
+			return
+		}
+
+		isPromptConsumed, err := a.isPromptConsumed(ctx, ev.Raw.FromAddress, promptPaidEvent.PromptID)
+		if err != nil {
+			slog.Warn("failed to check if prompt is consumed", "error", err)
+			return
+		}
+
+		if isPromptConsumed {
+			slog.Info("prompt already consumed", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
+			return
+		}
+
+		err = a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
+		if err != nil {
+			slog.Warn("failed to process prompt paid event", "error", err)
+		}
+	}
+
+	if startupController.IsStartupPhase() {
+		startupController.AddStartupTask(ev.Raw.FromAddress.Bytes(), promptPaidEvent.PromptID, task)
+	} else {
+		err := a.pool.Go(task)
+		if err != nil {
+			slog.Error("failed to pool startup task", "error", err)
 		}
 	}
 }
