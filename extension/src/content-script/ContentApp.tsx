@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { ConfirmationModal } from './components/modals/ConfirmationModal'
 import { PaymentModal } from './components/modals/PaymentModal'
 import { ConnectButton } from './components/ConnectButton'
@@ -17,8 +17,8 @@ const ContentApp = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [currentAgentName, setCurrentAgentName] = useState<string | null>(null)
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
-  const { originalButton } = useTweetButton()
   const { account } = useAccount()
+  const originalButtonRef = useRef<HTMLElement | null>(null)
 
   const handleTweetAttempt = useCallback(() => {
     const text = getTweetText()
@@ -30,11 +30,18 @@ const ContentApp = () => {
         setShowConfirmModal(true)
       } else {
         // If no agent name found, just send the tweet
-        originalButton?.click()
+        originalButtonRef.current?.click()
       }
-    } else if (originalButton) {
-      originalButton.click()
+    } else if (originalButtonRef.current) {
+      originalButtonRef.current.click()
     }
+  }, [])
+
+  const { originalButton } = useTweetButton(handleTweetAttempt)
+
+  // Keep originalButtonRef in sync
+  useEffect(() => {
+    originalButtonRef.current = originalButton
   }, [originalButton])
 
   const handlePayment = useCallback(async (tweetId: string, agentName: string) => {

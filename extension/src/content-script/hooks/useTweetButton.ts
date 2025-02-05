@@ -9,9 +9,10 @@ interface TweetButtonState {
 
 /**
  * Creates and manages an overlay button on top of the Twitter tweet button
+ * @param onClick Callback function to be called when the overlay button is clicked
  * @returns Object containing the original and overlay button elements
  */
-export const useTweetButton = () => {
+export const useTweetButton = (onClick?: () => void) => {
   const [state, setState] = useState<TweetButtonState>({
     originalButton: null,
     overlayButton: null
@@ -36,8 +37,13 @@ export const useTweetButton = () => {
     overlay.style.cursor = 'pointer'
     overlay.style.backgroundColor = 'transparent'
     overlay.style.pointerEvents = 'auto'
+    
+    if (onClick) {
+      overlay.addEventListener('click', onClick)
+    }
+    
     return overlay
-  }, [])
+  }, [onClick])
 
   // Update overlay position with throttling
   const updateOverlayPosition = useCallback((tweetButton: HTMLElement, overlay: HTMLElement) => {
