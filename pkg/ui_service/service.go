@@ -34,6 +34,7 @@ type UIService struct {
 	eventWatcher        *indexer.EventWatcher
 	agentIndexer        *indexer.AgentIndexer
 	agentBalanceIndexer *indexer.AgentBalanceIndexer
+	agentUsageIndexer   *indexer.AgentUsageIndexer
 	tokenIndexer        *indexer.TokenIndexer
 
 	registryAddress *felt.Felt
@@ -85,11 +86,20 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 			Db: indexer.NewAgentBalanceIndexerDatabaseInMemory(lastIndexedBlock),
 		},
 	})
+	agentUsageIndexer := indexer.NewAgentUsageIndexer(&indexer.AgentUsageIndexerConfig{
+		Client:          config.Client,
+		RegistryAddress: config.RegistryAddress,
+		MaxPrompts:      10,
+		InitialState: &indexer.AgentUsageIndexerInitialState{
+			Db: indexer.NewAgentUsageIndexerDatabaseInMemory(lastIndexedBlock),
+		},
+	})
 
 	return &UIService{
 		eventWatcher:        eventWatcher,
 		agentIndexer:        agentIndexer,
 		agentBalanceIndexer: agentBalanceIndexer,
+		agentUsageIndexer:   agentUsageIndexer,
 		tokenIndexer:        tokenIndexer,
 
 		registryAddress: config.RegistryAddress,
@@ -110,6 +120,9 @@ func (s *UIService) Run(ctx context.Context) error {
 	})
 	g.Go(func() error {
 		return s.agentBalanceIndexer.Run(ctx, s.eventWatcher)
+	})
+	g.Go(func() error {
+		return s.agentUsageIndexer.Run(ctx, s.eventWatcher)
 	})
 	g.Go(func() error {
 		return s.tokenIndexer.Run(ctx, s.eventWatcher)
