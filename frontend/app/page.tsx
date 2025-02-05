@@ -2,30 +2,12 @@
 
 import { Tooltip } from '@/components/Tooltip'
 import Image from 'next/image'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MenuIcon, Plus, Search } from 'lucide-react'
-import { AgentsList, TabType } from '@/components/AgentsList'
-import { useMemo, useState } from 'react'
-import { MenuItems } from '@/components/MenuItems'
-import clsx from 'clsx'
-import { AgentDetails, useAgents } from '@/hooks/useAgents'
 import { Footer } from '@/components/Footer'
+import { Header } from '@/components/Header'
+import { Leaderboard } from '@/components/Leaderboard'
 
 export default function Home() {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const { agents = [], loading: isFetchingAgents, error } = useAgents({ start: 0, end: 1000 })
-
-  const activeAgents = useMemo(() => agents.filter((agent) => !agent.isFinalized), [agents])
-  const topAttackers = useMemo(
-    () => agents.sort((agent1, agent2) => +agent2.prizePool - +agent1.prizePool),
-    [agents]
-  )
-  console.log({ agents, isFetchingAgents, error })
-  const handleInstallExtension = () => {
-    //TODO: add chrome line
-    console.log('install extension handler called')
-  }
+  // console.log({ agents, isFetchingAgents, error })
 
   const howItWorks = () => {
     window.scrollTo({
@@ -36,71 +18,10 @@ export default function Home() {
     window.history.pushState({}, '', window.location.pathname + '#how_it_works')
   }
 
-  const filterAgents = (agents: AgentDetails[], query: string) => {
-    if (!query.trim()) return agents
-
-    const lowercaseQuery = query.toLowerCase().trim()
-    return agents.filter(
-      (agent) =>
-        agent.name.toLowerCase().includes(lowercaseQuery) ||
-        agent.address.toLowerCase().includes(lowercaseQuery)
-    )
-  }
-
-  const filteredAgents = useMemo(() => filterAgents(agents, searchQuery), [agents, searchQuery])
-  const filteredActiveAgents = useMemo(
-    () => filterAgents(activeAgents, searchQuery),
-    [activeAgents, searchQuery]
-  )
-  const filteredTopAttackers = useMemo(
-    () => filterAgents(topAttackers, searchQuery),
-    [topAttackers, searchQuery]
-  )
-
   return (
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <div className="min-h-screen bg-[url('/img/hero.png')] bg-cover bg-center bg-no-repeat text-white flex items-end md:items-center justify-center md:px-4">
-        <header
-          className={clsx(
-            'fixed left-0 right-0 top-0 backdrop-blur-lg bg-[#12121266] min-h-[76px] z-10 transition-all',
-            {
-              'h-[119px]': menuOpen,
-              'h-[67px]': !menuOpen,
-            }
-          )}
-        >
-          <div className="max-w-[1632px] mx-auto flex items-center p-[11px] md:p-4 justify-between">
-            <div className="flex items-center justify-center">
-              <div className="mr-1 md:mr-4">
-                <Image src={'/icons/shield.svg'} width={40} height={44} alt="shield" />
-              </div>
-              <div className="hidden md:block">
-                <MenuItems />
-              </div>
-            </div>
-
-            <div className="hidden md:flex">
-              <Tooltip text="Coming Soon" position="bottom">
-                <button
-                  onClick={handleInstallExtension}
-                  className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70"
-                  disabled
-                >
-                  Install extension
-                </button>
-              </Tooltip>
-            </div>
-            <button className="ms-auto md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
-              {menuOpen ? <Plus className="rotate-45" /> : <MenuIcon />}
-            </button>
-          </div>
-          {menuOpen && (
-            <div className="py-4 fadeIn">
-              <MenuItems />
-            </div>
-          )}
-        </header>
-
+        <Header />
         <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg max-w-[758px] mt-8">
           <h2 className="text-[2rem] md:text-[42px] font-medium text-center mb-0">#TEECEPTION</h2>
           <div className="flex flex-col gap-4 text-sm md:text-[18px] my-6 text-center leading-6 font-medium">
@@ -311,76 +232,7 @@ export default function Home() {
             <li>On-chain verifiability guarantees transparency for every interaction.</li>
           </ul>
         </div>
-        <div className="px-2 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto md:mt-20">
-          <div className="mb-20">
-            <p className="text-4xl md:text-[48px] font-bold text-center uppercase" id="leaderboard">
-              Leaderboard
-            </p>
-
-            <div className="flex max-w-[800px] mx-auto my-3 md:my-6">
-              <div className="white-gradient-border"></div>
-              <div className="white-gradient-border rotate-180"></div>
-            </div>
-
-            <p className="text-[#B4B4B4] text-center max-w-[594px] mx-auto">
-              Discover agents created over time, active agents and check how both hackers who
-              cracked systems and agent&apos;s creators have earned STRK rewards
-            </p>
-          </div>
-          <div className="">
-            <Tabs defaultValue={TabType.AgentRanking} className="w-full">
-              <div className="flex flex-col md:flex-row items-center justify-between mb-6">
-                <TabsList className="flex w-full">
-                  <TabsTrigger value={TabType.AgentRanking}>
-                    Agents ranking ({agents.length})
-                  </TabsTrigger>
-                  <TabsTrigger value={TabType.ActiveAgents}>
-                    Active agents ({activeAgents.length})
-                  </TabsTrigger>
-                  <TabsTrigger value={TabType.TopAttackers}>
-                    Top attackers ({topAttackers.length})
-                  </TabsTrigger>
-                </TabsList>
-
-                <div className="relative w-full md:w-auto mt-4 md:mt-0">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by agent"
-                    className="placeholder:text-[#6F6F6F] border border-[#6F6F6F] rounded-[28px] bg-transparent px-5 py-1 min-h-[2rem] text-sm outline-none focus:border-white w-full md:w-auto"
-                  />
-                  <Search
-                    className="text-[#6F6F6F] absolute top-1/2 -translate-y-1/2 right-5"
-                    width={14}
-                  />
-                </div>
-              </div>
-
-              <TabsContent value={TabType.AgentRanking}>
-                <AgentsList
-                  agents={filteredAgents}
-                  isFetchingAgents={isFetchingAgents}
-                  searchQuery={searchQuery}
-                />
-              </TabsContent>
-              <TabsContent value={TabType.ActiveAgents}>
-                <AgentsList
-                  agents={filteredActiveAgents}
-                  isFetchingAgents={isFetchingAgents}
-                  searchQuery={searchQuery}
-                />
-              </TabsContent>
-              <TabsContent value={TabType.TopAttackers}>
-                <AgentsList
-                  agents={filteredTopAttackers}
-                  isFetchingAgents={isFetchingAgents}
-                  searchQuery={searchQuery}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+        <Leaderboard />
         <div className="text-[#B8B8B8] text-sm text-center px-3 mb-12">
           <p className="mb-3 text-white md:text-[#B8B8B8]">Disclaimer</p>
 
@@ -389,7 +241,6 @@ export default function Home() {
             for good, and happy hacking!
           </p>
         </div>
-
         <Footer />
       </div>
     </div>

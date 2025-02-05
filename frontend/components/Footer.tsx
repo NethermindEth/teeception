@@ -1,3 +1,6 @@
+'use client'
+
+/* eslint-disable @next/next/no-img-element */
 import Image from 'next/image'
 import Link from 'next/link'
 
@@ -10,18 +13,36 @@ export const Footer = () => {
         </li>
 
         <li className="flex items-center gap-3">
-          <Link href="https://starknet.io" target="_blank" className="hover:opacity-80 transition-opacity">
+          <Link
+            href="https://starknet.io"
+            target="_blank"
+            className="hover:opacity-80 transition-opacity"
+          >
             <Image src="/icons/starknet.svg" width={76} height={17} alt="starknet" />
           </Link>
           <span className="text-[#B8B8B8] text-lg">×</span>
-          <Link href="https://phala.network" target="_blank" className="hover:opacity-80 transition-opacity">
-            <Image src="/icons/phala.svg" width={28} height={28} alt="phala network" className="bg-black rounded-sm" />
+          <Link
+            href="https://phala.network"
+            target="_blank"
+            className="hover:opacity-80 transition-opacity"
+          >
+            <Image
+              src="/icons/phala.svg"
+              width={28}
+              height={28}
+              alt="phala network"
+              className="bg-black rounded-sm"
+            />
           </Link>
           <span className="text-[#B8B8B8] text-lg">×</span>
-          <Link href="https://nethermind.io" target="_blank" className="hover:opacity-80 transition-opacity">
-            <img 
-              src="https://cdn.prod.website-files.com/63bcd69729ab7f3ec1ad210a/64bf04d14176fe2fb1aff258_Nethermind_Light_Horizontal%201.webp" 
-              alt="nethermind" 
+          <Link
+            href="https://nethermind.io"
+            target="_blank"
+            className="hover:opacity-80 transition-opacity"
+          >
+            <img
+              src="https://cdn.prod.website-files.com/63bcd69729ab7f3ec1ad210a/64bf04d14176fe2fb1aff258_Nethermind_Light_Horizontal%201.webp"
+              alt="nethermind"
               className="h-[17px] w-auto"
             />
           </Link>
@@ -41,15 +62,27 @@ export const Footer = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        <Link href="https://x.com/nethermindeth" target="_blank" className="hover:opacity-80 transition-opacity">
+        <Link
+          href="https://x.com/nethermindeth"
+          target="_blank"
+          className="hover:opacity-80 transition-opacity"
+        >
           <Image src="/icons/x.svg" width={20} height={20} alt="X (Twitter)" />
         </Link>
 
-        <Link href="https://t.me/nm_teeception" target="_blank" className="hover:opacity-80 transition-opacity">
+        <Link
+          href="https://t.me/nm_teeception"
+          target="_blank"
+          className="hover:opacity-80 transition-opacity"
+        >
           <Image src="/icons/telegram.svg" width={20} height={20} alt="Telegram" />
         </Link>
 
-        <Link href="https://github.com/NethermindEth/teeception" target="_blank" className="hover:opacity-80 transition-opacity">
+        <Link
+          href="https://github.com/NethermindEth/teeception"
+          target="_blank"
+          className="hover:opacity-80 transition-opacity"
+        >
           <Image src="/icons/github.svg" width={20} height={20} alt="GitHub" />
         </Link>
       </div>
