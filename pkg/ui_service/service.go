@@ -164,15 +164,21 @@ func (s *UIService) startServer(ctx context.Context) error {
 }
 
 type AgentData struct {
-	Pending       bool     `json:"pending"`
-	Address       string   `json:"address"`
-	Token         string   `json:"token"`
-	Name          string   `json:"name"`
-	Balance       string   `json:"balance"`
-	EndTime       string   `json:"end_time"`
-	PromptPrice   string   `json:"prompt_price"`
-	BreakAttempts string   `json:"break_attempts"`
-	LatestPrompts []string `json:"latest_prompts"`
+	Pending       bool                     `json:"pending"`
+	Address       string                   `json:"address"`
+	Token         string                   `json:"token"`
+	Name          string                   `json:"name"`
+	Balance       string                   `json:"balance"`
+	EndTime       string                   `json:"end_time"`
+	PromptPrice   string                   `json:"prompt_price"`
+	BreakAttempts string                   `json:"break_attempts"`
+	LatestPrompts []*AgentDataLatestPrompt `json:"latest_prompts"`
+}
+
+type AgentDataLatestPrompt struct {
+	Prompt    string `json:"prompt"`
+	IsSuccess bool   `json:"is_success"`
+	DrainedTo string `json:"drained_to"`
 }
 
 type AgentPageResponse struct {
@@ -224,6 +230,15 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			continue
 		}
 
+		latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
+		for _, prompt := range usage.LatestPrompts {
+			latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
+				Prompt:    prompt.Prompt,
+				IsSuccess: prompt.IsSuccess,
+				DrainedTo: prompt.DrainedTo.String(),
+			})
+		}
+
 		agentDatas = append(agentDatas, &AgentData{
 			Pending:       balance.Pending,
 			Address:       agentAddr.String(),
@@ -233,7 +248,7 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			EndTime:       strconv.FormatUint(balance.EndTime, 10),
 			PromptPrice:   info.PromptPrice.String(),
 			BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
-			LatestPrompts: usage.LatestPrompts,
+			LatestPrompts: latestPrompts,
 		})
 	}
 
@@ -277,6 +292,15 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 		return
 	}
 
+	latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
+	for _, prompt := range usage.LatestPrompts {
+		latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
+			Prompt:    prompt.Prompt,
+			IsSuccess: prompt.IsSuccess,
+			DrainedTo: prompt.DrainedTo.String(),
+		})
+	}
+
 	c.JSON(http.StatusOK, &AgentData{
 		Pending:       balance.Pending,
 		Address:       agentAddr.String(),
@@ -286,7 +310,7 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 		EndTime:       strconv.FormatUint(balance.EndTime, 10),
 		PromptPrice:   info.PromptPrice.String(),
 		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
-		LatestPrompts: usage.LatestPrompts,
+		LatestPrompts: latestPrompts,
 	})
 }
 
