@@ -164,12 +164,15 @@ func (s *UIService) startServer(ctx context.Context) error {
 }
 
 type AgentData struct {
-	Pending bool   `json:"pending"`
-	Address string `json:"address"`
-	Token   string `json:"token"`
-	Name    string `json:"name"`
-	Balance string `json:"balance"`
-	EndTime string `json:"end_time"`
+	Pending       bool     `json:"pending"`
+	Address       string   `json:"address"`
+	Token         string   `json:"token"`
+	Name          string   `json:"name"`
+	Balance       string   `json:"balance"`
+	EndTime       string   `json:"end_time"`
+	PromptPrice   string   `json:"prompt_price"`
+	BreakAttempts string   `json:"break_attempts"`
+	LatestPrompts []string `json:"latest_prompts"`
 }
 
 type AgentPageResponse struct {
@@ -210,18 +213,27 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			continue
 		}
 
+		usage, ok := s.agentUsageIndexer.GetAgentUsage(agentAddr)
+		if !ok {
+			slog.Error("failed to get agent usage", "error", err)
+			continue
+		}
+
 		if agentAddr == nil || balance.Token == nil || balance.Amount == nil {
 			slog.Error("agent processing error", "agent", agentAddr.String())
 			continue
 		}
 
 		agentDatas = append(agentDatas, &AgentData{
-			Pending: balance.Pending,
-			Address: agentAddr.String(),
-			Name:    info.Name,
-			Token:   balance.Token.String(),
-			Balance: balance.Amount.String(),
-			EndTime: strconv.FormatUint(balance.EndTime, 10),
+			Pending:       balance.Pending,
+			Address:       agentAddr.String(),
+			Name:          info.Name,
+			Token:         balance.Token.String(),
+			Balance:       balance.Amount.String(),
+			EndTime:       strconv.FormatUint(balance.EndTime, 10),
+			PromptPrice:   info.PromptPrice.String(),
+			BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
+			LatestPrompts: usage.LatestPrompts,
 		})
 	}
 
@@ -254,18 +266,27 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 		return
 	}
 
+	usage, ok := s.agentUsageIndexer.GetAgentUsage(agentAddr)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in agent usage indexer"})
+		return
+	}
+
 	if agentAddr == nil || balance.Token == nil || balance.Amount == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "agent processing error"})
 		return
 	}
 
 	c.JSON(http.StatusOK, &AgentData{
-		Pending: balance.Pending,
-		Address: agentAddr.String(),
-		Name:    info.Name,
-		Token:   balance.Token.String(),
-		Balance: balance.Amount.String(),
-		EndTime: strconv.FormatUint(balance.EndTime, 10),
+		Pending:       balance.Pending,
+		Address:       agentAddr.String(),
+		Name:          info.Name,
+		Token:         balance.Token.String(),
+		Balance:       balance.Amount.String(),
+		EndTime:       strconv.FormatUint(balance.EndTime, 10),
+		PromptPrice:   info.PromptPrice.String(),
+		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
+		LatestPrompts: usage.LatestPrompts,
 	})
 }
 
