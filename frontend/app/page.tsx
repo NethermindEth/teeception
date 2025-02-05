@@ -8,11 +8,12 @@ import { AgentsList, TabType } from '@/components/AgentsList'
 import { useMemo, useState } from 'react'
 import { MenuItems } from '@/components/MenuItems'
 import clsx from 'clsx'
-import { useAgents } from '@/hooks/useAgents'
+import { AgentDetails, useAgents } from '@/hooks/useAgents'
 import { Footer } from '@/components/Footer'
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
   const { agents = [], loading: isFetchingAgents, error } = useAgents({ start: 0, end: 1000 })
 
   const activeAgents = useMemo(() => agents.filter((agent) => !agent.isFinalized), [agents])
@@ -34,6 +35,27 @@ export default function Home() {
     // Set url hash
     window.history.pushState({}, '', window.location.pathname + '#how_it_works')
   }
+
+  const filterAgents = (agents: AgentDetails[], query: string) => {
+    if (!query.trim()) return agents
+
+    const lowercaseQuery = query.toLowerCase().trim()
+    return agents.filter(
+      (agent) =>
+        agent.name.toLowerCase().includes(lowercaseQuery) ||
+        agent.address.toLowerCase().includes(lowercaseQuery)
+    )
+  }
+
+  const filteredAgents = useMemo(() => filterAgents(agents, searchQuery), [agents, searchQuery])
+  const filteredActiveAgents = useMemo(
+    () => filterAgents(activeAgents, searchQuery),
+    [activeAgents, searchQuery]
+  )
+  const filteredTopAttackers = useMemo(
+    () => filterAgents(topAttackers, searchQuery),
+    [topAttackers, searchQuery]
+  )
 
   return (
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
@@ -323,6 +345,8 @@ export default function Home() {
                 <div className="relative w-full md:w-auto mt-4 md:mt-0">
                   <input
                     type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search by agent"
                     className="placeholder:text-[#6F6F6F] border border-[#6F6F6F] rounded-[28px] bg-transparent px-5 py-1 min-h-[2rem] text-sm outline-none focus:border-white w-full md:w-auto"
                   />
@@ -334,13 +358,25 @@ export default function Home() {
               </div>
 
               <TabsContent value={TabType.AgentRanking}>
-                <AgentsList agents={agents} isFetchingAgents={isFetchingAgents} />
+                <AgentsList
+                  agents={filteredAgents}
+                  isFetchingAgents={isFetchingAgents}
+                  searchQuery={searchQuery}
+                />
               </TabsContent>
               <TabsContent value={TabType.ActiveAgents}>
-                <AgentsList agents={activeAgents} isFetchingAgents={isFetchingAgents} />
+                <AgentsList
+                  agents={filteredActiveAgents}
+                  isFetchingAgents={isFetchingAgents}
+                  searchQuery={searchQuery}
+                />
               </TabsContent>
               <TabsContent value={TabType.TopAttackers}>
-                <AgentsList agents={topAttackers} isFetchingAgents={isFetchingAgents} />
+                <AgentsList
+                  agents={filteredTopAttackers}
+                  isFetchingAgents={isFetchingAgents}
+                  searchQuery={searchQuery}
+                />
               </TabsContent>
             </Tabs>
           </div>

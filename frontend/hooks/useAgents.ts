@@ -14,6 +14,7 @@ export interface AgentDetails {
   prizePool: string
   isFinalized: boolean
   promptCount: number
+  endTime: string
 }
 
 export interface UseAgentsProps {
@@ -67,22 +68,30 @@ export const useAgents = ({
       try {
         const agent = new Contract(AGENT_ABI, address, provider)
 
-        const [nameResult, systemPromptResult, promptPrice, prizePool, isFinalized, promptCount] =
-          await Promise.all(
-            [
-              agent.get_name(),
-              agent.get_system_prompt(),
-              agent.get_prompt_price(),
-              agent.get_prize_pool(),
-              agent.is_finalized(),
-              agent.get_prompt_count(),
-            ].map((promise) =>
-              promise.catch((e: unknown) => {
-                debug.error('useAgents', 'Error fetching agent data', { address, error: e })
-                return null
-              })
-            )
+        const [
+          nameResult,
+          systemPromptResult,
+          promptPrice,
+          prizePool,
+          isFinalized,
+          promptCount,
+          endTime,
+        ] = await Promise.all(
+          [
+            agent.get_name(),
+            agent.get_system_prompt(),
+            agent.get_prompt_price(),
+            agent.get_prize_pool(),
+            agent.is_finalized(),
+            agent.get_prompt_count(),
+            agent.get_end_time(),
+          ].map((promise) =>
+            promise.catch((e: unknown) => {
+              debug.error('useAgents', 'Error fetching agent data', { address, error: e })
+              return null
+            })
           )
+        )
 
         return {
           address,
@@ -92,6 +101,7 @@ export const useAgents = ({
           promptCount: promptCount?.toString() || '0',
           prizePool: prizePool?.toString() || '0',
           isFinalized: Boolean(isFinalized),
+          endTime: endTime,
         }
       } catch (err) {
         debug.error('useAgents', 'Error processing agent', { address, error: err })
