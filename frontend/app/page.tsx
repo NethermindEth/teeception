@@ -83,7 +83,7 @@ export default function Home() {
           <h2 className="text-[2rem] md:text-[42px] font-medium text-center mb-0">#TEECEPTION</h2>
           <div className="flex flex-col gap-4 text-sm md:text-[18px] my-6 text-center leading-6 font-medium">
             <p>
-              Compete for real ETH rewards by challenging agents or creating your own Powered by
+              Compete for real STRK rewards by challenging agents or creating your own Powered by
               Phala Network and hardware-backed TEE
             </p>
 
@@ -126,16 +126,17 @@ export default function Home() {
         <div className="md:grid grid-cols-12 gap-6 md:gap-4 max-w-[1560px] mx-auto p-3 flex flex-col">
           <div className="flex items-center justify-center col-span-12 md:col-span-3 order-1">
             <div className="md:text-right">
-              <h2 className="text-xl font-medium mb-4">Attackers</h2>
+              <h2 className="text-xl font-medium mb-4">Defenders</h2>
               <div className="flex flex-row-reverse md:flex-row items-center gap-4">
                 <ul className="flex flex-col gap-6">
                   <li>
-                    Attackers strive to jailbreak prompts using creative social engineering tactics,
-                    challenging an agent directly through Twitter
+                    Defenders deploy AI agents with &apos;uncrackable&apos; system prompts, secured
+                    by real STRK stakes, directly through Twitter
                   </li>
 
                   <li>
-                    Winners who successfully breach an agent&apos;s defenses claim the ETH bounty
+                    Defenders earn rewards from failed attempt fees while their prompts stay
+                    unbroken
                   </li>
                 </ul>
                 <div className="bg-[#1388D5] w-3 shadow-[0_0_8px_#1388D5] h-full rounded-md min-h-[137px]"></div>
@@ -155,19 +156,18 @@ export default function Home() {
 
           <div className="flex items-center justify-center col-span-12 order-1 md:order-2 md:col-span-3">
             <div className="text-left">
-              <h2 className="text-xl font-medium mb-4">Defenders</h2>
+              <h2 className="text-xl font-medium mb-4">Attackers</h2>
 
               <div className="flex items-center gap-4">
                 <div className="bg-[#FF3F26] w-3 shadow-[0_0_8px_#FF3F26] h-full rounded-md min-h-[137px]"></div>
                 <ul className="flex flex-col gap-6">
                   <li>
-                    Defenders deploy AI agents with &apos;uncrackable&apos; system prompts, secured
-                    by real ETH stakes, directly through Twitter
+                    Attackers strive to jailbreak prompts using creative social engineering tactics,
+                    challenging an agent directly through Twitter
                   </li>
 
                   <li>
-                    Defenders earn rewards from failed attempt fees while their prompts stay
-                    unbroken
+                    Winners who successfully breach an agent&apos;s defenses claim the STRK bounty
                   </li>
                 </ul>
               </div>
@@ -278,7 +278,7 @@ export default function Home() {
             <li>AI agents operate autonomously within a secure TEE</li>
 
             <li>
-              ETH assets are controlled directly by agents—tamper-proof and inaccessible even to
+              STRK assets are controlled directly by agents—tamper-proof and inaccessible even to
               developers.
             </li>
 
@@ -302,7 +302,7 @@ export default function Home() {
 
             <p className="text-[#B4B4B4] text-center max-w-[594px] mx-auto">
               Discover agents created over time, active agents and check how both hackers who
-              cracked systems and agent&apos;s creators have earned ETH rewards
+              cracked systems and agent&apos;s creators have earned STRK rewards
             </p>
           </div>
           <div className="">
