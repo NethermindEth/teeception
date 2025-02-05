@@ -502,14 +502,30 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 	}
 
 	isDrain := resp.Drain != nil
-	drainTo := ""
-	if isDrain {
-		drainTo = resp.Drain.Address
-	}
 
 	slog.Info("replying to tweet", "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID, "is_drain", isDrain, "reply", resp.Response)
 
-	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, isDrain, drainTo)
+	var drainTo *felt.Felt
+	if !isDrain {
+		drainTo = agentInfo.Address
+	} else {
+		var err error
+
+		drainTo, err = starknetgoutils.HexToFelt(resp.Drain.Address)
+		if err != nil {
+			slog.Warn("failed to convert address to felt", "error", err)
+
+			reply := "Seems like the drain address is invalid. Please try again."
+			err := a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
+			if err != nil {
+				slog.Warn("failed to reply to tweet", "error", err)
+			}
+
+			return fmt.Errorf("failed to convert address to felt: %v", err)
+		}
+	}
+
+	txHash, err := a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, drainTo)
 	if err != nil {
 		slog.Warn("failed to consume prompt", "error", snaccount.FormatRpcError(err))
 		return fmt.Errorf("failed to consume prompt: %v", err)
@@ -551,18 +567,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 	return nil
 }
 
-func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64, drain bool, drainToStr string) (*felt.Felt, error) {
-	var drainTo *felt.Felt
-	if !drain {
-		drainTo = agentAddress
-	} else {
-		var err error
-		drainTo, err = starknetgoutils.HexToFelt(drainToStr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert address to felt: %v", err)
-		}
-	}
-
+func (a *Agent) consumePrompt(ctx context.Context, agentAddress *felt.Felt, promptID uint64, drainTo *felt.Felt) (*felt.Felt, error) {
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    a.agentRegistryAddress,
 		EntryPointSelector: consumePromptSelector,
