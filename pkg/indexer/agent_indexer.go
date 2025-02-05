@@ -31,6 +31,10 @@ type AgentIndexer struct {
 	db              AgentIndexerDatabase
 	registryAddress *felt.Felt
 	client          starknet.ProviderWrapper
+
+	eventCh      chan *EventSubscriptionData
+	eventSubID   int64
+	eventWatcher *EventWatcher
 }
 
 // AgentIndexerInitialState is the initial state for an AgentIndexer.
@@ -43,6 +47,7 @@ type AgentIndexerConfig struct {
 	RegistryAddress *felt.Felt
 	Client          starknet.ProviderWrapper
 	InitialState    *AgentIndexerInitialState
+	EventWatcher    *EventWatcher
 }
 
 // NewAgentIndexer instantiates an AgentIndexer.
@@ -53,31 +58,35 @@ func NewAgentIndexer(cfg *AgentIndexerConfig) *AgentIndexer {
 		}
 	}
 
+	eventCh := make(chan *EventSubscriptionData, 1000)
+	eventSubID := cfg.EventWatcher.Subscribe(EventAgentRegistered, eventCh)
+
 	return &AgentIndexer{
 		db:              cfg.InitialState.Db,
 		registryAddress: cfg.RegistryAddress,
 		client:          cfg.Client,
+		eventCh:         eventCh,
+		eventSubID:      eventSubID,
+		eventWatcher:    cfg.EventWatcher,
 	}
 }
 
 // Run starts the main indexing loop in a goroutine. It returns after spawning
 // so that you can manage it externally via context cancellation or wait-group.
-func (i *AgentIndexer) Run(ctx context.Context, watcher *EventWatcher) error {
+func (i *AgentIndexer) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return i.run(ctx, watcher)
+		return i.run(ctx)
 	})
 	return g.Wait()
 }
 
-func (i *AgentIndexer) run(ctx context.Context, watcher *EventWatcher) error {
-	ch := make(chan *EventSubscriptionData, 1000)
-	subID := watcher.Subscribe(EventAgentRegistered, ch)
-	defer watcher.Unsubscribe(subID)
+func (i *AgentIndexer) run(ctx context.Context) error {
+	defer i.eventWatcher.Unsubscribe(i.eventSubID)
 
 	for {
 		select {
-		case data := <-ch:
+		case data := <-i.eventCh:
 			i.agentsMu.Lock()
 			for _, ev := range data.Events {
 				i.onAgentRegistered(ev)

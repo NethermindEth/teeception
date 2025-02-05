@@ -46,6 +46,12 @@ type AgentBalanceIndexer struct {
 
 	tickRate       time.Duration
 	safeBlockDelta uint64
+
+	agentRegisteredCh    chan *EventSubscriptionData
+	transferCh           chan *EventSubscriptionData
+	agentRegisteredSubID int64
+	transferSubID        int64
+	eventWatcher         *EventWatcher
 }
 
 // AgentBalanceIndexerInitialState is the initial state for an AgentBalanceIndexer.
@@ -62,6 +68,7 @@ type AgentBalanceIndexerConfig struct {
 	RegistryAddress *felt.Felt
 	PriceCache      AgentBalanceIndexerPriceCache
 	InitialState    *AgentBalanceIndexerInitialState
+	EventWatcher    *EventWatcher
 }
 
 // NewAgentBalanceIndexer creates a new AgentBalanceIndexer.
@@ -72,36 +79,43 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 		}
 	}
 
+	agentRegisteredCh := make(chan *EventSubscriptionData, 1000)
+	transferCh := make(chan *EventSubscriptionData, 1000)
+	agentRegisteredSubID := config.EventWatcher.Subscribe(EventAgentRegistered, agentRegisteredCh)
+	transferSubID := config.EventWatcher.Subscribe(EventTransfer, transferCh)
+
 	return &AgentBalanceIndexer{
-		client:          config.Client,
-		agentIdx:        config.AgentIdx,
-		registryAddress: config.RegistryAddress,
-		db:              config.InitialState.Db,
-		priceCache:      config.PriceCache,
-		toUpdate:        make(map[[32]byte]struct{}),
-		tickRate:        config.TickRate,
-		safeBlockDelta:  config.SafeBlockDelta,
+		client:               config.Client,
+		agentIdx:             config.AgentIdx,
+		registryAddress:      config.RegistryAddress,
+		db:                   config.InitialState.Db,
+		priceCache:           config.PriceCache,
+		toUpdate:             make(map[[32]byte]struct{}),
+		tickRate:             config.TickRate,
+		safeBlockDelta:       config.SafeBlockDelta,
+		agentRegisteredCh:    agentRegisteredCh,
+		transferCh:           transferCh,
+		agentRegisteredSubID: agentRegisteredSubID,
+		transferSubID:        transferSubID,
+		eventWatcher:         config.EventWatcher,
 	}
 }
 
 // Run starts the main indexing loop in a goroutine. It returns after spawning
 // so that you can manage it externally via context cancellation or wait-group.
-func (i *AgentBalanceIndexer) Run(ctx context.Context, watcher *EventWatcher) error {
+func (i *AgentBalanceIndexer) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return i.run(ctx, watcher)
+		return i.run(ctx)
 	})
 	return g.Wait()
 }
 
-func (i *AgentBalanceIndexer) run(ctx context.Context, watcher *EventWatcher) error {
-	agentRegisteredCh := make(chan *EventSubscriptionData, 1000)
-	agentRegisteredSubID := watcher.Subscribe(EventAgentRegistered, agentRegisteredCh)
-	defer watcher.Unsubscribe(agentRegisteredSubID)
-
-	transferCh := make(chan *EventSubscriptionData, 1000)
-	transferSubID := watcher.Subscribe(EventTransfer, transferCh)
-	defer watcher.Unsubscribe(transferSubID)
+func (i *AgentBalanceIndexer) run(ctx context.Context) error {
+	defer func() {
+		i.eventWatcher.Unsubscribe(i.agentRegisteredSubID)
+		i.eventWatcher.Unsubscribe(i.transferSubID)
+	}()
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
@@ -110,11 +124,11 @@ func (i *AgentBalanceIndexer) run(ctx context.Context, watcher *EventWatcher) er
 
 	for {
 		select {
-		case data := <-transferCh:
+		case data := <-i.transferCh:
 			for _, ev := range data.Events {
 				i.onTransferEvent(ctx, ev)
 			}
-		case data := <-agentRegisteredCh:
+		case data := <-i.agentRegisteredCh:
 			for _, ev := range data.Events {
 				i.onAgentRegisteredEvent(ctx, ev)
 			}

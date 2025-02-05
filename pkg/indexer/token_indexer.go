@@ -29,6 +29,11 @@ type TokenIndexer struct {
 	registryAddress *felt.Felt
 	priceFeed       price.PriceFeed
 	priceTickRate   time.Duration
+
+	eventCh      chan *EventSubscriptionData
+	addedSubID   int64
+	removedSubID int64
+	eventWatcher *EventWatcher
 }
 
 // TokenIndexerInitialState is the initial state for a TokenIndexer.
@@ -42,6 +47,7 @@ type TokenIndexerConfig struct {
 	PriceTickRate   time.Duration
 	RegistryAddress *felt.Felt
 	InitialState    *TokenIndexerInitialState
+	EventWatcher    *EventWatcher
 }
 
 // NewTokenIndexer instantiates a TokenIndexer.
@@ -52,20 +58,28 @@ func NewTokenIndexer(cfg *TokenIndexerConfig) *TokenIndexer {
 		}
 	}
 
+	eventCh := make(chan *EventSubscriptionData, 1000)
+	addedSubID := cfg.EventWatcher.Subscribe(EventTokenAdded, eventCh)
+	removedSubID := cfg.EventWatcher.Subscribe(EventTokenRemoved, eventCh)
+
 	return &TokenIndexer{
 		db:              cfg.InitialState.Db,
 		priceFeed:       cfg.PriceFeed,
 		priceTickRate:   cfg.PriceTickRate,
 		registryAddress: cfg.RegistryAddress,
+		eventCh:         eventCh,
+		addedSubID:      addedSubID,
+		removedSubID:    removedSubID,
+		eventWatcher:    cfg.EventWatcher,
 	}
 }
 
 // Run starts the main indexing loop in a goroutine. It returns after spawning
 // so that you can manage it externally via context cancellation or wait-group.
-func (i *TokenIndexer) Run(ctx context.Context, watcher *EventWatcher) error {
+func (i *TokenIndexer) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return i.run(ctx, watcher)
+		return i.run(ctx)
 	})
 	g.Go(func() error {
 		return i.updatePricesTask(ctx)
@@ -73,21 +87,15 @@ func (i *TokenIndexer) Run(ctx context.Context, watcher *EventWatcher) error {
 	return g.Wait()
 }
 
-func (i *TokenIndexer) run(ctx context.Context, watcher *EventWatcher) error {
-	ch := make(chan *EventSubscriptionData, 1000)
-
-	// Subscribe to both token added and removed events
-	addedSubID := watcher.Subscribe(EventTokenAdded, ch)
-	removedSubID := watcher.Subscribe(EventTokenRemoved, ch)
-
+func (i *TokenIndexer) run(ctx context.Context) error {
 	defer func() {
-		watcher.Unsubscribe(addedSubID)
-		watcher.Unsubscribe(removedSubID)
+		i.eventWatcher.Unsubscribe(i.addedSubID)
+		i.eventWatcher.Unsubscribe(i.removedSubID)
 	}()
 
 	for {
 		select {
-		case data := <-ch:
+		case data := <-i.eventCh:
 			i.dbMu.Lock()
 			for _, ev := range data.Events {
 				switch ev.Type {

@@ -150,6 +150,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          starknetClient,
 		RegistryAddress: params.AgentRegistryAddress,
+		EventWatcher:    eventWatcher,
 		InitialState: &indexer.AgentIndexerInitialState{
 			Db: indexer.NewAgentIndexerDatabaseInMemory(max(params.AgentRegistryDeploymentBlock, 1) - 1),
 		},
@@ -298,7 +299,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		return a.eventWatcher.Run(ctx)
 	})
 	g.Go(func() error {
-		return a.agentIndexer.Run(ctx, a.eventWatcher)
+		return a.agentIndexer.Run(ctx)
 	})
 	g.Go(func() error {
 		return a.txQueue.Run(ctx)

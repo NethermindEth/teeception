@@ -62,6 +62,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
+		EventWatcher:    eventWatcher,
 		InitialState: &indexer.AgentIndexerInitialState{
 			Db: indexer.NewAgentIndexerDatabaseInMemory(lastIndexedBlock),
 		},
@@ -71,6 +72,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		PriceFeed:       priceFeed,
 		PriceTickRate:   config.PriceTickRate,
 		RegistryAddress: config.RegistryAddress,
+		EventWatcher:    eventWatcher,
 		InitialState: &indexer.TokenIndexerInitialState{
 			Db: indexer.NewTokenIndexerDatabaseInMemory(lastIndexedBlock),
 		},
@@ -82,6 +84,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
+		EventWatcher:    eventWatcher,
 		InitialState: &indexer.AgentBalanceIndexerInitialState{
 			Db: indexer.NewAgentBalanceIndexerDatabaseInMemory(lastIndexedBlock),
 		},
@@ -90,6 +93,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,
 		MaxPrompts:      10,
+		EventWatcher:    eventWatcher,
 		InitialState: &indexer.AgentUsageIndexerInitialState{
 			Db: indexer.NewAgentUsageIndexerDatabaseInMemory(lastIndexedBlock),
 		},
@@ -116,16 +120,16 @@ func (s *UIService) Run(ctx context.Context) error {
 		return s.eventWatcher.Run(ctx)
 	})
 	g.Go(func() error {
-		return s.agentIndexer.Run(ctx, s.eventWatcher)
+		return s.agentIndexer.Run(ctx)
 	})
 	g.Go(func() error {
-		return s.agentBalanceIndexer.Run(ctx, s.eventWatcher)
+		return s.agentBalanceIndexer.Run(ctx)
 	})
 	g.Go(func() error {
-		return s.agentUsageIndexer.Run(ctx, s.eventWatcher)
+		return s.agentUsageIndexer.Run(ctx)
 	})
 	g.Go(func() error {
-		return s.tokenIndexer.Run(ctx, s.eventWatcher)
+		return s.tokenIndexer.Run(ctx)
 	})
 	g.Go(func() error {
 		return s.startServer(ctx)

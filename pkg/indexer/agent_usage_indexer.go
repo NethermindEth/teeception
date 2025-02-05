@@ -29,6 +29,12 @@ type AgentUsageIndexer struct {
 
 	maxPrompts uint64
 	pending    map[[32]byte]*AgentUsageIndexerPendingUsage
+
+	agentRegisteredCh    chan *EventSubscriptionData
+	promptPaidCh         chan *EventSubscriptionData
+	agentRegisteredSubID int64
+	promptPaidSubID      int64
+	eventWatcher         *EventWatcher
 }
 
 type AgentUsageIndexerPendingUsage struct {
@@ -45,6 +51,7 @@ type AgentUsageIndexerConfig struct {
 	RegistryAddress *felt.Felt
 	MaxPrompts      uint64
 	InitialState    *AgentUsageIndexerInitialState
+	EventWatcher    *EventWatcher
 }
 
 func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
@@ -54,6 +61,11 @@ func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
 		}
 	}
 
+	agentRegisteredCh := make(chan *EventSubscriptionData, 1000)
+	promptPaidCh := make(chan *EventSubscriptionData, 1000)
+	agentRegisteredSubID := config.EventWatcher.Subscribe(EventAgentRegistered, agentRegisteredCh)
+	promptPaidSubID := config.EventWatcher.Subscribe(EventPromptPaid, promptPaidCh)
+
 	return &AgentUsageIndexer{
 		client:                   config.Client,
 		registryAddress:          config.RegistryAddress,
@@ -62,29 +74,31 @@ func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
 		lastAgentRegisteredBlock: config.InitialState.Db.GetLastIndexedBlock(),
 		lastPromptPaidBlock:      config.InitialState.Db.GetLastIndexedBlock(),
 		pending:                  make(map[[32]byte]*AgentUsageIndexerPendingUsage),
+		agentRegisteredCh:        agentRegisteredCh,
+		promptPaidCh:             promptPaidCh,
+		agentRegisteredSubID:     agentRegisteredSubID,
+		promptPaidSubID:          promptPaidSubID,
+		eventWatcher:             config.EventWatcher,
 	}
 }
 
-func (i *AgentUsageIndexer) Run(ctx context.Context, watcher *EventWatcher) error {
+func (i *AgentUsageIndexer) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return i.run(ctx, watcher)
+		return i.run(ctx)
 	})
 	return g.Wait()
 }
 
-func (i *AgentUsageIndexer) run(ctx context.Context, watcher *EventWatcher) error {
-	agentRegisteredCh := make(chan *EventSubscriptionData, 1000)
-	agentRegisteredSubID := watcher.Subscribe(EventAgentRegistered, agentRegisteredCh)
-	defer watcher.Unsubscribe(agentRegisteredSubID)
-
-	promptPaidCh := make(chan *EventSubscriptionData, 1000)
-	promptPaidSubID := watcher.Subscribe(EventPromptPaid, promptPaidCh)
-	defer watcher.Unsubscribe(promptPaidSubID)
+func (i *AgentUsageIndexer) run(ctx context.Context) error {
+	defer func() {
+		i.eventWatcher.Unsubscribe(i.agentRegisteredSubID)
+		i.eventWatcher.Unsubscribe(i.promptPaidSubID)
+	}()
 
 	for {
 		select {
-		case data := <-agentRegisteredCh:
+		case data := <-i.agentRegisteredCh:
 			i.mu.Lock()
 			i.lastAgentRegisteredBlock = data.ToBlock
 			for _, ev := range data.Events {
@@ -93,7 +107,7 @@ func (i *AgentUsageIndexer) run(ctx context.Context, watcher *EventWatcher) erro
 			i.db.SetLastIndexedBlock(min(i.lastAgentRegisteredBlock, i.lastPromptPaidBlock))
 			i.cleanupPending()
 			i.mu.Unlock()
-		case data := <-promptPaidCh:
+		case data := <-i.promptPaidCh:
 			i.mu.Lock()
 			i.lastPromptPaidBlock = data.ToBlock
 			for _, ev := range data.Events {
