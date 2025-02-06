@@ -573,7 +573,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		}
 
 		slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
-		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
+		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", agentInfo.Name, reply))
 		if err != nil {
 			slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 		}
@@ -635,7 +635,7 @@ func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error
 	fullPattern := `(.*?)\s*@` + regexp.QuoteMeta(a.twitterClientConfig.Username) + `\s*:\s*` + regexp.QuoteMeta(agentName) + `\s*:\s*(.*)`
 	fullRe := regexp.MustCompile(fullPattern)
 	matches := fullRe.FindStringSubmatch(tweetText)
-	if matches == nil {
+	if len(matches) < 3 {
 		return fmt.Errorf("tweet text does not match expected format. Expected format: <prompt_left> @%s :%s <prompt_right>", a.twitterClientConfig.Username, agentName)
 	}
 
