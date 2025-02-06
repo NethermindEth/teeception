@@ -4,7 +4,12 @@ import { AGENT_REGISTRY_COPY_ABI } from '@/abis/AGENT_REGISTRY'
 import { AGENT_ABI } from '@/abis/AGENT_ABI'
 import { ERC20_ABI } from '@/abis/ERC20_ABI'
 import { debug } from '@/lib/debug'
-import { AGENT_REGISTRY_ADDRESS, RPC_NODE_URL } from '@/constants'
+import {
+  ACTIVE_NETWORK,
+  AGENT_REGISTRY_ADDRESS,
+  DEFAULT_TOKEN_DECIMALS,
+  RPC_NODE_URL,
+} from '@/constants'
 
 export interface AgentDetails {
   address: string
@@ -15,6 +20,9 @@ export interface AgentDetails {
   isFinalized: boolean
   promptCount: number
   endTime: string
+  tokenAddress: string
+  symbol: string
+  decimal: number
 }
 
 export interface UseAgentsProps {
@@ -76,6 +84,7 @@ export const useAgents = ({
           isFinalized,
           promptCount,
           endTime,
+          tokenAddress,
         ] = await Promise.all(
           [
             agent.get_name(),
@@ -85,6 +94,7 @@ export const useAgents = ({
             agent.is_finalized(),
             agent.get_prompt_count(),
             agent.get_end_time(),
+            agent.get_token(),
           ].map((promise) =>
             promise.catch((e: unknown) => {
               debug.error('useAgents', 'Error fetching agent data', { address, error: e })
@@ -92,6 +102,12 @@ export const useAgents = ({
             })
           )
         )
+
+        console.log('token address', tokenAddress.toString(16))
+        const tokenAddressHex = `0x0${tokenAddress.toString(16)}`
+        const token = ACTIVE_NETWORK.tokens.find(({ address }) => address === tokenAddressHex)
+        const symbol = !!token ? token.symbol : ''
+        const decimal = !!token ? token.decimals : DEFAULT_TOKEN_DECIMALS
 
         return {
           address,
@@ -102,6 +118,9 @@ export const useAgents = ({
           prizePool: prizePool?.toString() || '0',
           isFinalized: Boolean(isFinalized),
           endTime: endTime,
+          tokenAddress: tokenAddressHex,
+          symbol,
+          decimal,
         }
       } catch (err) {
         debug.error('useAgents', 'Error processing agent', { address, error: err })

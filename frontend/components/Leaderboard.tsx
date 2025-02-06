@@ -53,8 +53,8 @@ export const Leaderboard = () => {
           systems and agent&apos;s creators have earned STRK rewards
         </p>
       </div>
-      <div className="">
-        <Tabs defaultValue={TabType.AgentRanking} className="w-full">
+      <div>
+        <Tabs defaultValue={TabType.ActiveAgents} className="w-full">
           <div className="flex flex-col md:flex-row items-center justify-between mb-6">
             <TabsList className="flex w-full">
               <TabsTrigger value={TabType.AgentRanking}>

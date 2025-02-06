@@ -25,3 +25,17 @@ export const calculateTimeLeft = (endTime: number) => {
     return `${minutes}m`
   }
 }
+
+export const divideFloatStrings = (a: string, b: number): string => {
+  console.log({ a, b })
+  const numA = parseFloat(a)
+  const numB = Number(10 ** b)
+
+  if (numB === 0) {
+    console.error('Division by zero is not allowed.')
+    return '0'
+  }
+
+  const result = (numA / numB).toFixed(4)
+  return result
+}

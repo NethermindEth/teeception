@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { DOTS, usePagination } from '@/hooks/usePagination'
 import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AgentDetails } from '@/hooks/useAgents'
-import { calculateTimeLeft } from '@/lib/utils'
+import { calculateTimeLeft, divideFloatStrings } from '@/lib/utils'
 
 export enum TabType {
   AgentRanking = 'AGENT_RANKING',
@@ -84,6 +84,8 @@ export const AgentsList = ({
 
               {currentAgents.map((agent, idx) => {
                 const timeLeft = calculateTimeLeft(Number(agent.endTime))
+                const promptPrice = divideFloatStrings(agent.promptPrice, agent.decimal)
+                const prizePool = divideFloatStrings(agent.prizePool, agent.decimal)
                 return (
                   <div
                     className="grid grid-cols-12 bg-[#2E40494D] backdrop-blur-xl min-w-[680px] min-h-11 p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
@@ -104,8 +106,8 @@ export const AgentsList = ({
                       </div>
                     </div>
                     <div className="col-span-2 ps-4">{agent.promptCount}</div>
-                    <div className="col-span-3 ps-4">{agent.promptPrice}</div>
-                    <div className="col-span-2 ps-4">{agent.prizePool}</div>
+                    <div className="col-span-3 ps-4">{`${promptPrice} ${agent.symbol}`.trim()}</div>
+                    <div className="col-span-2 ps-4">{`${prizePool} ${agent.symbol}`.trim()}</div>
                   </div>
                 )
               })}
