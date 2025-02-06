@@ -40,15 +40,15 @@ type TransactionStatus = {
 /**
  * Modal component that shows payment confirmation when a user wants to pay for a challenge
  */
-export const PaymentModal = ({ 
-  open, 
-  onConfirm, 
-  onCancel, 
-  agentName, 
-  tweetId, 
+export const PaymentModal = ({
+  open,
+  onConfirm,
+  onCancel,
+  agentName,
+  tweetId,
   updateBanner,
   checkUnpaidTweets,
-  markTweetAsPaid
+  markTweetAsPaid,
 }: PaymentModalProps) => {
   const [loading, setLoading] = useState(true)
   const [price, setPrice] = useState<TweetPrice | null>(null)
@@ -56,10 +56,12 @@ export const PaymentModal = ({
   const [existingAttempts, setExistingAttempts] = useState<bigint>(0n)
   const [txStatus, setTxStatus] = useState<TransactionStatus>({
     approve: 'idle',
-    payment: 'idle'
+    payment: 'idle',
   })
   const [agentAddress, setAgentAddress] = useState<string | null>(null)
   const [tokenAddress, setTokenAddress] = useState<string | null>(null)
+  const [isExecuting, setIsExecuting] = useState(false)
+  const [shouldRemount, setShouldRemount] = useState(true)
 
   const { account } = useAccount()
 
@@ -82,38 +84,35 @@ export const PaymentModal = ({
       if (!tokenContract || !agentContract || !price) return undefined
 
       try {
-        const tweetIdBigInt = BigInt(tweetId);
+        const tweetIdBigInt = BigInt(tweetId)
 
         // Find the tweet element and get its text
         const tweetElement = document.querySelector(`article[data-testid="tweet"]`)
         const tweetTextElement = tweetElement?.querySelector(SELECTORS.TWEET_TEXT)
         const tweetText = tweetTextElement?.textContent || ''
-        
+
         if (!tweetText) {
           debug.error('PaymentModal', 'Could not find tweet text', {
             tweetId,
             tweetElement: !!tweetElement,
-            tweetTextElement: !!tweetTextElement
+            tweetTextElement: !!tweetTextElement,
           })
           return undefined
         }
-        
+
         console.log('tweetText', cleanPromptText(tweetText))
         return [
-          tokenContract.populate("approve", [
+          tokenContract.populate('approve', [
             agentContract.address,
-            uint256.bnToUint256(price.price)
+            uint256.bnToUint256(price.price),
           ]),
-          agentContract.populate("pay_for_prompt", [
-            tweetIdBigInt,
-            cleanPromptText(tweetText)
-          ])
+          agentContract.populate('pay_for_prompt', [tweetIdBigInt, cleanPromptText(tweetText)]),
         ]
       } catch (error) {
         debug.error('PaymentModal', 'Error preparing transaction calls:', error)
         return undefined
       }
-    }, [tokenContract, agentContract, price, tweetId])
+    }, [tokenContract, agentContract, price, tweetId]),
   })
 
   const fetchPrice = async () => {
@@ -123,14 +122,14 @@ export const PaymentModal = ({
       setPrice(null)
       setExistingAttempts(0n)
       setTxStatus({ approve: 'idle', payment: 'idle' })
-      
+
       // Get agent address
       const address = await getAgentAddressByName(agentName)
       if (!address) {
         throw new Error(`Agent ${agentName} not found`)
       }
       setAgentAddress(address)
-      
+
       // Get the agent's token
       const token = await getAgentToken(address)
       setTokenAddress(token)
@@ -141,11 +140,7 @@ export const PaymentModal = ({
           // Create contract instance with properly formatted address
           const formattedAddress = `0x${BigInt(address).toString(16).padStart(64, '0')}`
 
-          const agentContract = new Contract(
-            TEECEPTION_AGENT_ABI,
-            formattedAddress,
-            provider
-          )
+          const agentContract = new Contract(TEECEPTION_AGENT_ABI, formattedAddress, provider)
 
           const userPromptCount = await agentContract.get_user_tweet_prompts_count(
             `0x${BigInt(account.address).toString(16).padStart(64, '0')}`,
@@ -159,7 +154,7 @@ export const PaymentModal = ({
         }
       } else {
       }
-      
+
       // Find token symbol from address
       const tokenInfo = Object.entries(ACTIVE_NETWORK.tokens).find(
         ([_, t]) => BigInt(t.address).toString() === token
@@ -171,11 +166,15 @@ export const PaymentModal = ({
 
       // Get the price for the challenge
       const challengePrice = await getPromptPrice(address)
-      
+
       setPrice({ price: challengePrice, token: tokenInfo[0] })
     } catch (error) {
       debug.error('PaymentModal', 'Error fetching price', error)
-      setError(error instanceof Error ? error.message : 'Failed to fetch challenge price. Please try again.')
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch challenge price. Please try again.'
+      )
     } finally {
       setLoading(false)
     }
@@ -187,19 +186,23 @@ export const PaymentModal = ({
     }
   }, [open, account?.address]) // Also refetch when wallet changes
 
-  const formattedPrice = price 
-    ? `${Number(price.price) / Math.pow(10, ACTIVE_NETWORK.tokens[price.token].decimals)} ${price.token}`
+  const formattedPrice = price
+    ? `${Number(price.price) / Math.pow(10, ACTIVE_NETWORK.tokens[price.token].decimals)} ${
+        price.token
+      }`
     : '...'
 
   // Check if user has sufficient balance
-  const hasInsufficientBalance = price && tokenBalance?.balance ? 
-    tokenBalance.balance.toString() < price.price.toString() : 
-    false
+  const hasInsufficientBalance =
+    price && tokenBalance?.balance
+      ? tokenBalance.balance.toString() < price.price.toString()
+      : false
 
   const getButtonText = () => {
     if (loading) return 'Loading...'
     if (txStatus.approve === 'loading') return 'Processing Transaction...'
-    if (txStatus.approve === 'success' && txStatus.payment === 'loading') return 'Processing Payment...'
+    if (txStatus.approve === 'success' && txStatus.payment === 'loading')
+      return 'Processing Payment...'
     if (hasInsufficientBalance) return `Insufficient ${price?.token} balance`
     return `Pay ${formattedPrice}`
   }
@@ -208,14 +211,18 @@ export const PaymentModal = ({
     if (!account || !tokenContract || !agentContract || !price) return
 
     try {
-      setTxStatus(prev => ({ ...prev, approve: 'loading' }))
+      setTxStatus((prev) => ({ ...prev, approve: 'loading' }))
+      //Note: We unmounting the component to fix occlusion issue which disables click event in cartridge payment modal
+      setShouldRemount(false)
+      setIsExecuting(true)
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       const response = await sendAsync()
 
       if (response?.transaction_hash) {
         await account.waitForTransaction(response.transaction_hash)
         setTxStatus({ approve: 'success', payment: 'success' })
-        
+
         // Mark the tweet as temporarily paid and update UI immediately
         if (markTweetAsPaid) {
           markTweetAsPaid(tweetId)
@@ -223,14 +230,14 @@ export const PaymentModal = ({
         if (updateBanner) {
           updateBanner(tweetId)
         }
-        
+
         // Only check once after a reasonable delay to confirm chain state
         setTimeout(() => {
           if (checkUnpaidTweets) {
             checkUnpaidTweets()
           }
         }, 5000) // Single check after 5 seconds
-        
+
         onConfirm()
       }
     } catch (error) {
@@ -238,7 +245,26 @@ export const PaymentModal = ({
       setTxStatus({ approve: 'error', payment: 'error' })
       setError(error instanceof Error ? error.message : 'Transaction failed. Please try again.')
       throw error
+    } finally {
+      setIsExecuting(false)
+      //Here we remount again :)
+      setTimeout(() => {
+        setShouldRemount(true)
+      }, 100)
     }
+  }
+
+  if (!shouldRemount || isExecuting) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/50">
+        <div className="bg-background p-6 rounded-lg shadow-lg">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span>Processing transaction...</span>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -252,7 +278,8 @@ export const PaymentModal = ({
             </h2>
             <div className="space-y-4">
               <p className={cn('text-sm leading-6', 'text-muted-foreground')}>
-                You're about to pay for a challenge to <span className="font-medium">{agentName}</span>
+                You're about to pay for a challenge to{' '}
+                <span className="font-medium">{agentName}</span>
               </p>
               {loading ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -281,10 +308,13 @@ export const PaymentModal = ({
                     <div className="flex items-center gap-2 p-4 bg-yellow-500/10 rounded-lg text-yellow-500">
                       <AlertTriangle className="w-5 h-5" />
                       <div>
-                        <p className="text-sm font-medium">You've paid for this challenge {existingAttempts.toString()} time{existingAttempts === 1n ? '' : 's'} before</p>
+                        <p className="text-sm font-medium">
+                          You've paid for this challenge {existingAttempts.toString()} time
+                          {existingAttempts === 1n ? '' : 's'} before
+                        </p>
                         <p className="text-sm text-yellow-500/80">
-                          You can always pay to run the same tweet against {agentName} again to get a new response. 
-                          Are you sure you want to pay for another attempt?
+                          You can always pay to run the same tweet against {agentName} again to get
+                          a new response. Are you sure you want to pay for another attempt?
                         </p>
                       </div>
                     </div>
@@ -298,9 +328,7 @@ export const PaymentModal = ({
                       </div>
                     )}
                     {hasInsufficientBalance && (
-                      <div className="text-sm text-red-500 mt-1">
-                        Insufficient balance
-                      </div>
+                      <div className="text-sm text-red-500 mt-1">Insufficient balance</div>
                     )}
                   </div>
                   {(txStatus.approve === 'loading' || txStatus.payment === 'loading') && (
@@ -328,11 +356,7 @@ export const PaymentModal = ({
         {/* Actions */}
         <div className="flex flex-col justify-end gap-3">
           {txStatus.approve === 'success' && txStatus.payment === 'success' ? (
-            <Button
-              variant="default"
-              size="lg"
-              onClick={onCancel}
-            >
+            <Button variant="default" size="lg" onClick={onCancel}>
               Close
             </Button>
           ) : (
@@ -341,8 +365,14 @@ export const PaymentModal = ({
                 variant="default"
                 size="lg"
                 onClick={handleConfirm}
-                disabled={loading || !!error || !price || hasInsufficientBalance || 
-                         txStatus.approve === 'loading' || txStatus.payment === 'loading'}
+                disabled={
+                  loading ||
+                  !!error ||
+                  !price ||
+                  hasInsufficientBalance ||
+                  txStatus.approve === 'loading' ||
+                  txStatus.payment === 'loading'
+                }
               >
                 {loading || txStatus.approve === 'loading' || txStatus.payment === 'loading' ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -363,4 +393,4 @@ export const PaymentModal = ({
       </div>
     </Dialog>
   )
-} 
+}
