@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Teeception",
     "version": "1.0.0",
-    "description": "Pay-to-tweet mechanism for interacting with AI agents on X",
+    "description": "Pay-to-tweet mechanism for interacting with AI agents on X, powered by Starknet, Phala, Cartridge, and Nethermind",
     "author": "teeception@nethermind.io",
     "icons": {
         "16": "icons/teeception-16.png",
