@@ -632,7 +632,7 @@ func (a *Agent) quote(ctx context.Context) (*QuoteData, error) {
 }
 
 func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error {
-	fullPattern := `(.*?)\s*@` + regexp.QuoteMeta(a.twitterClientConfig.Username) + `\s*:\s*` + regexp.QuoteMeta(agentName) + `\s*:\s*(.*)`
+	fullPattern := `(?:(?:(.*?)\s*@` + regexp.QuoteMeta(a.twitterClientConfig.Username) + `\s+)?@` + regexp.QuoteMeta(a.twitterClientConfig.Username) + `)\s*:\s*` + regexp.QuoteMeta(agentName) + `\s*:\s*(.*)`
 	fullRe := regexp.MustCompile(fullPattern)
 	matches := fullRe.FindStringSubmatch(tweetText)
 	if len(matches) < 3 {
