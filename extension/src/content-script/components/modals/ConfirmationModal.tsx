@@ -1,9 +1,7 @@
-import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog } from './Dialog'
 import { cn } from '@/lib/utils'
 import { MessageCircle } from 'lucide-react'
-import { debug } from '../../utils/debug'
 
 interface ConfirmationModalProps {
   open: boolean
