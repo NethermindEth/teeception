@@ -1,8 +1,15 @@
 {
     "manifest_version": 3,
-    "name": "Jack the Ether",
+    "name": "Teeception",
     "version": "1.0.0",
-    "description": "Pay-to-tweet mechanism for interacting with AI agents on Twitter/X",
+    "description": "Pay-to-tweet mechanism for interacting with AI agents on X, powered by Starknet, Phala, Cartridge, and Nethermind",
+    "author": "teeception@nethermind.io",
+    "icons": {
+        "16": "icons/teeception-16.png",
+        "32": "icons/teeception-32.png",
+        "48": "icons/teeception-48.png",
+        "128": "icons/teeception-128.png"
+    },
     "permissions": [
         "activeTab",
         "tabs",
@@ -11,12 +18,11 @@
         "storage"
     ],
     "host_permissions": [
-        "https://*.twitter.com/*"
+        "https://*.x.com/*"
     ],
     "content_scripts": [
         {
             "matches": [
-                "https://twitter.com/*",
                 "https://x.com/*"
             ],
             "css": [
@@ -30,7 +36,13 @@
         }
     ],
     "action": {
-        "default_popup": "index.html"
+        "default_popup": "index.html",
+        "default_icon": {
+            "16": "icons/teeception-16.png",
+            "32": "icons/teeception-32.png",
+            "48": "icons/teeception-48.png",
+            "128": "icons/teeception-128.png"
+        }
     },
     "background": {
         "service_worker": "background.js"

@@ -1,0 +1,115 @@
+name: Release Extension
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'extension/**'
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check for extension changes
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # For manual triggers, check if extension files changed since last tag
+            LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [[ -z "$LAST_TAG" ]]; then
+              # No tags exist, consider as changed
+              echo "changed=true" >> $GITHUB_OUTPUT
+            else
+              CHANGED_FILES=$(git diff --name-only $LAST_TAG HEAD extension/)
+              if [[ -n "$CHANGED_FILES" ]]; then
+                echo "changed=true" >> $GITHUB_OUTPUT
+              else
+                echo "changed=false" >> $GITHUB_OUTPUT
+              fi
+            fi
+          else
+            # For push events, path filter already handled it
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-release:
+    needs: check-changes
+    if: needs.check-changes.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: extension/package-lock.json
+      
+      - name: Install Dependencies
+        working-directory: extension
+        run: npm ci
+      
+      - name: Build Extension
+        working-directory: extension
+        run: npm run build
+      
+      - name: Create ZIP Archive
+        working-directory: extension/dist
+        run: zip -r ../../extension.zip .
+      
+      - name: Generate Release Tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Get current version from manifest.json
+            current_version=$(jq -r '.version' extension/manifest.json)
+            # Split version into components
+            IFS='.' read -r major minor patch <<< "$current_version"
+            
+            case "${{ github.event.inputs.version_bump }}" in
+              "major")
+                new_version="$((major + 1)).0.0"
+                ;;
+              "minor")
+                new_version="${major}.$((minor + 1)).0"
+                ;;
+              "patch")
+                new_version="${major}.${minor}.$((patch + 1))"
+                ;;
+            esac
+            echo "tag=v${new_version}" >> $GITHUB_OUTPUT
+            # Update manifest.json with new version
+            jq ".version = \"${new_version}\"" extension/manifest.json > temp.json && mv temp.json extension/manifest.json
+          else
+            echo "tag=v$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Extension Beta ${{ steps.tag.outputs.tag }}
+          files: extension.zip
+          prerelease: true
+          generate_release_notes: true 
