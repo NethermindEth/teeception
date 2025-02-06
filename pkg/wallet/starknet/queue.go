@@ -157,11 +157,17 @@ func (q *TxQueue) submitIfDue(ctx context.Context) {
 		return
 	}
 
-	// Copy queue items we want to submit (all in the queue).
-	toSubmit := make([]*TxQueueItem, numItems)
-	copy(toSubmit, q.items)
-	// Clear the queue for the next batch.
-	q.items = q.items[:0]
+	// Get at most MaxBatchSize items
+	batchSize := numItems
+	if batchSize > q.cfg.MaxBatchSize {
+		batchSize = q.cfg.MaxBatchSize
+	}
+
+	// Copy queue items we want to submit
+	toSubmit := make([]*TxQueueItem, batchSize)
+	copy(toSubmit, q.items[:batchSize])
+	// Remove submitted items from queue
+	q.items = q.items[batchSize:]
 	q.itemsMu.Unlock()
 
 	go q.submitBatch(ctx, toSubmit)
@@ -189,7 +195,7 @@ func (q *TxQueue) submitBatch(ctx context.Context, items []*TxQueueItem) {
 		if isMaxFeeExceedsBalance(err) {
 			slog.Error("insufficient balance for multicall, returning items to queue", "error", err)
 			q.itemsMu.Lock()
-			q.items = append(q.items, items...)
+			q.items = append(items, q.items...)
 			q.itemsMu.Unlock()
 			return
 		}
