@@ -14,7 +14,7 @@ const Popup = () => {
           teeception.ai
         </a>
         <p className="text-gray-400 text-sm text-center">
-          You will find a wallet on x.com, use it to challange and create new agents.
+          You will find a wallet on x.com, use it to challenge and create new agents.
         </p>
       </div>
 
