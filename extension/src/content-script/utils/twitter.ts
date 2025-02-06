@@ -1,5 +1,6 @@
 import { SELECTORS } from '../constants/selectors'
 import { debug } from './debug'
+import { TWITTER_CONFIG } from '../config/starknet'
 
 declare global {
   interface Window {
@@ -91,6 +92,19 @@ export const extractAgentName = (text: string): string | null => {
   const agentName = match[1].trim()
    
   return agentName
+}
+
+/**
+ * Removes the bot mention and agent name from the tweet text
+ * @param text The full tweet text
+ * @returns The cleaned prompt text
+ */
+export const cleanPromptText = (text: string): string => {
+  // Create regex using the exact bot name from config, escaping any special characters
+  const botName = TWITTER_CONFIG.accountName.replace('@', '')
+  // Match any whitespace before the mention, the mention itself, and ensure single space after
+  const regex = new RegExp(`\\s*@${botName}\\s+:([^:]+):\\s*`, 'g')
+  return text.replace(regex, ' ').trim()
 }
 
 /**

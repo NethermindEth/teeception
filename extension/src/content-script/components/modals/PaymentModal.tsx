@@ -14,6 +14,7 @@ import { uint256 } from 'starknet'
 import { SELECTORS } from '../../constants/selectors'
 import { Contract } from 'starknet'
 import { provider } from '../../config/starknet'
+import { cleanPromptText } from '@/content-script/utils/twitter'
 
 interface TweetPrice {
   price: bigint
@@ -97,13 +98,7 @@ export const PaymentModal = ({
           return undefined
         }
         
-        // Convert tweet text to hex string using TextEncoder
-        const encoder = new TextEncoder()
-        const encodedText = encoder.encode(tweetText)
-        const promptHex = '0x' + Array.from(encodedText)
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('')
-        
+        console.log('tweetText', cleanPromptText(tweetText))
         return [
           tokenContract.populate("approve", [
             agentContract.address,
@@ -111,7 +106,7 @@ export const PaymentModal = ({
           ]),
           agentContract.populate("pay_for_prompt", [
             tweetIdBigInt,
-            promptHex
+            cleanPromptText(tweetText)
           ])
         ]
       } catch (error) {
