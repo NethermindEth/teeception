@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -624,42 +625,19 @@ func (a *Agent) quote(ctx context.Context) (*QuoteData, error) {
 }
 
 func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error {
-	expectedPrefix := "@" + a.twitterClientConfig.Username
-	if !strings.HasPrefix(tweetText, expectedPrefix) {
-		return fmt.Errorf("tweet text does not start with expected prefix")
+	fullPattern := `(.*?)\s*@` + regexp.QuoteMeta(a.twitterClientConfig.Username) + `\s*:\s*` + regexp.QuoteMeta(agentName) + `\s*:\s*(.*)`
+	fullRe := regexp.MustCompile(fullPattern)
+	matches := fullRe.FindStringSubmatch(tweetText)
+	if matches == nil {
+		return fmt.Errorf("tweet text does not match expected format. Expected format: <prompt_left> @%s :%s <prompt_right>", a.twitterClientConfig.Username, agentName)
 	}
 
-	// Skip past the username
-	tweetPastUsername := strings.TrimSpace(tweetText[len(expectedPrefix):])
+	promptLeft := matches[1]
+	promptRight := matches[2]
+	combinedPrompt := strings.TrimSpace(promptLeft + " " + promptRight)
 
-	// Check for agent name format ":name:"
-	if !strings.HasPrefix(tweetPastUsername, ":") {
-		return fmt.Errorf("tweet text missing agent name delimiter")
-	}
-
-	endColonIndex := strings.Index(tweetPastUsername[1:], ":")
-	if endColonIndex == -1 {
-		return fmt.Errorf("tweet text missing closing agent name delimiter")
-	}
-	endColonIndex++ // Adjust for the offset from tweetPastUsername[1:]
-
-	tweetAgentName := tweetPastUsername[1:endColonIndex]
-	if len(agentName) == 0 {
-		return fmt.Errorf("tweet text has empty agent name")
-	}
-
-	if tweetAgentName != agentName {
-		return fmt.Errorf("tweet text has incorrect agent name")
-	}
-
-	if endColonIndex == len(tweetPastUsername) {
-		return fmt.Errorf("tweet text has no prompt text")
-	}
-
-	tweetPromptText := strings.TrimSpace(tweetPastUsername[endColonIndex+1:])
-
-	if tweetPromptText != promptText {
-		return fmt.Errorf("tweet text has incorrect prompt text")
+	if combinedPrompt != promptText {
+		return fmt.Errorf("tweet text has incorrect prompt text. Expected: '%s', Got: '%s'", promptText, combinedPrompt)
 	}
 
 	return nil
