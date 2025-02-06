@@ -541,10 +541,10 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			return nil
 		}
 
-		if !debug.IsDebugDisableTweetValidation() {
-			err := a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
-			if err != nil {
-				slog.Warn("tweet text validation failed", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
+		err = a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
+		if err != nil {
+			slog.Warn("tweet text validation failed", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
+			if !debug.IsDebugDisableTweetValidation() {
 				return nil
 			}
 		}
