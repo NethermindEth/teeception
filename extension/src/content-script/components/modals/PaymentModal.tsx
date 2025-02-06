@@ -84,8 +84,8 @@ export const PaymentModal = ({
       try {
         const tweetIdBigInt = BigInt(tweetId);
 
-        // Find the tweet element and get its text
-        const tweetElement = document.querySelector(`article[data-testid="tweet"]`)
+        // Find the specific tweet by ID
+        const tweetElement = document.querySelector(`article[data-testid="tweet"] a[href*="/${tweetId}"]`)?.closest('article[data-testid="tweet"]')
         const tweetTextElement = tweetElement?.querySelector(SELECTORS.TWEET_TEXT)
         const tweetText = tweetTextElement?.textContent || ''
         
@@ -98,7 +98,6 @@ export const PaymentModal = ({
           return undefined
         }
         
-        console.log('tweetText', cleanPromptText(tweetText))
         return [
           tokenContract.populate("approve", [
             agentContract.address,
