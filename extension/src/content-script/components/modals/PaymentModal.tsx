@@ -54,6 +54,7 @@ export const PaymentModal = ({
   const [price, setPrice] = useState<TweetPrice | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [existingAttempts, setExistingAttempts] = useState<bigint>(0n)
+  const [tweetText, setTweetText] = useState<string | null>(null)
   const [txStatus, setTxStatus] = useState<TransactionStatus>({
     approve: 'idle',
     payment: 'idle',
@@ -122,7 +123,32 @@ export const PaymentModal = ({
       setError(null)
       setPrice(null)
       setExistingAttempts(0n)
+      setTweetText(null)
       setTxStatus({ approve: 'idle', payment: 'idle' })
+      
+      // Function to get tweet text with retries
+      const getTweetText = async (retries = 3, delayMs = 1000): Promise<string> => {
+        for (let attempt = 0; attempt < retries; attempt++) {
+          const tweetElement = document.querySelector(`article[data-testid="tweet"] a[href*="/${tweetId}"]`)?.closest('article[data-testid="tweet"]')
+          const tweetTextElement = tweetElement?.querySelector(SELECTORS.TWEET_TEXT)
+          const rawTweetText = tweetTextElement?.textContent || ''
+          const cleanedTweetText = cleanPromptText(rawTweetText)
+
+          if (cleanedTweetText.trim()) {
+            return cleanedTweetText
+          }
+
+          // If not the last attempt, wait before retrying
+          if (attempt < retries - 1) {
+            debug.log('PaymentModal', `Attempt ${attempt + 1}: Tweet text empty, retrying in ${delayMs}ms`)
+            await new Promise(resolve => setTimeout(resolve, delayMs))
+          }
+        }
+        throw new Error('Cannot process empty tweet. Please ensure the tweet contains text.')
+      }
+
+      const cleanedTweetText = await getTweetText()
+      setTweetText(cleanedTweetText)
 
       // Get agent address
       const address = await getAgentAddressByName(agentName)
@@ -209,7 +235,10 @@ export const PaymentModal = ({
   }
 
   const handleConfirm = async () => {
-    if (!account || !tokenContract || !agentContract || !price) return
+    if (!account || !tokenContract || !agentContract || !price || !tweetText?.trim()) {
+      setError('Cannot process empty tweet. Please ensure the tweet contains text.')
+      return
+    }
 
     try {
       setTxStatus((prev) => ({ ...prev, approve: 'loading' }))
@@ -305,6 +334,15 @@ export const PaymentModal = ({
                 </div>
               ) : (
                 <div className="space-y-4">
+                  {/* Tweet Content Preview */}
+                  {tweetText && (
+                    <div className="bg-white/5 p-4 rounded-lg space-y-2">
+                      <div className="text-sm text-muted-foreground">Tweet Content</div>
+                      <div className="text-sm text-white break-all whitespace-pre-wrap border border-white/10 rounded p-3 max-h-[200px] overflow-y-auto" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                        {tweetText}
+                      </div>
+                    </div>
+                  )}
                   {existingAttempts > 0n && (
                     <div className="flex items-center gap-2 p-4 bg-yellow-500/10 rounded-lg text-yellow-500">
                       <AlertTriangle className="w-5 h-5" />
