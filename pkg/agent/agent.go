@@ -502,7 +502,11 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 	drainTo := agentInfo.Address
 	errorReply := ""
 
-	slog.Info("reacting to tweet", "agent_address", agentInfo.Address, "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID, "is_drain", isDrain)
+	drainTarget := ""
+	if isDrain {
+		drainTarget = resp.Drain.Address
+	}
+	slog.Info("reacting to tweet", "agent_address", agentInfo.Address, "tweet_id", promptPaidEvent.TweetID, "prompt_id", promptPaidEvent.PromptID, "prompt", promptPaidEvent.Prompt, "is_drain", isDrain, "drain_target", drainTarget)
 
 	if isDrain {
 		respAddress, err := starknetgoutils.HexToFelt(resp.Drain.Address)
