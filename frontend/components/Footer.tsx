@@ -51,13 +51,21 @@ export const Footer = () => {
         <li className="text-xs">©2025 Nethermind. All Rights Reserved</li>
       </ul>
 
-      <div>
+      <div className="flex flex-col gap-2">
         <Link
           href="https://github.com/NethermindEth/teeception/tree/main/contracts"
           className="underline hover:no-underline text-sm"
           target="_blank"
         >
           onchain contracts
+        </Link>
+        <Link
+          href="https://github.com/NethermindEth/teeception/releases/latest"
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm transition-colors"
+          target="_blank"
+        >
+          <Image src="/icons/download.svg" width={16} height={16} alt="" />
+          Download Beta Extension
         </Link>
       </div>
 
