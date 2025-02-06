@@ -6,18 +6,18 @@ import { ACTIVE_NETWORK } from '../config/starknet'
 import { useAccount, useContract, useSendTransaction } from '@starknet-react/core'
 import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
 import { useAgentRegistry } from '../hooks/useAgentRegistry'
-import { uint256, Contract } from 'starknet'
+import { uint256 } from 'starknet'
 import { useTokenSupport } from '../hooks/useTokenSupport'
 import { useTokenBalance } from '../hooks/useTokenBalance'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { debug } from '../utils/debug'
 import {
   AGENT_NAME_TOOLTIP_CONTENT,
-  END_TIME_TOOLTIP_CONTENT,
+  DURATION_TOOLTIP_CONTENT,
   SELECT_TOKEN_TOOLTIP_CONTENT,
   SYSTEM_PROMPT_TOOLTIP_CONTENT,
 } from '@/constants'
-import { getFeePerMsgTooltipContent, getInitialBalanceTooltipContent } from '@/lib/utils';
+import { getFeePerMsgTooltipContent, getInitialBalanceTooltipContent } from '@/lib/utils'
 
 interface FormData {
   agentName: string
@@ -43,7 +43,7 @@ enum TransactionStep {
   IDLE = 'idle',
   SUBMITTING = 'submitting',
   COMPLETED = 'completed',
-  FAILED = 'failed'
+  FAILED = 'failed',
 }
 
 const DURATION_OPTIONS = [
@@ -51,9 +51,7 @@ const DURATION_OPTIONS = [
   { label: '1 Week', days: 7, default: false },
   { label: '2 Weeks', days: 14, default: false },
   { label: '1 Month', days: 30, default: true },
-] as const;
-
-type DurationOption = typeof DURATION_OPTIONS[number];
+] as const
 
 export default function LaunchAgent({
   setCurrentView,
@@ -63,13 +61,13 @@ export default function LaunchAgent({
   const { account } = useAccount()
   const { address: registryAddress } = useAgentRegistry()
   const { supportedTokens, isLoading: isLoadingSupport } = useTokenSupport()
-  
+
   const [formData, setFormData] = useState<FormData>(() => {
     // Set default end time to 1 month
     const defaultDate = new Date()
-    const defaultOption = DURATION_OPTIONS.find(opt => opt.default)
+    const defaultOption = DURATION_OPTIONS.find((opt) => opt.default)
     defaultDate.setDate(defaultDate.getDate() + (defaultOption?.days || 30))
-    
+
     return {
       agentName: '',
       feePerMessage: '',
@@ -92,7 +90,9 @@ export default function LaunchAgent({
     abi: TEECEPTION_ERC20_ABI,
   })
 
-  const { balance: tokenBalance, isLoading: isLoadingBalance } = useTokenBalance(formData.selectedToken)
+  const { balance: tokenBalance, isLoading: isLoadingBalance } = useTokenBalance(
+    formData.selectedToken
+  )
 
   const [errors, setErrors] = useState<FormErrors>({})
   const [transactionStep, setTransactionStep] = useState<TransactionStep>(TransactionStep.IDLE)
@@ -110,16 +110,16 @@ export default function LaunchAgent({
         name: token.name,
         address: token.address,
         decimals: token.decimals,
-        minPromptPrice: supportedTokens[symbol]?.minPromptPrice
+        minPromptPrice: supportedTokens[symbol]?.minPromptPrice,
       }))
   }, [supportedTokens])
 
   // Set first supported token as default when loaded
   useEffect(() => {
     if (supportedTokenList.length > 0 && !supportedTokens[formData.selectedToken]?.isSupported) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        selectedToken: supportedTokenList[0].symbol
+        selectedToken: supportedTokenList[0].symbol,
       }))
     }
   }, [supportedTokenList, formData.selectedToken, supportedTokens])
@@ -166,7 +166,7 @@ export default function LaunchAgent({
         } ${selectedToken.symbol}`
       }
     }
-    
+
     if (tokenBalance?.balance) {
       const balanceInSmallestUnit = BigInt(balanceNumber * Math.pow(10, selectedToken.decimals))
       if (balanceInSmallestUnit > tokenBalance.balance) {
@@ -195,17 +195,23 @@ export default function LaunchAgent({
     return Object.keys(newErrors).length === 0
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target
+    if (name === 'feePerMessage' || name === 'initialBalance') {
+      if (value && Number(value) < 0) {
+        return
+      }
+    }
     setFormData((prev) => ({ ...prev, [name]: value }))
-    // Clear error for the field being edited
-    setErrors(prev => ({ ...prev, [name]: undefined }))
+    setErrors((prev) => ({ ...prev, [name]: undefined }))
   }
 
   const { sendAsync } = useSendTransaction({
     calls: useMemo(() => {
       if (!account || !registryAddress || !registry || !tokenContract) return undefined
-      
+
       // Check if we have valid numbers before creating the calls
       const feeNumber = parseFloat(formData.feePerMessage)
       const balanceNumber = parseFloat(formData.initialBalance)
@@ -222,24 +228,21 @@ export default function LaunchAgent({
         const endTimeSeconds = Math.floor(new Date(formData.endTime).getTime() / 1000)
 
         return [
-          tokenContract.populate("approve", [
-            registryAddress,
-            initialBalance,
-          ]),
-          registry.populate("register_agent", [
+          tokenContract.populate('approve', [registryAddress, initialBalance]),
+          registry.populate('register_agent', [
             formData.agentName,
             formData.systemPrompt,
             selectedToken.address,
             promptPrice,
             initialBalance,
-            endTimeSeconds
-          ])
+            endTimeSeconds,
+          ]),
         ]
       } catch (error) {
         debug.error('LaunchAgent', 'Error preparing transaction calls:', error)
         return undefined
       }
-    }, [formData, account, registryAddress, selectedToken, registry, tokenContract])
+    }, [formData, account, registryAddress, selectedToken, registry, tokenContract]),
   })
 
   const handleLaunchAgent = async () => {
@@ -257,7 +260,7 @@ export default function LaunchAgent({
     } catch (error) {
       debug.error('LaunchAgent', 'Error registering agent:', error)
       setTransactionStep(TransactionStep.FAILED)
-      setErrors(prev => ({ ...prev, submit: 'Failed to register agent. Please try again.' }))
+      setErrors((prev) => ({ ...prev, submit: 'Failed to register agent. Please try again.' }))
     }
   }
 
@@ -274,10 +277,9 @@ export default function LaunchAgent({
     }
   }
 
-  const isTransacting = [
-    TransactionStep.SUBMITTING,
-    TransactionStep.COMPLETED
-  ].includes(transactionStep)
+  const isTransacting = [TransactionStep.SUBMITTING, TransactionStep.COMPLETED].includes(
+    transactionStep
+  )
 
   const selectedTokenSupport = supportedTokens[formData.selectedToken]
   const isFormValid = Object.entries(formData).every(([key, value]) => {
@@ -286,7 +288,7 @@ export default function LaunchAgent({
   })
 
   // Base container styles that will be shared across all states
-  const containerStyles = "min-h-[600px] transition-all duration-200 ease-in-out"
+  const containerStyles = 'min-h-[600px] transition-all duration-200 ease-in-out'
 
   if (isLoadingSupport) {
     return (
@@ -307,21 +309,25 @@ export default function LaunchAgent({
     )
   }
 
-  const minPromptPriceDisplay = selectedTokenSupport?.minPromptPrice 
-    ? (Number(selectedTokenSupport.minPromptPrice) / Math.pow(10, selectedToken.decimals)).toLocaleString(undefined, {
+  const minPromptPriceDisplay = selectedTokenSupport?.minPromptPrice
+    ? (
+        Number(selectedTokenSupport.minPromptPrice) / Math.pow(10, selectedToken.decimals)
+      ).toLocaleString(undefined, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 18,
-        useGrouping: false
+        useGrouping: false,
       })
-    : null;
+    : null
 
-  const minInitialBalanceDisplay = selectedTokenSupport?.minInitialBalance 
-    ? (Number(selectedTokenSupport.minInitialBalance) / Math.pow(10, selectedToken.decimals)).toLocaleString(undefined, {
+  const minInitialBalanceDisplay = selectedTokenSupport?.minInitialBalance
+    ? (
+        Number(selectedTokenSupport.minInitialBalance) / Math.pow(10, selectedToken.decimals)
+      ).toLocaleString(undefined, {
         minimumFractionDigits: 0,
         maximumFractionDigits: 18,
-        useGrouping: false
+        useGrouping: false,
       })
-    : null;
+    : null
 
   return (
     <section className={containerStyles}>
@@ -421,6 +427,7 @@ export default function LaunchAgent({
             <input
               type="number"
               name="feePerMessage"
+              min="0"
               value={formData.feePerMessage}
               onChange={handleInputChange}
               className="w-full border border-[#818181] rounded-sm bg-transparent outline-none min-h-[34px] p-2 focus:border-white text-white"
@@ -446,7 +453,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                <p>{getInitialBalanceTooltipContent({ symbol: selectedToken.symbol })}</p>
+                  <p>{getInitialBalanceTooltipContent({ symbol: selectedToken.symbol })}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -455,6 +462,7 @@ export default function LaunchAgent({
             <input
               type="number"
               name="initialBalance"
+              min="0"
               value={formData.initialBalance}
               onChange={handleInputChange}
               className="w-full border border-[#818181] rounded-sm bg-transparent outline-none min-h-[34px] p-2 focus:border-white text-white"
@@ -483,14 +491,14 @@ export default function LaunchAgent({
         {/* End Time */}
         <div>
           <div className="flex items-center gap-1 mb-1">
-            <p>End time</p>
+            <p>Duration</p>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>{END_TIME_TOOLTIP_CONTENT}</p>
+                  <p>{DURATION_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -503,15 +511,19 @@ export default function LaunchAgent({
                   onClick={() => {
                     const date = new Date()
                     date.setDate(date.getDate() + option.days)
-                    setFormData(prev => ({
+                    setFormData((prev) => ({
                       ...prev,
                       endTime: date.toISOString().split('T')[0],
-                      isCustomEndTime: false
+                      isCustomEndTime: false,
                     }))
                   }}
                   disabled={isTransacting}
                   className={`px-3 py-1.5 rounded-sm text-xs border ${
-                    !formData.isCustomEndTime && formData.endTime === new Date(new Date().setDate(new Date().getDate() + option.days)).toISOString().split('T')[0]
+                    !formData.isCustomEndTime &&
+                    formData.endTime ===
+                      new Date(new Date().setDate(new Date().getDate() + option.days))
+                        .toISOString()
+                        .split('T')[0]
                       ? 'border-white text-white'
                       : 'border-[#818181] text-[#818181] hover:border-white hover:text-white'
                   }`}
@@ -522,7 +534,7 @@ export default function LaunchAgent({
             </div>
             <div className="flex justify-end">
               <button
-                onClick={() => setFormData(prev => ({ ...prev, isCustomEndTime: true }))}
+                onClick={() => setFormData((prev) => ({ ...prev, isCustomEndTime: true }))}
                 className={`text-xs ${
                   formData.isCustomEndTime ? 'text-white' : 'text-[#818181] hover:text-white'
                 }`}
@@ -556,9 +568,7 @@ export default function LaunchAgent({
                   <Info width={12} height={12} />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>
-                    {SYSTEM_PROMPT_TOOLTIP_CONTENT}
-                  </p>
+                  <p>{SYSTEM_PROMPT_TOOLTIP_CONTENT}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
