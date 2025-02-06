@@ -182,9 +182,19 @@ func (q *TxQueue) submitBatch(ctx context.Context, items []*TxQueueItem) {
 	}
 
 	// Attempt multicall:
-	ok := q.tryMulticall(ctx, items, allCalls)
-	if ok {
+	err := q.tryMulticall(ctx, items, allCalls)
+	if err == nil {
 		return
+	} else {
+		if isMaxFeeExceedsBalance(err) {
+			slog.Error("insufficient balance for multicall, returning items to queue", "error", err)
+			q.itemsMu.Lock()
+			q.items = append(q.items, items...)
+			q.itemsMu.Unlock()
+			return
+		}
+
+		slog.Error("multicall failed, falling back to single-call submission", "error", err)
 	}
 
 	// Otherwise, fallback to sending individually:
@@ -244,25 +254,22 @@ func (q *TxQueue) buildTx(ctx context.Context, calls []rpc.FunctionCall) (*rpc.B
 
 // tryMulticall tries to sign/broadcast all calls as a single transaction.
 // If it fails at any step, returns false so we can fallback.
-func (q *TxQueue) tryMulticall(ctx context.Context, items []*TxQueueItem, allCalls []rpc.FunctionCall) bool {
+func (q *TxQueue) tryMulticall(ctx context.Context, items []*TxQueueItem, allCalls []rpc.FunctionCall) error {
 	acc, err := q.account.Account()
 	if err != nil {
-		slog.Error("failed to get account", "error", err)
-		return false
+		return fmt.Errorf("failed to get account: %w", err)
 	}
 
 	invokeTxn, err := q.buildTx(ctx, allCalls)
 	if err != nil {
-		slog.Error("failed to build multicall transaction", "error", err)
-		return false
+		return fmt.Errorf("failed to build multicall transaction: %w", FormatRpcError(err))
 	}
 
 	// Broadcast transaction
 	slog.Info("broadcasting multicall transaction")
 	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
 	if err != nil {
-		slog.Error("multicall broadcast failed", "error", FormatRpcError(err))
-		return false
+		return fmt.Errorf("failed to broadcast multicall transaction: %w", FormatRpcError(err))
 	}
 
 	// Increment nonce after successful broadcast
@@ -270,7 +277,7 @@ func (q *TxQueue) tryMulticall(ctx context.Context, items []*TxQueueItem, allCal
 
 	slog.Info("multicall broadcast successful", "tx_hash", resp.TransactionHash)
 	q.notifyAll(items, resp.TransactionHash, nil)
-	return true
+	return nil
 }
 
 // submitSingle signs and broadcasts just one TxQueueItem in its own transaction.
@@ -312,6 +319,9 @@ func (q *TxQueue) simulateBatch(ctx context.Context, calls []rpc.FunctionCall) e
 	err = q.client.Do(func(client rpc.RpcProvider) error {
 		_, err := client.SimulateTransactions(ctx, rpc.WithBlockTag("pending"), []rpc.BroadcastTxn{*invokeTxn}, []rpc.SimulationFlag{})
 		if err != nil {
+			if isMaxFeeExceedsBalance(err) {
+				return nil
+			}
 			return err
 		}
 		return nil
@@ -360,4 +370,9 @@ func WaitForResult(ctx context.Context, ch chan *TxQueueResult) (*felt.Felt, err
 		}
 		return res.TransactionHash, nil
 	}
+}
+
+func isMaxFeeExceedsBalance(err error) bool {
+	errStr := FormatRpcError(err).Error()
+	return strings.Contains(errStr, "Max fee") && strings.Contains(errStr, "exceeds balance")
 }
