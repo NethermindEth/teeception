@@ -113,7 +113,16 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		return
 	}
 
-	slog.Info("agent registered", "address", agentRegisteredEv.Agent.String(), "creator", agentRegisteredEv.Creator.String(), "name", agentRegisteredEv.Name)
+	slog.Info(
+		"agent registered",
+		"address", agentRegisteredEv.Agent.String(),
+		"creator", agentRegisteredEv.Creator.String(),
+		"name", agentRegisteredEv.Name,
+		"system_prompt", agentRegisteredEv.SystemPrompt,
+		"prompt_price", agentRegisteredEv.PromptPrice,
+		"token_address", agentRegisteredEv.TokenAddress.String(),
+		"end_time", agentRegisteredEv.EndTime,
+	)
 
 	if err := i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
 		Address:      agentRegisteredEv.Agent,
