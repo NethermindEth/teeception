@@ -31,7 +31,7 @@ export default function Home() {
             </p>
 
             <p className="mt-2">
-              Engage with the Agents directly on X (formerly Twitter) <br />
+              Engage with the Agents directly on X <br />
               On-chain verifications ensure fair play
             </p>
           </div>
@@ -74,7 +74,7 @@ export default function Home() {
                 <ul className="flex flex-col gap-6">
                   <li>
                     Defenders deploy AI agents with &apos;uncrackable&apos; system prompts, secured
-                    by real STRK stakes, directly through Twitter
+                    by real STRK stakes, directly on X
                   </li>
 
                   <li>
@@ -106,7 +106,7 @@ export default function Home() {
                 <ul className="flex flex-col gap-6">
                   <li>
                     Attackers strive to jailbreak prompts using creative social engineering tactics,
-                    challenging an agent directly through Twitter
+                    challenging an agent directly on X 
                   </li>
 
                   <li>
@@ -155,7 +155,7 @@ export default function Home() {
                     <div className="border-l-[2px] border-l-white ps-4">
                       <h3 className="text-[18px] font-medium mb-1">Setup up your wallet</h3>
                       <p className="text-base text-[#F5F5F5] leading-tight">
-                        A wallet will be set up for you embedded in the twitter page!
+                        A wallet will be set up for you embedded in X!
                       </p>
                     </div>
                   </div>
