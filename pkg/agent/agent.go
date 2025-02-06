@@ -423,6 +423,8 @@ func (a *Agent) onPromptConsumedEvent(ev *indexer.Event, startupController *agen
 		return
 	}
 
+	slog.Info("noticed prompt was already consumed", "agent_address", ev.Raw.FromAddress, "prompt_id", promptConsumedEvent.PromptID)
+
 	startupController.ClearStartupTask(ev.Raw.FromAddress.Bytes(), promptConsumedEvent.PromptID)
 }
 
@@ -472,6 +474,7 @@ func (a *Agent) onPromptPaidEvent(ctx context.Context, ev *indexer.Event, startu
 	}
 
 	if startupController.IsStartupPhase() {
+		slog.Info("adding startup task", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID)
 		startupController.AddStartupTask(ev.Raw.FromAddress.Bytes(), promptPaidEvent.PromptID, task)
 	} else {
 		err := a.pool.Go(task)
