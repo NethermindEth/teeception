@@ -445,7 +445,7 @@ func (a *Agent) onPromptPaidEvent(ctx context.Context, ev *indexer.Event, startu
 
 		agentInfo, err := a.agentIndexer.GetOrFetchAgentInfo(ctx, ev.Raw.FromAddress, ev.Raw.BlockNumber)
 		if err != nil {
-			slog.Warn("failed to get agent info", "error", err)
+			slog.Warn("failed to get agent info", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID, "error", err)
 			return
 		}
 
@@ -458,7 +458,7 @@ func (a *Agent) onPromptPaidEvent(ctx context.Context, ev *indexer.Event, startu
 
 		isPromptConsumed, err := a.isPromptConsumed(ctx, ev.Raw.FromAddress, promptPaidEvent.PromptID)
 		if err != nil {
-			slog.Warn("failed to check if prompt is consumed", "error", err)
+			slog.Warn("failed to check if prompt is consumed", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID, "error", err)
 			return
 		}
 
@@ -469,7 +469,7 @@ func (a *Agent) onPromptPaidEvent(ctx context.Context, ev *indexer.Event, startu
 
 		err = a.ProcessPromptPaidEvent(ctx, ev.Raw.FromAddress, promptPaidEvent, ev.Raw.BlockNumber)
 		if err != nil {
-			slog.Warn("failed to process prompt paid event", "error", err)
+			slog.Warn("failed to process prompt paid event", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID, "error", err)
 		}
 	}
 
@@ -479,7 +479,7 @@ func (a *Agent) onPromptPaidEvent(ctx context.Context, ev *indexer.Event, startu
 	} else {
 		err := a.pool.Go(task)
 		if err != nil {
-			slog.Error("failed to pool startup task", "error", err)
+			slog.Error("failed to pool startup task", "agent_address", ev.Raw.FromAddress, "prompt_id", promptPaidEvent.PromptID, "error", err)
 		}
 	}
 }
