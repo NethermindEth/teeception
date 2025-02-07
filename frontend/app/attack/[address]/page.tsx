@@ -80,38 +80,44 @@ export default function AgentChallengePage() {
       
       case 'undefeated':
         return (
-          <div className="flex flex-col items-center gap-4 mb-12">
-            <div className="text-3xl font-bold tracking-wider bg-[#1388D5]/20 text-[#1388D5] px-8 py-4 rounded-lg">
-              UNDEFEATED
-            </div>
-            <div className="relative">
-              <div className="absolute -top-6 -left-6 text-[#1388D5] transform -rotate-12">
-                👑
-              </div>
-              <div className="text-2xl font-medium text-[#1388D5] font-mono">
-                {testAgent.ownerAddress}
-              </div>
-            </div>
+          <div className="text-3xl font-bold tracking-wider bg-[#1388D5]/20 text-[#1388D5] px-8 py-4 rounded-lg mb-12">
+            UNDEFEATED
           </div>
         )
       
       default:
         return (
-          <div className="flex flex-col items-center gap-4 mb-12">
-            <div className="text-3xl font-bold tracking-wider bg-[#FF3F26]/20 text-[#FF3F26] px-8 py-4 rounded-lg">
-              DEFEATED
-            </div>
-            <div className="relative">
-              <div className="absolute -top-6 -left-6 text-[#FF3F26] transform -rotate-12">
-                👑
-              </div>
-              <div className="text-3xl font-bold text-[#FF3F26] font-mono break-all max-w-2xl">
-                {testAgent.winnerAddress || 'No winner address'}
-              </div>
-            </div>
+          <div className="text-3xl font-bold tracking-wider bg-[#FF3F26]/20 text-[#FF3F26] px-8 py-4 rounded-lg mb-12">
+            DEFEATED
           </div>
         )
     }
+  }
+
+  const SystemPromptDisplay = () => {
+    return (
+      <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg border-2 border-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="font-mono text-sm text-[#FFD700]">
+            {testAgent.ownerAddress}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-black/30 p-4 rounded-lg">
+            <pre className="whitespace-pre-wrap font-mono text-lg text-[#FFD700]">
+              {testAgent.systemPrompt}
+            </pre>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center mt-4">
+          <p className="text-sm text-gray-400">
+            {new Date().toLocaleDateString()}
+          </p>
+        </div>
+      </div>
+    )
   }
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
@@ -207,32 +213,10 @@ export default function AgentChallengePage() {
 
           <StatusDisplay />
 
-          {/* Winning Challenge or Undefeated System Prompt */}
-          {testAgent.status !== 'active' && (
-            <div className="max-w-3xl w-full mt-8">
-              <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg border-2 border-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]">
-                {testAgent.status === 'defeated' ? (
-                  <>
-                    <h2 className="text-xl font-semibold text-[#FFD700] mb-4">Winning Challenge</h2>
-                    <p className="font-mono text-lg text-[#FFD700] mb-2">
-                      {challenges.find(c => c.isWinningPrompt)?.userPrompt}
-                    </p>
-                    <div className="mt-8">
-                      <h3 className="text-lg font-medium text-gray-400 mb-2">System Prompt</h3>
-                      <pre className="whitespace-pre-wrap font-mono text-sm text-gray-300">
-                        {testAgent.systemPrompt}
-                      </pre>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h2 className="text-xl font-semibold text-[#FFD700] mb-4">System Prompt</h2>
-                    <pre className="whitespace-pre-wrap font-mono text-lg text-[#FFD700]">
-                      {testAgent.systemPrompt}
-                    </pre>
-                  </>
-                )}
-              </div>
+          {/* Undefeated System Prompt */}
+          {testAgent.status === 'undefeated' && (
+            <div className="max-w-3xl mx-auto">
+              <SystemPromptDisplay />
             </div>
           )}
         </div>
@@ -290,10 +274,17 @@ export default function AgentChallengePage() {
         </div>
       )}
 
-      {/* Winning Challenge Display */}
+      {/* Winning Challenge Display with System Prompt */}
       {testAgent.status === 'defeated' && (
-        <div className="max-w-3xl w-full mt-8">
+        <div className="max-w-3xl mx-auto space-y-8">
           <ChallengeDisplay challenge={challenges.find(c => c.isWinningPrompt)!} />
+          
+          <div className="bg-[#1388D5]/10 backdrop-blur-lg p-6 rounded-lg border border-[#1388D5]/20">
+            <h2 className="text-xl font-semibold text-[#1388D5] mb-4">System Prompt</h2>
+            <pre className="whitespace-pre-wrap font-mono text-lg text-gray-300">
+              {testAgent.systemPrompt}
+            </pre>
+          </div>
         </div>
       )}
 
