@@ -13,13 +13,8 @@ export function TweetPreview({ tweetId, isPaid = false }: TweetPreviewProps) {
   if (!tweetId) return null
 
   return (
-    <div className="border border-[#6F6F6F] rounded-lg p-4">
-      {isPaid && (
-        <div className="text-sm text-green-500 font-medium mb-4">
-          Paid ✓
-        </div>
-      )}
-      <div className="tweet-embed [&_div]:!bg-transparent [&_article]:!bg-transparent">
+    <div className="flex flex-col items-center">
+      <div className="tweet-embed [&_div]:!bg-transparent [&_article]:!bg-transparent max-w-[550px] mx-auto w-full">
         <Tweet id={tweetId} />
       </div>
     </div>

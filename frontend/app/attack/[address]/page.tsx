@@ -494,10 +494,19 @@ export default function AgentChallengePage() {
                 </div>
               ) : pendingTweet ? (
                 <div className="space-y-6">
-                  <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-xl font-semibold">Pending Challenge</h2>
-                      {!isPaid && (
+                  {currentTweetId && isPaid ? (
+                    <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
+                      <div className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium flex items-center justify-center gap-2">
+                        <span>Challenge Submitted</span>
+                      </div>
+                      <div className="p-8 flex justify-center">
+                        <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
+                      <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-semibold">Pending Challenge</h2>
                         <div className="flex gap-2">
                           <button
                             onClick={handleEditPendingTweet}
@@ -512,18 +521,14 @@ export default function AgentChallengePage() {
                             Reshare
                           </button>
                         </div>
-                      )}
-                    </div>
-                    {currentTweetId && isPaid ? (
-                      <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
-                    ) : (
+                      </div>
                       <div className="bg-black/30 p-4 rounded-lg">
                         <p className="font-mono text-lg text-gray-400">
                           {X_BOT_NAME} :{testAgent.name}: {pendingTweet.text}
                         </p>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {!pendingTweet.submitted && !isPaid && (
                     <form onSubmit={handleSubmitTweetUrl} className="space-y-6">
@@ -537,6 +542,9 @@ export default function AgentChallengePage() {
                           onChange={(e) => {
                             setTweetUrl(e.target.value)
                             setPaymentError(null)
+                            // Extract and set tweet ID when URL changes
+                            const newTweetId = extractTweetId(e.target.value)
+                            setCurrentTweetId(newTweetId)
                           }}
                           className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-4 text-lg transition-all duration-300
                             focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none"
@@ -548,27 +556,34 @@ export default function AgentChallengePage() {
                         )}
                       </div>
 
-                      <button
-                        type="submit"
-                        disabled={isProcessingPayment}
-                        className="w-full bg-black border-2 border-white text-white rounded-lg py-4 font-medium 
-                          transition-all duration-300
-                          hover:text-[#FF3F26] hover:border-[#FF3F26] hover:shadow-[0_0_30px_rgba(255,63,38,0.2)]
-                          disabled:opacity-50 disabled:cursor-not-allowed
-                          flex items-center justify-center gap-2"
-                      >
-                        {isProcessingPayment ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Processing Payment...
-                          </>
-                        ) : (
-                          <>
-                            Pay to Challenge
-                            <span className="text-sm opacity-80">({divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK)</span>
-                          </>
-                        )}
-                      </button>
+                      {currentTweetId && (
+                        <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
+                          <button
+                            type="submit"
+                            disabled={isProcessingPayment || !currentTweetId}
+                            className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium 
+                              transition-all duration-300
+                              hover:text-[#FF3F26] hover:bg-black/70
+                              disabled:opacity-50 disabled:cursor-not-allowed
+                              flex items-center justify-center gap-2"
+                          >
+                            {isProcessingPayment ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Processing Payment...
+                              </>
+                            ) : (
+                              <>
+                                Pay to Challenge
+                                <span className="text-sm opacity-80">({divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK)</span>
+                              </>
+                            )}
+                          </button>
+                          <div className="p-8 flex justify-center">
+                            <TweetPreview tweetId={currentTweetId} isPaid={false} />
+                          </div>
+                        </div>
+                      )}
 
                       <ul className="text-sm leading-6 text-gray-400 space-y-2 list-disc pl-4">
                         <li>This payment will activate the challenge for this tweet</li>
