@@ -1,14 +1,17 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { useAgents } from '@/hooks/useAgents'
-import { useAccount } from '@starknet-react/core'
+import { useAccount, useContract, useSendTransaction } from '@starknet-react/core'
 import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { divideFloatStrings } from '@/lib/utils'
 import { X_BOT_NAME } from '@/constants'
+import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
+import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
+import { uint256 } from 'starknet'
 
 interface Challenge {
   id: string
@@ -22,7 +25,7 @@ interface Challenge {
 
 export default function AgentChallengePage() {
   const params = useParams()
-  const { address } = useAccount()
+  const { address, account } = useAccount()
   const { agents = [], loading: isFetchingAgents } = useAgents({ page: 0, pageSize: 1000 })
   const [challenge, setChallenge] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -39,12 +42,6 @@ export default function AgentChallengePage() {
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
-
-  useEffect(() => {
-    textareaRef.current?.focus()
-  }, [])
-
-  // Mock challenges data with winning prompt
   const [challenges] = useState<Challenge[]>([
     {
       id: '1',
@@ -66,8 +63,57 @@ export default function AgentChallengePage() {
     }
   ])
 
+  useEffect(() => {
+    textareaRef.current?.focus()
+  }, [])
+
   const agent = agents.find(a => a.address === params.address)
-  if (!agent) return null
+
+  // Contract instances
+  const { contract: tokenContract } = useContract({
+    abi: TEECEPTION_ERC20_ABI,
+    address: agent ? `0x${BigInt(agent.tokenAddress).toString(16).padStart(64, '0')}` : undefined,
+  })
+
+  const { contract: agentContract } = useContract({
+    abi: TEECEPTION_AGENT_ABI,
+    address: agent ? `0x${BigInt(agent.address).toString(16).padStart(64, '0')}` : undefined,
+  })
+
+  // Transaction hook
+  const { sendAsync } = useSendTransaction({
+    calls: useMemo(() => {
+      if (!tokenContract || !agentContract || !pendingTweet?.text || !agent) return undefined
+
+      try {
+        const tweetIdBigInt = BigInt(extractTweetId(tweetUrl) || '0')
+
+        return [
+          tokenContract.populate('approve', [
+            agentContract.address,
+            BigInt(agent.promptPrice)
+          ]),
+          agentContract.populate('pay_for_prompt', [tweetIdBigInt, pendingTweet.text])
+        ]
+      } catch (error) {
+        console.error('Error preparing transaction calls:', error)
+        return undefined
+      }
+    }, [tokenContract, agentContract, pendingTweet?.text, tweetUrl, agent]),
+  })
+
+  if (!agent) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Link href="/attack" className="text-blue-400 hover:underline mb-8 block">
+          ← Back to Agents
+        </Link>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <p className="text-lg text-gray-400">Agent not found</p>
+        </div>
+      </div>
+    )
+  }
 
   // Override agent status for testing
   const testAgent = testStatus === 'defeated' 
@@ -247,18 +293,22 @@ export default function AgentChallengePage() {
       return
     }
 
+    if (!account) {
+      setPaymentError('Please connect your wallet first.')
+      return
+    }
+
     setIsProcessingPayment(true)
     setPaymentError(null)
 
     try {
-      // TODO: Process payment here using the contracts
-      console.log('Processing payment for tweet:', tweetId)
-      
-      // Simulate payment success
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      setPendingTweet(prev => prev ? { ...prev, submitted: true } : null)
-      setTweetUrl('')
+      const response = await sendAsync()
+
+      if (response?.transaction_hash) {
+        await account.waitForTransaction(response.transaction_hash)
+        setPendingTweet(prev => prev ? { ...prev, submitted: true } : null)
+        setTweetUrl('')
+      }
     } catch (error) {
       console.error('Failed to process payment:', error)
       setPaymentError(error instanceof Error ? error.message : 'Failed to process payment. Please try again.')
@@ -527,7 +577,7 @@ export default function AgentChallengePage() {
                   <h2 className="text-xl font-semibold">System Prompt</h2>
                   <div className="bg-black/30 p-4 rounded-lg">
                     <pre className="whitespace-pre-wrap font-mono text-sm">
-                      {testAgent.system_prompt}
+                      {testAgent.systemPrompt}
                     </pre>
                   </div>
                 </div>
