@@ -1,34 +1,28 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
-import { Contract, RpcProvider } from 'starknet'
-import { AGENT_REGISTRY_COPY_ABI } from '@/abis/AGENT_REGISTRY'
-import { AGENT_ABI } from '@/abis/AGENT_ABI'
-import { ERC20_ABI } from '@/abis/ERC20_ABI'
+import { useEffect, useState, useCallback } from 'react'
 import { debug } from '@/lib/debug'
-import {
-  ACTIVE_NETWORK,
-  AGENT_REGISTRY_ADDRESS,
-  DEFAULT_TOKEN_DECIMALS,
-  RPC_NODE_URL,
-} from '@/constants'
+import { ACTIVE_NETWORK, DEFAULT_TOKEN_DECIMALS, INDEXER_BASE_URL } from '@/constants'
 
 export interface AgentDetails {
   address: string
   name: string
-  systemPrompt: string
+  balance: string
   promptPrice: string
-  prizePool: string
-  isFinalized: boolean
-  promptCount: number
+  breakAttempts: number
   endTime: string
   tokenAddress: string
   symbol: string
   decimal: number
+  pending: boolean
+  latestPrompts: Array<{
+    prompt: string
+    isSuccess: boolean
+    drainedTo: string
+  }>
 }
 
 export interface UseAgentsProps {
-  start?: number
-  end?: number
   pageSize?: number
+  page?: number
 }
 
 export interface UseAgentsState {
@@ -37,134 +31,86 @@ export interface UseAgentsState {
   error: string | null
   totalAgents: number
   hasMore: boolean
+  currentPage: number
 }
 
-const createProvider = () => new RpcProvider({ nodeUrl: RPC_NODE_URL })
-
-const formatAddress = (address: string) => `0x${BigInt(address).toString(16)}`
+interface IndexerAgentResponse {
+  agents: Array<{
+    pending: boolean
+    address: string
+    token: string
+    name: string
+    balance: string
+    end_time: string
+    prompt_price: string
+    break_attempts: string
+    latest_prompts: Array<{
+      prompt: string
+      is_success: boolean
+      drained_to: string
+    }>
+  }>
+  total: number
+  page: number
+  page_size: number
+  last_block: number
+}
 
 const DEFAULT_PAGE_SIZE = 10
 
-export const useAgents = ({
-  start = 0,
-  end,
-  pageSize = DEFAULT_PAGE_SIZE,
-}: UseAgentsProps = {}) => {
+export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsProps = {}) => {
   const [state, setState] = useState<UseAgentsState>({
     agents: [],
     loading: true,
     error: null,
     totalAgents: 0,
     hasMore: true,
+    currentPage: page,
   })
 
-  const providerRef = useRef<RpcProvider>(null)
-  const registryRef = useRef<Contract>(null)
+  const fetchAgents = useCallback(async () => {
+    setState((prev) => ({ ...prev, loading: true }))
+    console.log('url', `${INDEXER_BASE_URL}/leaderboard?page=${page}&pageSize=${pageSize}`)
+    try {
+      const response = await fetch(`/api/leaderboard?page=${page}&pageSize=${pageSize}`)
 
-  // Initialize provider and registry contract
-  useEffect(() => {
-    providerRef.current = createProvider()
-    registryRef.current = new Contract(
-      AGENT_REGISTRY_COPY_ABI,
-      AGENT_REGISTRY_ADDRESS,
-      providerRef.current
-    )
-  }, [])
+      if (!response.ok) {
+        throw new Error(`Failed to fetch agents: ${response.statusText}`)
+      }
 
-  const fetchAgentDetails = useCallback(
-    async (address: string, provider: RpcProvider): Promise<AgentDetails> => {
-      try {
-        const agent = new Contract(AGENT_ABI, address, provider)
+      const data: IndexerAgentResponse = await response.json()
+      console.log('Indexer data', data)
 
-        const [
-          nameResult,
-          systemPromptResult,
-          promptPrice,
-          prizePool,
-          isFinalized,
-          promptCount,
-          endTime,
-          tokenAddress,
-        ] = await Promise.all(
-          [
-            agent.get_name(),
-            agent.get_system_prompt(),
-            agent.get_prompt_price(),
-            agent.get_prize_pool(),
-            agent.is_finalized(),
-            agent.get_prompt_count(),
-            agent.get_end_time(),
-            agent.get_token(),
-          ].map((promise) =>
-            promise.catch((e: unknown) => {
-              debug.error('useAgents', 'Error fetching agent data', { address, error: e })
-              return null
-            })
-          )
-        )
-
-        console.log('token address', tokenAddress.toString(16))
-        const tokenAddressHex = `0x0${tokenAddress.toString(16)}`
-        const token = ACTIVE_NETWORK.tokens.find(({ address }) => address === tokenAddressHex)
-        const symbol = !!token ? token.symbol : ''
-        const decimal = !!token ? token.decimals : DEFAULT_TOKEN_DECIMALS
+      const formattedAgents: AgentDetails[] = data.agents.map((agent) => {
+        const token = ACTIVE_NETWORK.tokens.find(({ address }) => address === agent.token)
 
         return {
-          address,
-          name: nameResult?.toString() || '',
-          systemPrompt: systemPromptResult?.toString() || 'NA',
-          promptPrice: promptPrice?.toString() || '0',
-          promptCount: promptCount?.toString() || '0',
-          prizePool: prizePool?.toString() || '0',
-          isFinalized: Boolean(isFinalized),
-          endTime: endTime,
-          tokenAddress: tokenAddressHex,
-          symbol,
-          decimal,
+          address: agent.address,
+          name: agent.name,
+          balance: agent.balance,
+          promptPrice: agent.prompt_price,
+          breakAttempts: parseInt(agent.break_attempts),
+          endTime: agent.end_time,
+          tokenAddress: agent.token,
+          symbol: token?.symbol || '',
+          decimal: token?.decimals || DEFAULT_TOKEN_DECIMALS,
+          pending: agent.pending,
+          latestPrompts: agent.latest_prompts.map((prompt) => ({
+            prompt: prompt.prompt,
+            isSuccess: prompt.is_success,
+            drainedTo: prompt.drained_to,
+          })),
         }
-      } catch (err) {
-        debug.error('useAgents', 'Error processing agent', { address, error: err })
-        throw err
-      }
-    },
-    []
-  )
-
-  const fetchAgents = useCallback(async () => {
-    if (!providerRef.current || !registryRef.current) return
-
-    setState((prev) => ({ ...prev, loading: true }))
-
-    try {
-      const effectiveEnd = end || start + pageSize
-
-      // Fetch total agents count
-      const totalAgents = await registryRef.current.get_agents_count()
-
-      console.log('Total agents', totalAgents)
-
-      // Fetch agent addresses for the current page
-      const rawAgentAddresses = await registryRef.current.get_agents(start, effectiveEnd)
-      const agentAddresses = rawAgentAddresses.map(formatAddress)
-
-      // Fetch details for each agent
-      const agentDetails = await Promise.allSettled(
-        agentAddresses.map((address: string) => fetchAgentDetails(address, providerRef.current!))
-      )
-
-      const validAgents = agentDetails
-        .filter(
-          (result): result is PromiseFulfilledResult<AgentDetails> => result.status === 'fulfilled'
-        )
-        .map((result) => result.value)
+      })
 
       setState((prev) => ({
         ...prev,
-        agents: validAgents,
+        agents: formattedAgents,
         loading: false,
         error: null,
-        totalAgents: Number(totalAgents),
-        hasMore: effectiveEnd < Number(totalAgents),
+        totalAgents: data.total,
+        hasMore: (page + 1) * pageSize < data.total,
+        currentPage: data.page,
       }))
     } catch (err) {
       debug.error('useAgents', 'Error in fetchAgents', err)
@@ -174,7 +120,7 @@ export const useAgents = ({
         error: 'Failed to fetch agents',
       }))
     }
-  }, [start, end, pageSize, fetchAgentDetails])
+  }, [page, pageSize])
 
   useEffect(() => {
     fetchAgents()

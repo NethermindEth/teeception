@@ -5,6 +5,8 @@ export const AGENT_REGISTRY_ADDRESS =
   process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS ||
   '0x035d8620d6e5a5ddc8b48589198cfc08b605bf3eec515908ddcbd23f9c5b2927'
 
+export const INDEXER_BASE_URL =
+  process.env.NEXT_PUBLIC_INDEXER_BASE_URL || 'http://34.141.53.65:4000'
 interface Token {
   address: string
   name: string
@@ -67,4 +69,4 @@ export const STARKNET_CONFIG = {
 } as const
 
 export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia
-export const DEFAULT_TOKEN_DECIMALS = 18;
+export const DEFAULT_TOKEN_DECIMALS = 18

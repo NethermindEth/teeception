@@ -85,7 +85,7 @@ export const AgentsList = ({
               {currentAgents.map((agent, idx) => {
                 const timeLeft = calculateTimeLeft(Number(agent.endTime))
                 const promptPrice = divideFloatStrings(agent.promptPrice, agent.decimal)
-                const prizePool = divideFloatStrings(agent.prizePool, agent.decimal)
+                const prizePool = divideFloatStrings(agent.balance, agent.decimal)
                 return (
                   <div
                     className="grid grid-cols-12 bg-[#2E40494D] backdrop-blur-xl min-w-[680px] min-h-11 p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
@@ -97,7 +97,7 @@ export const AgentsList = ({
                       <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                       <div className="col-span-2 flex gap-1 items-center">
                         <div className="mr-4">{agent.name}</div>
-                        {!agent.isFinalized && (
+                        {timeLeft !== 'Inactive' && (
                           <div className="rounded-full bg-black px-4 py-2 flex items-center justify-end">
                             <div className="w-2 h-2 bg-[#00D369] rounded-full flex-shrink-0"></div>
                             <div className="pl-1">{timeLeft}</div>
@@ -105,7 +105,7 @@ export const AgentsList = ({
                         )}
                       </div>
                     </div>
-                    <div className="col-span-2 ps-4">{agent.promptCount}</div>
+                    <div className="col-span-2 ps-4">{agent.breakAttempts}</div>
                     <div className="col-span-3 ps-4">{`${promptPrice} ${agent.symbol}`.trim()}</div>
                     <div className="col-span-2 ps-4">{`${prizePool} ${agent.symbol}`.trim()}</div>
                   </div>

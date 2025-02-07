@@ -12,7 +12,7 @@ export const calculateTimeLeft = (endTime: number) => {
   console.log({ endTime, now })
 
   if (diff <= 0) {
-    return 'Expired'
+    return 'Inactive'
   }
 
   const diffInMs = Number(diff)

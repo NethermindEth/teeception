@@ -5,15 +5,19 @@ import { AgentsList, TabType } from './AgentsList'
 import { useMemo, useState } from 'react'
 import { AgentDetails, useAgents } from '@/hooks/useAgents'
 import { Search } from 'lucide-react'
+import { calculateTimeLeft } from '@/lib/utils'
 
 export const Leaderboard = () => {
   const [searchQuery, setSearchQuery] = useState('')
   //TODO: show toast for failed to load agents
-  const { agents = [], loading: isFetchingAgents } = useAgents({ start: 0, end: 1000 })
+  const { agents = [], loading: isFetchingAgents } = useAgents({ page: 0, pageSize: 1000 })
 
-  const activeAgents = useMemo(() => agents.filter((agent) => !agent.isFinalized), [agents])
+  const activeAgents = useMemo(
+    () => agents.filter((agent) => calculateTimeLeft(Number(agent.endTime)) !== 'Inactive'),
+    [agents]
+  )
   const topAttackers = useMemo(
-    () => agents.sort((agent1, agent2) => +agent2.prizePool - +agent1.prizePool),
+    () => agents.sort((agent1, agent2) => +agent2.balance - +agent1.balance),
     [agents]
   )
   const filterAgents = (agents: AgentDetails[], query: string) => {
