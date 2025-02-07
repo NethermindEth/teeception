@@ -420,301 +420,313 @@ export default function AgentChallengePage() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-4 py-8 pt-24">
-        <Link href="/attack" className="text-blue-400 hover:underline mb-8 block">
-          ← Back to Agents
-        </Link>
+      <div className="min-h-screen bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
+        <div className="container mx-auto px-2 md:px-8 py-8 md:py-20 max-w-[1560px]">
+          <Link href="/attack" className="text-blue-400 hover:underline mb-8 block">
+            ← Back to Agents
+          </Link>
 
-        <div className="absolute top-[76px] left-0 right-0 z-10 h-[180px] flex items-center">
-          <div className="w-full">
-            <div className="max-w-[1632px] mx-auto px-4">
-              <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
-                <div className="flex flex-col items-center text-center">
-                  <h1 className="text-5xl font-bold mb-6">{testAgent.name}</h1>
-                  
-                  <div className="flex items-center gap-8 justify-center">
-                    <div className="flex items-baseline gap-4">
-                      <div className="text-6xl font-bold bg-gradient-to-r from-[#FFD700] via-[#FFF8DC] to-[#FFD700] text-transparent bg-clip-text bg-[length:200%_100%] animate-shimmer">
-                        {divideFloatStrings(testAgent.balance, testAgent.decimal)}
-                      </div>
-                      <div className="text-3xl font-medium text-[#FFD700]">STRK</div>
+          <div className="absolute top-[76px] left-0 right-0 z-10 h-[180px] flex items-center">
+            <div className="w-full">
+              <div className="max-w-[1560px] mx-auto px-4">
+                <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
+                  <div className="flex flex-col items-center text-center">
+                    <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{testAgent.name}</h1>
+                    
+                    <div className="flex max-w-[400px] w-full mx-auto mb-8">
+                      <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-50"></div>
                     </div>
-                    {testAgent.status === 'active' && <StatusDisplay />}
-                  </div>
+                    
+                    <div className="flex flex-col md:flex-row items-center gap-8 justify-center">
+                      <div className="flex items-baseline gap-4">
+                        <div className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-[#B8860B] via-[#FFD700] to-[#B8860B] text-transparent bg-clip-text bg-[length:200%_100%] animate-shimmer">
+                          {divideFloatStrings(testAgent.balance, testAgent.decimal)}
+                        </div>
+                        <div className="text-2xl md:text-3xl font-medium text-[#B8860B]">STRK</div>
+                      </div>
+                      {testAgent.status === 'active' && <StatusDisplay />}
+                    </div>
 
-                  {testAgent.status !== 'active' && <StatusDisplay />}
+                    {testAgent.status !== 'active' && <StatusDisplay />}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="pt-[180px]">
-          {testAgent.status === 'undefeated' && (
-            <div className="max-w-3xl mx-auto">
-              <SystemPromptDisplay />
-            </div>
-          )}
+          <div className="pt-[220px]">
+            {testAgent.status === 'undefeated' && (
+              <div className="max-w-3xl mx-auto">
+                <SystemPromptDisplay />
+              </div>
+            )}
 
-          {testAgent.status === 'active' && (
-            <div className="max-w-3xl mx-auto">
-              {isRedirecting ? (
-                <div className="bg-[#12121266] backdrop-blur-lg rounded-lg overflow-hidden">
-                  <div className="p-12 text-center">
-                    <div className="flex flex-col items-center gap-8">
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-2xl font-medium">Opening</h2>
-                        <Image src="/icons/x.svg" width={24} height={24} alt="X" className="opacity-80" />
-                      </div>
-                      <div className="flex items-center gap-6 text-lg text-gray-300">
+            {testAgent.status === 'active' && (
+              <div className="max-w-3xl mx-auto space-y-8">
+                {isRedirecting ? (
+                  <div className="bg-[#12121266] backdrop-blur-lg rounded-lg overflow-hidden">
+                    <div className="p-8 md:p-12 text-center">
+                      <div className="flex flex-col items-center gap-8">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#FF3F26]/20 text-[#FF3F26] flex items-center justify-center font-medium">1</div>
-                          <span>Post</span>
+                          <h2 className="text-xl md:text-2xl font-medium">Opening</h2>
+                          <Image src="/icons/x.svg" width={24} height={24} alt="X" className="opacity-80" />
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#FF3F26]/20 text-[#FF3F26] flex items-center justify-center font-medium">2</div>
-                          <span>Copy link</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#FF3F26]/20 text-[#FF3F26] flex items-center justify-center font-medium">3</div>
-                          <span>Return</span>
-                        </div>
-                      </div>
-                      <div className="w-full max-w-[300px] h-1 bg-[#FF3F26]/10 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-[#FF3F26] rounded-full transform-gpu"
-                          style={{ 
-                            width: `${loadingProgress}%`,
-                            boxShadow: '0 0 8px rgba(255, 63, 38, 0.3), 0 0 4px rgba(255, 63, 38, 0.2)'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : pendingTweet ? (
-                <div className="space-y-6">
-                  {currentTweetId && isPaid ? (
-                    <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
-                      <div className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium flex items-center justify-center gap-2">
-                        <span>Challenge Submitted</span>
-                      </div>
-                      <div className="p-8 flex justify-center">
-                        <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
-                      <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-xl font-semibold">Pending Challenge</h2>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleEditPendingTweet}
-                            className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={handleReshare}
-                            className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
-                          >
-                            Reshare
-                          </button>
-                        </div>
-                      </div>
-                      <div className="bg-black/30 p-4 rounded-lg">
-                        <p className="font-mono text-lg text-gray-400">
-                          {X_BOT_NAME} :{testAgent.name}: {pendingTweet.text}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {!pendingTweet.submitted && !isPaid && (
-                    <form onSubmit={handleSubmitTweetUrl} className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium mb-2">
-                          Tweet URL
-                        </label>
-                        <input
-                          type="url"
-                          value={tweetUrl}
-                          onChange={(e) => {
-                            setTweetUrl(e.target.value)
-                            setPaymentError(null)
-                            // Extract and set tweet ID when URL changes
-                            const newTweetId = extractTweetId(e.target.value)
-                            setCurrentTweetId(newTweetId)
-                          }}
-                          className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-4 text-lg transition-all duration-300
-                            focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none"
-                          placeholder={`https://x.com/your_amazing_profile/status/your_winning_bet`}
-                          required
-                        />
-                        {paymentError && (
-                          <p className="mt-2 text-sm text-[#FF3F26]">{paymentError}</p>
-                        )}
-                      </div>
-
-                      {currentTweetId && (
-                        <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
-                          <button
-                            type="submit"
-                            disabled={isProcessingPayment || !currentTweetId}
-                            className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium 
-                              transition-all duration-300
-                              hover:text-[#FF3F26] hover:bg-black/70
-                              disabled:opacity-50 disabled:cursor-not-allowed
-                              flex items-center justify-center gap-2"
-                          >
-                            {isProcessingPayment ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                                Processing Payment...
-                              </>
-                            ) : (
-                              <>
-                                Pay to Challenge
-                                <span className="text-sm opacity-80">({divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK)</span>
-                              </>
-                            )}
-                          </button>
-                          <div className="p-8 flex justify-center">
-                            <TweetPreview tweetId={currentTweetId} isPaid={false} />
+                        <div className="flex flex-col md:flex-row items-center gap-6 text-lg text-gray-300">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#FF3F26]/20 text-[#FF3F26] flex items-center justify-center font-medium">1</div>
+                            <span>Post</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#FF3F26]/20 text-[#FF3F26] flex items-center justify-center font-medium">2</div>
+                            <span>Copy link</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#FF3F26]/20 text-[#FF3F26] flex items-center justify-center font-medium">3</div>
+                            <span>Return</span>
                           </div>
                         </div>
-                      )}
-
-                      <ul className="text-sm leading-6 text-gray-400 space-y-2 list-disc pl-4">
-                        <li>This payment will activate the challenge for this tweet</li>
-                        <li>If you are successful you'll get {divideFloatStrings(testAgent.balance, testAgent.decimal)} STRK</li>
-                        <li>If you fail, your STRK is added to the reward</li>
-                      </ul>
-                    </form>
-                  )}
-                </div>
-              ) : (
-                <form onSubmit={handleSubmitChallenge} className="space-y-6">
-                  <div className="relative">
-                    <textarea
-                      ref={textareaRef}
-                      value={challenge}
-                      onChange={(e) => setChallenge(e.target.value)}
-                      className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-6 min-h-[200px] text-lg transition-all duration-300
-                        focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none resize-none"
-                      placeholder="Enter your challenge prompt..."
-                      maxLength={getMaxPromptLength()}
-                      required
-                    />
-                    <div className="absolute bottom-4 right-4 text-sm text-gray-400">
-                      {challenge.length}/{getMaxPromptLength()}
+                        <div className="w-full max-w-[300px] h-1 bg-[#FF3F26]/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-[#FF3F26] rounded-full transform-gpu transition-all duration-300"
+                            style={{ 
+                              width: `${loadingProgress}%`,
+                              boxShadow: '0 0 8px rgba(255, 63, 38, 0.3), 0 0 4px rgba(255, 63, 38, 0.2)'
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-black border-2 border-white text-white rounded-lg py-4 font-medium 
-                      transition-all duration-300
-                      hover:text-[#FF3F26] hover:border-[#FF3F26] hover:shadow-[0_0_30px_rgba(255,63,38,0.2)]
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                      flex items-center justify-center gap-2"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Opening <Image src="/icons/x.svg" width={16} height={16} alt="X" className="opacity-80" />...
-                      </>
+                ) : pendingTweet ? (
+                  <div className="space-y-6">
+                    {currentTweetId && isPaid ? (
+                      <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
+                        <div className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium flex items-center justify-center gap-2">
+                          <span>Challenge Submitted</span>
+                        </div>
+                        <div className="p-8 flex justify-center">
+                          <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
+                        </div>
+                      </div>
                     ) : (
-                      <>
-                        <span>Challenge on </span>
-                        <Image src="/icons/x.svg" width={16} height={16} alt="X" className="opacity-80" />
-                      </>
+                      <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
+                        <div className="flex justify-between items-center mb-4">
+                          <h2 className="text-xl font-semibold">Pending Challenge</h2>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleEditPendingTweet}
+                              className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={handleReshare}
+                              className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
+                            >
+                              Reshare
+                            </button>
+                          </div>
+                        </div>
+                        <div className="bg-black/30 p-4 rounded-lg">
+                          <p className="font-mono text-lg text-gray-400">
+                            {X_BOT_NAME} :{testAgent.name}: {pendingTweet.text}
+                          </p>
+                        </div>
+                      </div>
                     )}
-                  </button>
 
-                  <div className="mt-8 space-y-4">
-                    <h2 className="text-xl font-semibold">System Prompt</h2>
-                    <div className="bg-black/30 p-4 rounded-lg">
-                      <pre className="whitespace-pre-wrap font-mono text-sm">
-                        {testAgent.systemPrompt}
-                      </pre>
-                    </div>
+                    {!pendingTweet.submitted && !isPaid && (
+                      <form onSubmit={handleSubmitTweetUrl} className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium mb-2">
+                            Tweet URL
+                          </label>
+                          <input
+                            type="url"
+                            value={tweetUrl}
+                            onChange={(e) => {
+                              setTweetUrl(e.target.value)
+                              setPaymentError(null)
+                              // Extract and set tweet ID when URL changes
+                              const newTweetId = extractTweetId(e.target.value)
+                              setCurrentTweetId(newTweetId)
+                            }}
+                            className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-4 text-lg transition-all duration-300
+                              focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none"
+                            placeholder={`https://x.com/your_amazing_profile/status/your_winning_bet`}
+                            required
+                          />
+                          {paymentError && (
+                            <p className="mt-2 text-sm text-[#FF3F26]">{paymentError}</p>
+                          )}
+                        </div>
+
+                        {currentTweetId && (
+                          <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
+                            <button
+                              type="submit"
+                              disabled={isProcessingPayment || !currentTweetId}
+                              className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium 
+                                transition-all duration-300
+                                hover:text-[#FF3F26] hover:bg-black/70
+                                disabled:opacity-50 disabled:cursor-not-allowed
+                                flex items-center justify-center gap-2"
+                            >
+                              {isProcessingPayment ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Processing Payment...
+                                </>
+                              ) : (
+                                <>
+                                  Pay to Challenge
+                                  <span className="text-sm opacity-80">({divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK)</span>
+                                </>
+                              )}
+                            </button>
+                            <div className="p-8 flex justify-center">
+                              <TweetPreview tweetId={currentTweetId} isPaid={false} />
+                            </div>
+                          </div>
+                        )}
+
+                        <ul className="text-sm leading-6 text-gray-400 space-y-2 list-disc pl-4">
+                          <li>This payment will activate the challenge for this tweet</li>
+                          <li>If you are successful you'll get {divideFloatStrings(testAgent.balance, testAgent.decimal)} STRK</li>
+                          <li>If you fail, your STRK is added to the reward</li>
+                        </ul>
+                      </form>
+                    )}
                   </div>
-                </form>
-              )}
-            </div>
-          )}
+                ) : (
+                  <form onSubmit={handleSubmitChallenge} className="space-y-6">
+                    <div className="relative">
+                      <textarea
+                        ref={textareaRef}
+                        value={challenge}
+                        onChange={(e) => setChallenge(e.target.value)}
+                        className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-6 min-h-[200px] text-lg transition-all duration-300
+                          focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none resize-none"
+                        placeholder="Enter your challenge prompt..."
+                        maxLength={getMaxPromptLength()}
+                        required
+                      />
+                      <div className="absolute bottom-4 right-4 text-sm text-gray-400">
+                        {challenge.length}/{getMaxPromptLength()}
+                      </div>
+                    </div>
 
-          {/* Winning Challenge Display with System Prompt */}
-          {testAgent.status === 'defeated' && (
-            <div className="max-w-3xl mx-auto space-y-8">
-              <ChallengeDisplay challenge={challenges.find(c => c.isWinningPrompt)!} />
-              
-              <div className="bg-[#1388D5]/10 backdrop-blur-lg p-6 rounded-lg border border-[#1388D5]/20">
-                <h2 className="text-xl font-semibold text-[#1388D5] mb-4">System Prompt</h2>
-                <pre className="whitespace-pre-wrap font-mono text-lg text-gray-300">
-                  {testAgent.systemPrompt}
-                </pre>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full bg-black border-2 border-white text-white rounded-lg py-4 font-medium 
+                        transition-all duration-300
+                        hover:text-[#FF3F26] hover:border-[#FF3F26] hover:shadow-[0_0_30px_rgba(255,63,38,0.2)]
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        flex items-center justify-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Opening <Image src="/icons/x.svg" width={16} height={16} alt="X" className="opacity-80" />...
+                        </>
+                      ) : (
+                        <>
+                          <span>Challenge on </span>
+                          <Image src="/icons/x.svg" width={16} height={16} alt="X" className="opacity-80" />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="mt-8 space-y-4">
+                      <h2 className="text-xl font-semibold">System Prompt</h2>
+                      <div className="bg-black/30 p-4 rounded-lg">
+                        <pre className="whitespace-pre-wrap font-mono text-sm">
+                          {testAgent.systemPrompt}
+                        </pre>
+                      </div>
+                    </div>
+                  </form>
+                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Other Attempts */}
-          {challenges
-            .filter(challenge => 
-              !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
-              !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
-            )
-            .length > 0 && (
-              <div className="max-w-3xl mx-auto mt-12">
-                <h2 className="text-2xl font-bold mb-6">Other Attempts</h2>
-                <div className="space-y-6">
-                  {challenges
-                    .filter(challenge => 
-                      !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
-                      !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
-                    )
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .map((challenge) => (
-                      <ChallengeDisplay key={challenge.id} challenge={challenge} />
-                    ))}
+            {/* Winning Challenge Display with System Prompt */}
+            {testAgent.status === 'defeated' && (
+              <div className="max-w-3xl mx-auto space-y-8">
+                <ChallengeDisplay challenge={challenges.find(c => c.isWinningPrompt)!} />
+                
+                <div className="bg-[#1388D5]/10 backdrop-blur-lg p-6 rounded-lg border border-[#1388D5]/20">
+                  <h2 className="text-xl font-semibold text-[#1388D5] mb-4">System Prompt</h2>
+                  <pre className="whitespace-pre-wrap font-mono text-lg text-gray-300">
+                    {testAgent.systemPrompt}
+                  </pre>
                 </div>
               </div>
             )}
 
-          {/* Test Controls */}
-          <div className="fixed bottom-4 right-4 flex gap-4 bg-black/50 backdrop-blur-lg p-4 rounded-lg">
-            <button
-              onClick={() => setTestStatus('active')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                testStatus === 'active'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-black/50 text-gray-400 hover:text-white'
-              }`}
-            >
-              Test Active
-            </button>
-            <button
-              onClick={() => setTestStatus('undefeated')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                testStatus === 'undefeated'
-                  ? 'bg-[#1388D5] text-white'
-                  : 'bg-black/50 text-gray-400 hover:text-white'
-              }`}
-            >
-              Test Undefeated
-            </button>
-            <button
-              onClick={() => setTestStatus('defeated')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                testStatus === 'defeated'
-                  ? 'bg-[#FF3F26] text-white'
-                  : 'bg-black/50 text-gray-400 hover:text-white'
-              }`}
-            >
-              Test Defeated
-            </button>
+            {/* Other Attempts */}
+            {challenges
+              .filter(challenge => 
+                !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
+                !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
+              )
+              .length > 0 && (
+                <div className="max-w-3xl mx-auto mt-20">
+                  <h2 className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">Other Attempts</h2>
+                  
+                  <div className="flex max-w-[800px] mx-auto mb-12">
+                    <div className="white-gradient-border"></div>
+                    <div className="white-gradient-border rotate-180"></div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {challenges
+                      .filter(challenge => 
+                        !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
+                        !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
+                      )
+                      .sort((a, b) => b.timestamp - a.timestamp)
+                      .map((challenge) => (
+                        <ChallengeDisplay key={challenge.id} challenge={challenge} />
+                      ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Test Controls */}
+            <div className="fixed bottom-4 right-4 flex gap-4 bg-black/50 backdrop-blur-lg p-4 rounded-lg">
+              <button
+                onClick={() => setTestStatus('active')}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  testStatus === 'active'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-black/50 text-gray-400 hover:text-white'
+                }`}
+              >
+                Test Active
+              </button>
+              <button
+                onClick={() => setTestStatus('undefeated')}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  testStatus === 'undefeated'
+                    ? 'bg-[#1388D5] text-white'
+                    : 'bg-black/50 text-gray-400 hover:text-white'
+                }`}
+              >
+                Test Undefeated
+              </button>
+              <button
+                onClick={() => setTestStatus('defeated')}
+                className={`px-4 py-2 rounded-lg transition-all ${
+                  testStatus === 'defeated'
+                    ? 'bg-[#FF3F26] text-white'
+                    : 'bg-black/50 text-gray-400 hover:text-white'
+                }`}
+              >
+                Test Defeated
+              </button>
+            </div>
           </div>
         </div>
       </div>
