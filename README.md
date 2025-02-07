@@ -2,192 +2,95 @@
   <img src="assets/teeception.svg" alt="Teeception Logo" width="400"/>
 </p>
 
+<div align="center">
+
 # Teeception: The Prompt Hacking Arena
 
-Fool me once, ETH on you. A battleground for prompt engineers and red teamers to test their skills against AI agents holding real crypto assets.
+[![Twitter Follow](https://img.shields.io/twitter/follow/nethermindeth?style=social)](https://twitter.com/nethermindeth)
+[![Website](https://img.shields.io/badge/website-teeception.ai-blue)](https://teeception.ai)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/NethermindEth/teeception?style=social)](https://github.com/NethermindEth/teeception)
 
-## Overview
+**Fool me once, ETH on you.** The first gamified prompt engineering arena with real crypto stakes.
 
-Teeception is a platform where:
-- Defenders deploy AI agents with "uncrackable" system prompts, backed by real ETH
-- Attackers attempt to jailbreak these prompts through creative social engineering
-- Winners who successfully crack an agent's defenses claim their ETH bounty
-- Defenders earn rewards from failed attempt fees while their prompts remain unbroken
+[Website](https://teeception.ai) · [Documentation](docs/) · [Contributing](CONTRIBUTING.md) · [Twitter](https://twitter.com/nethermindeth)
 
-Think of it as Capture The Flag meets prompt engineering, with real stakes.
+</div>
 
-## ⚠️ Project Status: In Development
+## 🎮 The Game
 
-This project is currently under active development and is not yet functional. Current status:
+Teeception is a competitive arena where:
 
-- 🏗️ **TEE Bot Implementation**: In progress
-- 🔄 **Twitter Bot Interface**: In progress
-- 🚧 **Twitter Bot Account**: To be announced
-- 📱 **Status Website**: Not started
-- 🛠️ **Chrome Extension**: In progress
+- **Defenders** deploy AI agents with "uncrackable" system prompts, backed by real ETH
+- **Attackers** attempt to jailbreak these prompts through creative social engineering
+- **Winners** who successfully crack an agent's defenses claim their ETH bounty
+- **Everyone** learns and improves their prompt engineering skills
 
-**Note**: The codebase is not yet ready for production use. Star/watch the repository for updates on the first public release!
+## 💰 Incentive Structure
 
-## Trusted Execution Environment
+### For Defenders
+- Earn 20% of all challenge attempt fees while your prompt remains unbroken
+- Build reputation as a prompt engineering expert
+- Contribute to AI safety research
+- Get featured on the leaderboard for longest-standing prompts
+- Get the whole STRK bounty if your AI remains unbroken before the timeout
 
-All AI agents run in a Trusted Execution Environment (TEE) powered by [Phala Network's dstack](https://github.com/Phala-Network/dstack), meaning:
-- Agents have complete autonomous control over their ETH
-- Not even the platform developers can access the funds
-- System prompts are encrypted and tamper-proof
-- Only successful social engineering can convince an agent to release funds
-- All agent-asset interactions are verifiable on-chain
+### For Attackers
+- Claim the full STRK bounty for successful jailbreaks
+- Showcase your social engineering skills
+- Learn advanced prompt engineering techniques
+- Join the Hall of Fame for legendary hacks
 
-### TEE Implementation
-Our TEE solution is built on:
-- [dstack](git@github.com:Phala-Network/dstack.git) for confidential AI execution
-- Hardware-backed security guarantees
-- Verifiable execution environment
+## 🔐 Security Model
 
-## Quick Start
+All AI agents run in a Trusted Execution Environment (TEE) powered by [Phala Network's dstack](https://github.com/Phala-Network/dstack):
 
-For users:
-1. Install the Chrome extension from the Chrome Web Store
+- 🛡️ **Autonomous Control**: Agents have complete control over their STRK
+- 🔒 **Tamper-Proof**: Not even platform developers can access the funds
+- 🌐 **Transparent**: All agent-asset interactions are verifiable on-chain
+- 🤖 **Pure Challenge**: Only successful social engineering can convince an agent to release funds
+
+## 🚀 Quick Start
+
+1. Install the [Chrome Extension](https://chrome.google.com/webstore/detail/teeception)
 2. Connect your wallet
-3. Find an AI agent to challenge or deploy your own
-4. Start hacking!
+3. Choose your path:
+   - **Defender**: Deploy an AI agent with your unbreakable prompt
+   - **Attacker**: Find an agent to challenge and start hacking!
 
-For developers, see our detailed guides in the [`docs/`](/docs) directory:
-- [`docs/development-setup.md`](/docs/development-setup.md) - Full development environment setup
-- [`docs/smart-contracts.md`](/docs/smart-contracts.md) - Smart contract development guide
-- [`docs/extension-development.md`](/docs/extension-development.md) - Chrome extension development
+## 🏆 Leaderboards
 
-## Project Structure
+- **Top Uncracked Prompts**: Ranked by time & attempt count
+- **Hall of Fame**: Most creative successful jailbreaks
+- **Top Earners**: Highest cumulative rewards
+- **Weekly Champions**: Best performers this week
 
-- `/cmd` - Main applications
-- `/contracts` - Smart contract code
-- `/docs` - Development and usage documentation
-- `/pkg` - Shared Go packages
-- `/scripts` - Utility scripts
-- `/extension` - Chrome extension
+## 🛠️ Project Status
 
-## Running the Platform
+The project is under active development. Current status:
 
-### Running an Agent
+Component | Status | Progress
+----------|--------|----------
+TEE Implementation | Completed | 100%
+Twitter Bot | Completed | 100%
+Smart Contracts | Completed | 100%
+Frontend | In Progress | 70%
+Chrome Extension | In Progress | 85%
+Website | In Progress | 70%
 
-```bash
-go run cmd/agent/main.go
-```
+## 🤝 Contributing
 
-### Smart Contract Development
-```bash
-# Move to contracts/ dir
-cd contracts
+We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details on:
 
-# Build contracts
-snforge build
+- Development setup
+- Architecture overview
+- Testing guidelines
+- Contribution workflow
 
-# Run tests
-snforge test
-```
+## 📜 License
 
-## Leaderboards
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-- Top Uncracked Prompts (by time & attempt count)
-- Most Successful Prompt Hackers
-- Highest Value Captures
-- Hall of Fame Jailbreaks
-
-## Security Considerations
-
-- All prompt attempts are publicly visible on Twitter
-- Smart contracts handle all asset custody and fee distribution
-- Minimum pool value ensures meaningful interactions
-- No private keys or sensitive data stored by extension
-
-## Contributing
-
-As this project is in early development, we're particularly interested in:
-
-### Current Focus Areas
-- TEE Implementation: Help with dstack integration and agent isolation
-- Twitter Bot: Developing the agent's social interaction capabilities
-- Smart Contracts: Designing secure bounty and reward mechanisms
-- Extension: Building the Chrome extension interface
-
-### Getting Started
-1. Check the [Project Status](#%EF%B8%8F-project-status-in-development) section
-
-### Future Contributions
-Once the platform launches, we'll welcome:
-- Novel prompt defense techniques
-- Creative jailbreak patterns
-- Security improvements
-- UX enhancements
-
-Please note that many components are still being architected. Major design contributions are welcome!
-
-## License
-
-See [LICENSE](LICENSE) file for details.
-
-## Disclaimer
+## ⚠️ Disclaimer
 
 This platform is for educational purposes and responsible red teaming. Use your powers for good, and happy hacking!
-
-## Development Setup
-
-### Prerequisites
-- Node.js and npm (for extension development)
-- Scarb (Cairo package manager)
-- jq (JSON processor for scripts)
-
-### Installation
-1. Install root dependencies:
-```bash
-npm install
-```
-
-2. Install jq if not already installed:
-```bash
-# macOS
-brew install jq
-
-# Ubuntu/Debian
-sudo apt-get install jq
-```
-
-3. Set up the Git pre-commit hook:
-```bash
-# Make sure the Git hooks directory exists
-mkdir -p .git/hooks
-
-# Copy the pre-commit hook
-cp scripts/pre-commit .git/hooks/
-chmod +x .git/hooks/pre-commit
-```
-
-### ABI Synchronization
-The project maintains automatic synchronization between the Cairo contract ABIs and the TypeScript interfaces used in the extension. This is handled through a Git pre-commit hook that:
-
-1. Builds the contracts using Scarb
-2. Extracts the ABIs from the contract class files using jq
-3. Updates the TypeScript ABI files in `extension/src/abis/`
-4. Verifies that all changes are committed
-
-If you see an error about ABI files being out of sync during commit, simply add the updated ABI files to your commit.
-
-### Manual ABI Sync
-To manually synchronize the ABIs:
-
-```bash
-./scripts/sync-abis.sh
-```
-
-## Project Structure
-
-### Contracts
-- `contracts/` - Cairo smart contracts
-- `contracts/target/release/*.contract_class.json` - Compiled contract files containing ABIs
-
-### Extension
-- `extension/` - Browser extension code
-- `extension/src/abis/` - TypeScript ABI definitions (auto-generated)
-
-### Scripts
-- `scripts/` - Development and maintenance scripts
-- `scripts/sync-abis.ts` - ABI synchronization script
