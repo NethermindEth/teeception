@@ -7,6 +7,7 @@ import { useAccount } from '@starknet-react/core'
 import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { divideFloatStrings } from '@/lib/utils'
 
 interface Challenge {
   id: string
@@ -339,7 +340,7 @@ export default function AgentChallengePage() {
                 <div className="flex items-center gap-8 justify-center">
                   <div className="flex items-baseline gap-4">
                     <div className="text-6xl font-bold bg-gradient-to-r from-[#FFD700] via-[#FFF8DC] to-[#FFD700] text-transparent bg-clip-text bg-[length:200%_100%] animate-shimmer">
-                      {testAgent.balance}
+                      {divideFloatStrings(testAgent.balance, testAgent.decimal)}
                     </div>
                     <div className="text-3xl font-medium text-[#FFD700]">STRK</div>
                   </div>
