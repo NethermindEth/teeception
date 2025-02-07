@@ -16,10 +16,16 @@ export default {
         shimmer: {
           '0%': { backgroundPosition: '200% 0' },
           '100%': { backgroundPosition: '-200% 0' }
+        },
+        flash: {
+          '0%': { opacity: '1' },
+          '50%': { opacity: '0.5' },
+          '100%': { opacity: '1' }
         }
       },
       animation: {
-        shimmer: 'shimmer 8s ease-in-out infinite'
+        shimmer: 'shimmer 8s ease-in-out infinite',
+        flash: 'flash 1s ease-in-out'
       }
     },
   },
