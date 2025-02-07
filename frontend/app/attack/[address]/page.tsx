@@ -14,6 +14,7 @@ import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { uint256 } from 'starknet'
 import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
+import { TweetPreview } from '@/components/TweetPreview'
 
 interface Challenge {
   id: string
@@ -58,6 +59,7 @@ export default function AgentChallengePage() {
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
+  const [isPaid, setIsPaid] = useState(false)
   const [challenges] = useState<Challenge[]>([
     {
       id: '1',
@@ -116,6 +118,9 @@ export default function AgentChallengePage() {
         return undefined
       }
     }, [tokenContract, agentContract, pendingTweet?.text, tweetUrl, agent]),
+    onSuccess: () => {
+      setIsPaid(true)
+    }
   })
 
   if (!address) {
@@ -244,7 +249,7 @@ export default function AgentChallengePage() {
       <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg border-2 border-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]">
         <div className="flex items-center gap-2 mb-4">
           <div className="font-mono text-sm text-[#FFD700]">
-            {testAgent.ownerAddress}
+            {testAgent.address}
           </div>
         </div>
 
@@ -318,7 +323,7 @@ export default function AgentChallengePage() {
     e.preventDefault()
     const tweetId = extractTweetId(tweetUrl)
     if (!tweetId) {
-      setPaymentError('Invalid tweet URL. Please make sure you copied the full tweet URL.')
+      setPaymentError('Invalid tweet URL')
       return
     }
 
@@ -327,6 +332,8 @@ export default function AgentChallengePage() {
       return
     }
 
+    setCurrentTweetId(tweetId)
+    setShowTweetInput(false)
     setIsProcessingPayment(true)
     setPaymentError(null)
 
@@ -337,6 +344,7 @@ export default function AgentChallengePage() {
         await account.waitForTransaction(response.transaction_hash)
         setPendingTweet(prev => prev ? { ...prev, submitted: true } : null)
         setTweetUrl('')
+        setIsPaid(true)
       }
     } catch (error) {
       console.error('Failed to process payment:', error)
@@ -489,29 +497,35 @@ export default function AgentChallengePage() {
                   <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
                     <div className="flex justify-between items-center mb-4">
                       <h2 className="text-xl font-semibold">Pending Challenge</h2>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleEditPendingTweet}
-                          className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={handleReshare}
-                          className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
-                        >
-                          Reshare
-                        </button>
+                      {!isPaid && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleEditPendingTweet}
+                            className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={handleReshare}
+                            className="px-4 py-2 text-sm border border-gray-600 rounded-lg hover:border-[#FF3F26] hover:text-[#FF3F26] transition-colors"
+                          >
+                            Reshare
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {currentTweetId && isPaid ? (
+                      <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
+                    ) : (
+                      <div className="bg-black/30 p-4 rounded-lg">
+                        <p className="font-mono text-lg text-gray-400">
+                          {X_BOT_NAME} :{testAgent.name}: {pendingTweet.text}
+                        </p>
                       </div>
-                    </div>
-                    <div className="bg-black/30 p-4 rounded-lg">
-                      <p className="font-mono text-lg text-gray-400">
-                        {X_BOT_NAME} :{testAgent.name}: {pendingTweet.text}
-                      </p>
-                    </div>
+                    )}
                   </div>
 
-                  {!pendingTweet.submitted && (
+                  {!pendingTweet.submitted && !isPaid && (
                     <form onSubmit={handleSubmitTweetUrl} className="space-y-6">
                       <div>
                         <label className="block text-sm font-medium mb-2">
@@ -687,6 +701,23 @@ export default function AgentChallengePage() {
               Test Defeated
             </button>
           </div>
+
+          {currentTweetId && (
+            <div className="mt-6">
+              <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
+              {isProcessingPayment && (
+                <div className="mt-4 flex items-center justify-center text-[#6F6F6F]">
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Processing payment...
+                </div>
+              )}
+              {paymentError && (
+                <div className="mt-4 text-red-500 text-sm">
+                  {paymentError}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>

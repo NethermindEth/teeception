@@ -48,3 +48,62 @@ body {
   padding: 0px;
   width: 50%;
 }
+
+/* Twitter Embed Dark Mode */
+.tweet-embed {
+  --tweet-container-margin: 0;
+  --tweet-body-margin: 0;
+  --tweet-header-padding: 1rem;
+  --tweet-body-padding: 0 1rem 1rem;
+  --tweet-footer-padding: 0.5rem 1rem;
+  --tweet-bg-color: transparent;
+  --tweet-border: none;
+  --tweet-border-hover: none;
+  --tweet-font: inherit;
+  --tweet-font-color: #fff;
+  --tweet-font-color-secondary: #6F6F6F;
+  --tweet-link-color: #1d9bf0;
+  --tweet-link-color-hover: #1a8cd8;
+  --tweet-color-blue-primary: #1d9bf0;
+  --tweet-color-blue-primary-hover: #1a8cd8;
+  --tweet-quoted-tweet-bg: rgba(255, 255, 255, 0.1);
+  --tweet-quoted-tweet-bg-hover: rgba(255, 255, 255, 0.15);
+  --tweet-quoted-tweet-border-color: transparent;
+}
+
+.tweet-embed :global(.tweet-header) {
+  margin-bottom: 0.5rem;
+}
+
+.tweet-embed :global(.tweet-header-name) {
+  color: var(--tweet-font-color);
+}
+
+.tweet-embed :global(.tweet-header-handle) {
+  color: var(--tweet-font-color-secondary);
+}
+
+.tweet-embed :global(.tweet-text) {
+  color: var(--tweet-font-color);
+}
+
+.tweet-embed :global(.tweet-media) {
+  border-radius: 1rem;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.tweet-embed :global(.tweet-quoted) {
+  border-radius: 1rem;
+  margin-top: 0.5rem;
+}
+
+.tweet-embed :global(.tweet-footer) {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0.5rem;
+}
+
+/* Force dark mode for embedded tweets */
+.tweet-embed iframe[data-theme='light'] {
+  filter: invert(100%) hue-rotate(180deg);
+}
