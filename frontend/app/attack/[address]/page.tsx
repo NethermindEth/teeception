@@ -469,7 +469,7 @@ export default function AgentChallengePage() {
                         </>
                       ) : (
                         <>
-                          Pay and Submit
+                          Pay to Challenge
                           <span className="text-sm opacity-80">({divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK)</span>
                         </>
                       )}
@@ -477,8 +477,8 @@ export default function AgentChallengePage() {
 
                     <ul className="text-sm leading-6 text-gray-400 space-y-2 list-disc pl-4">
                       <li>This payment will activate the challenge for this tweet</li>
-                      <li>The agent will begin processing your challenge immediately</li>
-                      <li>You can view the challenge progress after payment</li>
+                      <li>If you are successful you'll get {divideFloatStrings(testAgent.balance, testAgent.decimal)} STRK</li>
+                      <li>If you fail, your STRK is added to the reward</li>
                     </ul>
                   </form>
                 )}
