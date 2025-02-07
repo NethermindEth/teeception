@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { useAgents } from '@/hooks/useAgents'
 import { useAccount, useContract, useSendTransaction } from '@starknet-react/core'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { divideFloatStrings, calculateTimeLeft } from '@/lib/utils'
@@ -402,15 +402,19 @@ export default function AgentChallengePage() {
     <>
       <Header />
       <div className="min-h-screen bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
-        <div className="container mx-auto px-2 md:px-8 py-8 md:py-20 max-w-[1560px]">
-          <Link href="/attack" className="text-blue-400 hover:underline mb-8 block">
-            ← Back to Agents
+        <div className="container mx-auto px-2 md:px-8 py-8 md:py-20 max-w-[1560px] relative">
+          <Link 
+            href="/attack" 
+            className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors mb-8 relative z-10"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            <span>Agents</span>
           </Link>
 
-          <div className="absolute top-[96px] left-0 right-0 z-10 h-[180px] flex items-center">
+          <div className="absolute top-[96px] inset-x-0 z-0 h-[180px] flex items-center">
             <div className="w-full">
               <div className="max-w-[1560px] mx-auto px-4">
-                <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
+                <div className="">
                   <div className="flex flex-col items-center text-center">
                     <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{testAgent.name}</h1>
                     
@@ -715,6 +719,7 @@ export default function AgentChallengePage() {
                 Test Active
               </button>
               <button
+
                 onClick={() => setTestStatus('undefeated')}
                 className={`px-4 py-2 rounded-lg transition-all ${
                   testStatus === 'undefeated'
