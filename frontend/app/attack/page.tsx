@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
+import { divideFloatStrings } from '@/lib/utils'
 
 export default function AttackPage() {
   const { address } = useAccount()
@@ -57,9 +58,11 @@ export default function AttackPage() {
               </div>
               
               <div className="space-y-2 text-gray-400">
-                <p>Balance: {agent.balance} STRK</p>
-                <p>Challenge Fee: {agent.feePerMessage} STRK</p>
-                <p>Success Rate: {agent.successRate}%</p>
+                <p>Balance: {divideFloatStrings(agent.balance, agent.decimal)} {agent.symbol}</p>
+                <p>Challenge Fee: {divideFloatStrings(agent.promptPrice, agent.decimal)} {agent.symbol}</p>
+                <p>Success Rate: {agent.latestPrompts.length > 0 
+                  ? Math.round((agent.latestPrompts.filter(p => p.isSuccess).length / agent.latestPrompts.length) * 100) 
+                  : 0}%</p>
               </div>
             </Link>
           ))}
