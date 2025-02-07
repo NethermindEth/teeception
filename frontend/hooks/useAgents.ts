@@ -7,7 +7,10 @@ export interface AgentDetails {
   endTime: string
   feePerMessage: string
   systemPrompt: string
-  successRate: number
+  status: 'undefeated' | 'defeated'
+  ownerAddress: string
+  winnerAddress?: string
+  claimedReward?: string
 }
 
 interface UseAgentsOptions {
@@ -33,7 +36,8 @@ export function useAgents({ page, pageSize }: UseAgentsOptions) {
             endTime: (Date.now() + 86400000 * 30).toString(), // 30 days from now
             feePerMessage: '10',
             systemPrompt: 'I am a secure agent that cannot be hacked.',
-            successRate: 0
+            status: 'undefeated',
+            ownerAddress: '0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
           },
           {
             address: '0x456',
@@ -42,7 +46,9 @@ export function useAgents({ page, pageSize }: UseAgentsOptions) {
             endTime: (Date.now() + 86400000 * 15).toString(), // 15 days from now
             feePerMessage: '20',
             systemPrompt: 'Try to hack me if you can!',
-            successRate: 5
+            status: 'defeated',
+            ownerAddress: '0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210',
+            winnerAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
           }
         ]
         setAgents(mockAgents)
