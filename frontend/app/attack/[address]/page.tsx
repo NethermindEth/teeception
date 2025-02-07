@@ -368,8 +368,8 @@ export default function AgentChallengePage() {
                 <div className="p-12 text-center">
                   <div className="flex flex-col items-center gap-8">
                     <div className="flex items-center gap-3">
+                      <h2 className="text-2xl font-medium">Opening</h2>
                       <Image src="/icons/x.svg" width={24} height={24} alt="X" className="opacity-80" />
-                      <h2 className="text-2xl font-medium">Opening Twitter</h2>
                     </div>
                     <div className="flex items-center gap-6 text-lg text-gray-300">
                       <div className="flex items-center gap-3">
@@ -509,13 +509,13 @@ export default function AgentChallengePage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Opening Twitter...
+                      Opening <Image src="/icons/x.svg" width={16} height={16} alt="X" className="opacity-80" />...
                     </>
                   ) : (
                     <>
+                      <span>Challenge on </span>
                       <Image src="/icons/x.svg" width={16} height={16} alt="X" className="opacity-80" />
-                      <span>Share Challenge</span>
-                      <span className="text-sm opacity-80">({testAgent.feePerMessage} STRK)</span>
+                      <span className="text-sm opacity-80">{divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK</span>
                     </>
                   )}
                 </button>
