@@ -23,7 +23,7 @@ var (
 func main() {
 	var (
 		providerURLs         []string
-		pageSize             int
+		maxPageSize          int
 		serverAddr           string
 		registryAddr         string
 		deploymentBlock      uint64
@@ -40,7 +40,7 @@ func main() {
 			if len(providerURLs) == 0 ||
 				registryAddr == "" ||
 				deploymentBlock == 0 ||
-				pageSize == 0 ||
+				maxPageSize == 0 ||
 				serverAddr == "" {
 				return cmd.Help()
 			}
@@ -75,7 +75,7 @@ func main() {
 
 			uiService, err := uiservice.NewUIService(&uiservice.UIServiceConfig{
 				Client:               rateLimitedClient,
-				PageSize:             pageSize,
+				MaxPageSize:          maxPageSize,
 				ServerAddr:           serverAddr,
 				RegistryAddress:      registryAddress,
 				StartingBlock:        deploymentBlock,
@@ -95,7 +95,7 @@ func main() {
 	}
 
 	rootCmd.Flags().StringArrayVar(&providerURLs, "provider-url", nil, "Starknet provider URL (can be specified multiple times)")
-	rootCmd.Flags().IntVar(&pageSize, "page-size", 10, "Page size for pagination")
+	rootCmd.Flags().IntVar(&maxPageSize, "page-size", 50, "Max page size for pagination")
 	rootCmd.Flags().StringVar(&serverAddr, "server-addr", ":8000", "Server address to listen on")
 	rootCmd.Flags().StringVar(&registryAddr, "registry-addr", "", "Agent registry contract address")
 	rootCmd.Flags().Uint64Var(&deploymentBlock, "deployment-block", 0, "Block number of registry deployment")

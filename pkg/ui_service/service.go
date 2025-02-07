@@ -19,7 +19,7 @@ import (
 
 type UIServiceConfig struct {
 	Client               starknet.ProviderWrapper
-	PageSize             int
+	MaxPageSize          int
 	ServerAddr           string
 	RegistryAddress      *felt.Felt
 	StartingBlock        uint64
@@ -41,8 +41,8 @@ type UIService struct {
 
 	client starknet.ProviderWrapper
 
-	pageSize   int
-	serverAddr string
+	maxPageSize int
+	serverAddr  string
 }
 
 func NewUIService(config *UIServiceConfig) (*UIService, error) {
@@ -108,9 +108,9 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 
 		registryAddress: config.RegistryAddress,
 
-		client:     config.Client,
-		pageSize:   config.PageSize,
-		serverAddr: config.ServerAddr,
+		client:      config.Client,
+		maxPageSize: config.MaxPageSize,
+		serverAddr:  config.ServerAddr,
 	}, nil
 }
 
@@ -192,13 +192,30 @@ type AgentPageResponse struct {
 	LastBlock int          `json:"last_block"`
 }
 
+func (s *UIService) getPageSize(requestedSize int) int {
+	if requestedSize <= 0 {
+		return s.maxPageSize
+	}
+	if requestedSize > s.maxPageSize {
+		return s.maxPageSize
+	}
+	return requestedSize
+}
+
 func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 	page, err := strconv.Atoi(c.Query("page"))
 	if err != nil {
 		page = 0
 	}
 
-	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(s.pageSize), uint64(page+1)*uint64(s.pageSize))
+	pageSize := s.getPageSize(0)
+	if sizeStr := c.Query("page_size"); sizeStr != "" {
+		if size, err := strconv.Atoi(sizeStr); err == nil {
+			pageSize = s.getPageSize(size)
+		}
+	}
+
+	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(pageSize), uint64(page+1)*uint64(pageSize))
 	if err != nil {
 		slog.Error("error fetching agent leaderboard", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})
@@ -261,7 +278,7 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 		Agents:    agentDatas,
 		Total:     int(agents.AgentCount),
 		Page:      page,
-		PageSize:  s.pageSize,
+		PageSize:  pageSize,
 		LastBlock: int(agents.LastBlock),
 	})
 }
@@ -339,8 +356,15 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 		page = 0
 	}
 
-	start := uint64(page) * uint64(s.pageSize)
-	limit := uint64(s.pageSize)
+	pageSize := s.getPageSize(0)
+	if sizeStr := c.Query("page_size"); sizeStr != "" {
+		if size, err := strconv.Atoi(sizeStr); err == nil {
+			pageSize = s.getPageSize(size)
+		}
+	}
+
+	start := uint64(page) * uint64(pageSize)
+	limit := uint64(pageSize)
 
 	agents, ok := s.agentIndexer.GetAgentsByCreator(c.Request.Context(), userAddr, start, limit)
 	if !ok {
@@ -390,7 +414,7 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 		Agents:    agentDatas,
 		Total:     int(agents.AgentCount),
 		Page:      page,
-		PageSize:  s.pageSize,
+		PageSize:  pageSize,
 		LastBlock: int(agents.LastBlock),
 	})
 }
@@ -407,8 +431,15 @@ func (s *UIService) HandleSearchAgents(c *gin.Context) {
 		page = 0
 	}
 
-	start := uint64(page) * uint64(s.pageSize)
-	limit := uint64(s.pageSize)
+	pageSize := s.getPageSize(0)
+	if sizeStr := c.Query("page_size"); sizeStr != "" {
+		if size, err := strconv.Atoi(sizeStr); err == nil {
+			pageSize = s.getPageSize(size)
+		}
+	}
+
+	start := uint64(page) * uint64(pageSize)
+	limit := uint64(pageSize)
 
 	agents, ok := s.agentIndexer.GetAgentInfosByNamePrefix(name, start, limit)
 	if !ok {
@@ -430,7 +461,7 @@ func (s *UIService) HandleSearchAgents(c *gin.Context) {
 		Agents:    agentDatas,
 		Total:     int(agents.Total),
 		Page:      page,
-		PageSize:  s.pageSize,
+		PageSize:  pageSize,
 		LastBlock: int(agents.LastBlock),
 	})
 }
