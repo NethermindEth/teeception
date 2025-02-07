@@ -7,7 +7,7 @@ import { useAccount, useContract, useSendTransaction } from '@starknet-react/cor
 import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { divideFloatStrings } from '@/lib/utils'
+import { divideFloatStrings, calculateTimeLeft } from '@/lib/utils'
 import { X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
@@ -177,43 +177,24 @@ export default function AgentChallengePage() {
 
   const StatusDisplay = () => {
     const [timeLeft, setTimeLeft] = useState(() => {
-      if (testAgent.status !== 'active') return ''
-      
-      const endTime = parseInt(testAgent.endTime)
-      const now = Date.now()
-      const difference = endTime - now
-
-      if (difference <= 0) return 'EXPIRED'
-
-      const days = Math.floor(difference / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((difference % (1000 * 60)) / 1000)
-
-      return `${days}D ${hours}H ${minutes}M ${seconds}S`
+      if (testAgent.status !== 'active') return null
+      return calculateTimeLeft(parseInt(testAgent.endTime))
     })
 
     useEffect(() => {
-      const calculateTimeLeft = () => {
-        const endTime = parseInt(testAgent.endTime)
-        const now = Date.now()
-        const difference = endTime - now
-
-        if (difference <= 0) {
-          return 'EXPIRED'
-        }
-
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24))
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000)
-
-        return `${days}D ${hours}H ${minutes}M ${seconds}S`
-      }
-
       if (testAgent.status === 'active') {
+        const endTime = parseInt(testAgent.endTime)
+        
+        // Initial calculation
+        setTimeLeft(calculateTimeLeft(endTime))
+        
         const timer = setInterval(() => {
-          setTimeLeft(calculateTimeLeft())
+          const newTimeLeft = calculateTimeLeft(endTime)
+          setTimeLeft(newTimeLeft)
+          
+          if (newTimeLeft === 'Inactive') {
+            clearInterval(timer)
+          }
         }, 1000)
 
         return () => clearInterval(timer)
@@ -223,8 +204,8 @@ export default function AgentChallengePage() {
     switch (testAgent.status) {
       case 'active':
         return (
-          <div className="text-3xl font-bold text-[#FFD700] min-w-[240px] text-center">
-            {timeLeft || '00D 00H 00M 00S'}
+          <div className="text-3xl font-bold text-white min-w-[240px] text-center">
+            {timeLeft === 'Inactive' ? 'EXPIRED' : timeLeft}
           </div>
         )
       
@@ -426,7 +407,7 @@ export default function AgentChallengePage() {
             ← Back to Agents
           </Link>
 
-          <div className="absolute top-[76px] left-0 right-0 z-10 h-[180px] flex items-center">
+          <div className="absolute top-[96px] left-0 right-0 z-10 h-[180px] flex items-center">
             <div className="w-full">
               <div className="max-w-[1560px] mx-auto px-4">
                 <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg">
@@ -439,10 +420,10 @@ export default function AgentChallengePage() {
                     
                     <div className="flex flex-col md:flex-row items-center gap-8 justify-center">
                       <div className="flex items-baseline gap-4">
-                        <div className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-[#B8860B] via-[#FFD700] to-[#B8860B] text-transparent bg-clip-text bg-[length:200%_100%] animate-shimmer">
+                        <div className="text-5xl md:text-6xl font-bold text-white">
                           {divideFloatStrings(testAgent.balance, testAgent.decimal)}
                         </div>
-                        <div className="text-2xl md:text-3xl font-medium text-[#B8860B]">STRK</div>
+                        <div className="text-2xl md:text-3xl font-medium text-gray-300">STRK</div>
                       </div>
                       {testAgent.status === 'active' && <StatusDisplay />}
                     </div>
@@ -454,7 +435,7 @@ export default function AgentChallengePage() {
             </div>
           </div>
 
-          <div className="pt-[220px]">
+          <div className="pt-[200px]">
             {testAgent.status === 'undefeated' && (
               <div className="max-w-3xl mx-auto">
                 <SystemPromptDisplay />
@@ -673,23 +654,50 @@ export default function AgentChallengePage() {
               )
               .length > 0 && (
                 <div className="max-w-3xl mx-auto mt-20">
-                  <h2 className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">Other Attempts</h2>
+                  <h2 className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">Previous Attempts</h2>
                   
                   <div className="flex max-w-[800px] mx-auto mb-12">
                     <div className="white-gradient-border"></div>
                     <div className="white-gradient-border rotate-180"></div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {challenges
                       .filter(challenge => 
                         !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
                         !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
                       )
                       .sort((a, b) => b.timestamp - a.timestamp)
-                      .map((challenge) => (
-                        <ChallengeDisplay key={challenge.id} challenge={challenge} />
-                      ))}
+                      .map((challenge) => {
+                        console.log('Challenge ID:', challenge.id);
+                        // Extract tweet ID if it's a full URL
+                        const tweetId = challenge.id.includes('status/') 
+                          ? extractTweetId(challenge.id)
+                          : challenge.id;
+                        console.log('Extracted Tweet ID:', tweetId);
+                        
+                        return (
+                          <div key={challenge.id} className="bg-[#12121266] backdrop-blur-lg rounded-lg overflow-hidden border border-gray-800/50">
+                            <div className="w-full bg-black/50 border-b border-gray-800/50 py-3 px-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-sm text-gray-400">
+                                  <span>{new Date(challenge.timestamp).toLocaleDateString()}</span>
+                                </div>
+                                <div className="text-sm text-gray-400">
+                                  {challenge.twitterHandle}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="p-4">
+                              {tweetId ? (
+                                <TweetPreview tweetId={tweetId} isPaid={true} />
+                              ) : (
+                                <div className="text-red-400 text-sm">Invalid tweet ID format</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                   </div>
                 </div>
               )}
