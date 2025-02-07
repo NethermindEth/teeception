@@ -34,6 +34,9 @@ export default function AgentChallengePage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [testStatus, setTestStatus] = useState<'active' | 'undefeated' | 'defeated'>('active')
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false)
+  const [paymentError, setPaymentError] = useState<string | null>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -220,20 +223,45 @@ export default function AgentChallengePage() {
     }
   }
 
+  const extractTweetId = (url: string): string | null => {
+    try {
+      const urlObj = new URL(url)
+      const pathParts = urlObj.pathname.split('/')
+      const statusIndex = pathParts.indexOf('status')
+      if (statusIndex !== -1 && pathParts[statusIndex + 1]) {
+        return pathParts[statusIndex + 1]
+      }
+    } catch (error) {
+      console.error('Failed to parse tweet URL:', error)
+    }
+    return null
+  }
+
   const handleSubmitTweetUrl = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
+    const tweetId = extractTweetId(tweetUrl)
+    if (!tweetId) {
+      setPaymentError('Invalid tweet URL. Please make sure you copied the full tweet URL.')
+      return
+    }
+
+    setIsProcessingPayment(true)
+    setPaymentError(null)
+
     try {
-      // TODO: Verify tweet URL and process payment
-      console.log('Processing tweet:', tweetUrl)
+      // TODO: Process payment here using the contracts
+      console.log('Processing payment for tweet:', tweetId)
       
-      // Mark tweet as submitted
+      // Simulate payment success
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
       setPendingTweet(prev => prev ? { ...prev, submitted: true } : null)
       setTweetUrl('')
     } catch (error) {
-      console.error('Failed to process tweet:', error)
+      console.error('Failed to process payment:', error)
+      setPaymentError(error instanceof Error ? error.message : 'Failed to process payment. Please try again.')
     } finally {
-      setIsSubmitting(false)
+      setIsProcessingPayment(false)
     }
   }
 
@@ -404,32 +432,49 @@ export default function AgentChallengePage() {
                       <input
                         type="url"
                         value={tweetUrl}
-                        onChange={(e) => setTweetUrl(e.target.value)}
+                        onChange={(e) => {
+                          setTweetUrl(e.target.value)
+                          setPaymentError(null)
+                        }}
                         className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-4 text-lg transition-all duration-300
                           focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none"
                         placeholder="https://twitter.com/..."
                         required
                       />
+                      {paymentError && (
+                        <p className="mt-2 text-sm text-[#FF3F26]">{paymentError}</p>
+                      )}
+                    </div>
+
+                    <div className="bg-white/5 p-4 rounded-lg">
+                      <div className="text-sm text-muted-foreground">Challenge Fee</div>
+                      <div className="text-xl font-medium text-white mt-1">{testAgent.feePerMessage} STRK</div>
                     </div>
 
                     <button
                       type="submit"
-                      disabled={isSubmitting}
+                      disabled={isProcessingPayment}
                       className="w-full bg-black border-2 border-white text-white rounded-lg py-4 font-medium 
                         transition-all duration-300
                         hover:text-[#FF3F26] hover:border-[#FF3F26] hover:shadow-[0_0_30px_rgba(255,63,38,0.2)]
                         disabled:opacity-50 disabled:cursor-not-allowed
                         flex items-center justify-center gap-2"
                     >
-                      {isSubmitting ? (
+                      {isProcessingPayment ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Processing...
+                          Processing Payment...
                         </>
                       ) : (
-                        'Submit Tweet URL'
+                        'Pay and Submit'
                       )}
                     </button>
+
+                    <ul className="text-sm leading-6 text-gray-400 space-y-2 list-disc pl-4">
+                      <li>This payment will activate the challenge for this tweet</li>
+                      <li>The agent will begin processing your challenge immediately</li>
+                      <li>You can view the challenge progress after payment</li>
+                    </ul>
                   </form>
                 )}
               </div>
@@ -560,4 +605,4 @@ export default function AgentChallengePage() {
       </div>
     </div>
   )
-} 
+}
