@@ -20,10 +20,12 @@ export const AgentsList = ({
   agents,
   isFetchingAgents,
   searchQuery,
+  onAgentClick,
 }: {
   agents: AgentDetails[]
   isFetchingAgents: boolean
   searchQuery: string
+  onAgentClick?: (agent: AgentDetails) => void
 }) => {
   const router = useRouter()
   const [currentPage, setCurrentPage] = useState(1)
@@ -36,8 +38,12 @@ export const AgentsList = ({
     siblingCount: SIBLING_COUNT,
   })
 
-  const handleAgentClick = (agentName: string) => {
-    router.push(`/agents/${encodeURIComponent(agentName)}`)
+  const handleAgentClick = (agent: AgentDetails) => {
+    if (onAgentClick) {
+      onAgentClick(agent)
+    } else {
+      router.push(`/agents/${encodeURIComponent(agent.name)}`)
+    }
   }
 
   const onPageChange = (page: number) => {
@@ -77,9 +83,9 @@ export const AgentsList = ({
                   <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                   <p className="col-span-2">Agent name</p>
                 </div>
+                <div className="col-span-3 border-l border-l-[#6F6F6F] ps-4">Reward</div>
+                <div className="col-span-2 border-l border-l-[#6F6F6F] ps-4">Message price</div>
                 <div className="col-span-2 border-l border-l-[#6F6F6F] ps-4">Break attempts</div>
-                <div className="col-span-3 border-l border-l-[#6F6F6F] ps-4">Message price</div>
-                <div className="col-span-2 border-l border-l-[#6F6F6F] ps-4">Prize pool</div>
               </div>
 
               {currentAgents.map((agent, idx) => {
@@ -90,24 +96,25 @@ export const AgentsList = ({
                   <div
                     className="grid grid-cols-12 bg-[#2E40494D] backdrop-blur-xl min-w-[680px] min-h-11 p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
                     key={agent.address}
-                    onClick={() => handleAgentClick(agent.name)}
+                    onClick={() => handleAgentClick(agent)}
                   >
                     <div className="col-span-5 md:col-span-3 grid grid-cols-12 items-center">
                       <p className="pr-1 col-span-2 lg:col-span-1">{idx + 1}</p>
                       <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                       <div className="col-span-2 flex gap-1 items-center">
                         <div className="mr-4">{agent.name}</div>
+                     </div>
+                    </div>
+                    <div className="col-span-3 ps-4">{`${prizePool} ${agent.symbol}`.trim()}</div>
+                    <div className="col-span-2 ps-4">{`${promptPrice} ${agent.symbol}`.trim()}</div>
+                    <div className="col-span-2 ps-4">{agent.breakAttempts}</div>
                         {timeLeft !== 'Inactive' && (
                           <div className="rounded-full bg-black px-4 py-2 flex items-center justify-end">
                             <div className="w-2 h-2 bg-[#00D369] rounded-full flex-shrink-0"></div>
                             <div className="pl-1">{timeLeft}</div>
                           </div>
                         )}
-                      </div>
-                    </div>
-                    <div className="col-span-2 ps-4">{agent.breakAttempts}</div>
-                    <div className="col-span-3 ps-4">{`${promptPrice} ${agent.symbol}`.trim()}</div>
-                    <div className="col-span-2 ps-4">{`${prizePool} ${agent.symbol}`.trim()}</div>
+ 
                   </div>
                 )
               })}

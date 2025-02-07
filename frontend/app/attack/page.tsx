@@ -1,17 +1,63 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useAgents } from '@/hooks/useAgents'
+import { useAgents, AgentDetails } from '@/hooks/useAgents'
 import { useAccount } from '@starknet-react/core'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Search } from 'lucide-react'
 import Link from 'next/link'
 import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
-import { divideFloatStrings } from '@/lib/utils'
+import { divideFloatStrings, calculateTimeLeft } from '@/lib/utils'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useMemo } from 'react'
+import { AgentsList } from '@/components/AgentsList'
+import { useRouter } from 'next/navigation'
+
+enum TabType {
+  AllAgents = 'all-agents',
+  ActiveAgents = 'active-agents',
+  HighestRewards = 'highest-rewards'
+}
 
 export default function AttackPage() {
   const { address } = useAccount()
+  const [searchQuery, setSearchQuery] = useState('')
   const { agents = [], loading: isFetchingAgents } = useAgents({ page: 0, pageSize: 1000 })
+  const router = useRouter()
+
+  const activeAgents = useMemo(
+    () => agents.filter((agent) => calculateTimeLeft(Number(agent.endTime)) !== 'Inactive'),
+    [agents]
+  )
+  const highestRewards = useMemo(
+    () => agents.sort((agent1, agent2) => +agent2.balance - +agent1.balance),
+    [agents]
+  )
+
+  const filterAgents = (agentsList: any[], query: string) => {
+    if (!query.trim()) return agentsList
+
+    const lowercaseQuery = query.toLowerCase().trim()
+    return agentsList.filter(
+      (agent) =>
+        agent.name.toLowerCase().includes(lowercaseQuery) ||
+        agent.address.toLowerCase().includes(lowercaseQuery)
+    )
+  }
+
+  const filteredAgents = useMemo(() => filterAgents(agents, searchQuery), [agents, searchQuery])
+  const filteredActiveAgents = useMemo(
+    () => filterAgents(activeAgents, searchQuery),
+    [activeAgents, searchQuery]
+  )
+  const filteredHighestRewards = useMemo(
+    () => filterAgents(highestRewards, searchQuery),
+    [highestRewards, searchQuery]
+  )
+
+  const handleAgentClick = (agent: AgentDetails) => {
+    router.push(`/attack/${agent.address}`)
+  }
 
   if (!address) {
     return (
@@ -40,32 +86,77 @@ export default function AttackPage() {
   return (
     <>
       <Header />
-      <div className="container mx-auto px-4 py-8 pt-24">
-        <h1 className="text-4xl font-bold mb-8">Challenge Agents</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {agents.map((agent) => (
-            <Link 
-              href={`/attack/${agent.address}`} 
-              key={agent.address}
-              className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg hover:bg-[#12121299] transition-colors"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-semibold">{agent.name}</h2>
-                <div className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">
-                  Active
-                </div>
+      <div className="px-2 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto md:mt-20">
+        <div className="mb-20">
+          <p className="text-4xl md:text-[48px] font-bold text-center uppercase">
+            Chose your oponent
+          </p>
+
+          <div className="flex max-w-[800px] mx-auto my-3 md:my-6">
+            <div className="white-gradient-border"></div>
+            <div className="white-gradient-border rotate-180"></div>
+          </div>
+
+          <p className="text-[#B4B4B4] text-center max-w-[594px] mx-auto">
+            Trick one of these agents into sending you all their STRK
+          </p>
+        </div>
+
+        <div>
+          <Tabs defaultValue={TabType.ActiveAgents} className="w-full">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+              <TabsList className="flex w-full">
+                <TabsTrigger value={TabType.AllAgents}>
+                  All agents ({agents.length})
+                </TabsTrigger>
+                <TabsTrigger value={TabType.ActiveAgents}>
+                  Active agents ({activeAgents.length})
+                </TabsTrigger>
+                <TabsTrigger value={TabType.HighestRewards}>
+                  Highest rewards ({highestRewards.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="relative w-full md:w-auto mt-4 md:mt-0">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by agent"
+                  className="placeholder:text-[#6F6F6F] border border-[#6F6F6F] rounded-[28px] bg-transparent px-5 py-1 min-h-[2rem] text-sm outline-none focus:border-white w-full md:w-auto"
+                />
+                <Search
+                  className="text-[#6F6F6F] absolute top-1/2 -translate-y-1/2 right-5"
+                  width={14}
+                />
               </div>
-              
-              <div className="space-y-2 text-gray-400">
-                <p>Balance: {divideFloatStrings(agent.balance, agent.decimal)} {agent.symbol}</p>
-                <p>Challenge Fee: {divideFloatStrings(agent.promptPrice, agent.decimal)} {agent.symbol}</p>
-                <p>Success Rate: {agent.latestPrompts.length > 0 
-                  ? Math.round((agent.latestPrompts.filter(p => p.isSuccess).length / agent.latestPrompts.length) * 100) 
-                  : 0}%</p>
-              </div>
-            </Link>
-          ))}
+            </div>
+
+            <TabsContent value={TabType.AllAgents}>
+              <AgentsList
+                agents={filteredAgents}
+                isFetchingAgents={isFetchingAgents}
+                searchQuery={searchQuery}
+                onAgentClick={handleAgentClick}
+              />
+            </TabsContent>
+            <TabsContent value={TabType.ActiveAgents}>
+              <AgentsList
+                agents={filteredActiveAgents}
+                isFetchingAgents={isFetchingAgents}
+                searchQuery={searchQuery}
+                onAgentClick={handleAgentClick}
+              />
+            </TabsContent>
+            <TabsContent value={TabType.HighestRewards}>
+              <AgentsList
+                agents={filteredHighestRewards}
+                isFetchingAgents={isFetchingAgents}
+                searchQuery={searchQuery}
+                onAgentClick={handleAgentClick}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </>
