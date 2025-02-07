@@ -4,6 +4,7 @@ export const RPC_NODE_URL = process.env.NEXT_PUBLIC_RPC_NODE_URL || DEFAULT_RPC_
 export const AGENT_REGISTRY_ADDRESS =
   process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS ||
   '0x035d8620d6e5a5ddc8b48589198cfc08b605bf3eec515908ddcbd23f9c5b2927'
+export const X_BOT_NAME = '@teetestt84759'
 
 export const INDEXER_BASE_URL =
   process.env.NEXT_PUBLIC_INDEXER_BASE_URL || 'http://34.141.53.65:4000'

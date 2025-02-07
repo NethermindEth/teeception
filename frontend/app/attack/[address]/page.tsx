@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { divideFloatStrings } from '@/lib/utils'
+import { X_BOT_NAME } from '@/constants'
 
 interface Challenge {
   id: string
@@ -182,7 +183,7 @@ export default function AgentChallengePage() {
     setLoadingProgress(0)
     
     try {
-      const tweetText = `@teeception :${testAgent.name}: ${challenge}`
+      const tweetText = `${X_BOT_NAME} :${testAgent.name}: ${challenge}`
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
       
       // Animate loading bar
@@ -275,7 +276,7 @@ export default function AgentChallengePage() {
 
   const handleReshare = () => {
     if (pendingTweet) {
-      const tweetText = `@teeception :${testAgent.name}: ${pendingTweet.text}`
+      const tweetText = `${X_BOT_NAME} :${testAgent.name}: ${pendingTweet.text}`
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
       window.open(tweetIntent, '_blank')
     }
@@ -322,6 +323,11 @@ export default function AgentChallengePage() {
         </div>
       </div>
     )
+  }
+
+  const getMaxPromptLength = () => {
+    const prefix = `${X_BOT_NAME} :${testAgent.name}: `
+    return 280 - prefix.length
   }
 
   return (
@@ -419,7 +425,7 @@ export default function AgentChallengePage() {
                   </div>
                   <div className="bg-black/30 p-4 rounded-lg">
                     <p className="font-mono text-lg text-gray-400">
-                      @teeception :{testAgent.name}: {pendingTweet.text}
+                      {X_BOT_NAME} :{testAgent.name}: {pendingTweet.text}
                     </p>
                   </div>
                 </div>
@@ -439,17 +445,12 @@ export default function AgentChallengePage() {
                         }}
                         className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-4 text-lg transition-all duration-300
                           focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none"
-                        placeholder="https://twitter.com/..."
+                        placeholder={`https://x.com/your_amazing_profile/status/your_winning_bet`}
                         required
                       />
                       {paymentError && (
                         <p className="mt-2 text-sm text-[#FF3F26]">{paymentError}</p>
                       )}
-                    </div>
-
-                    <div className="bg-white/5 p-4 rounded-lg">
-                      <div className="text-sm text-muted-foreground">Challenge Fee</div>
-                      <div className="text-xl font-medium text-white mt-1">{testAgent.feePerMessage} STRK</div>
                     </div>
 
                     <button
@@ -467,7 +468,10 @@ export default function AgentChallengePage() {
                           Processing Payment...
                         </>
                       ) : (
-                        'Pay and Submit'
+                        <>
+                          Pay and Submit
+                          <span className="text-sm opacity-80">({divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK)</span>
+                        </>
                       )}
                     </button>
 
@@ -489,11 +493,11 @@ export default function AgentChallengePage() {
                     className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-6 min-h-[200px] text-lg transition-all duration-300
                       focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none resize-none"
                     placeholder="Enter your challenge prompt..."
-                    maxLength={280}
+                    maxLength={getMaxPromptLength()}
                     required
                   />
                   <div className="absolute bottom-4 right-4 text-sm text-gray-400">
-                    {challenge.length}/280
+                    {challenge.length}/{getMaxPromptLength()}
                   </div>
                 </div>
 
@@ -515,7 +519,6 @@ export default function AgentChallengePage() {
                     <>
                       <span>Challenge on </span>
                       <Image src="/icons/x.svg" width={16} height={16} alt="X" className="opacity-80" />
-                      <span className="text-sm opacity-80">{divideFloatStrings(testAgent.promptPrice, testAgent.decimal)} STRK</span>
                     </>
                   )}
                 </button>
@@ -524,7 +527,7 @@ export default function AgentChallengePage() {
                   <h2 className="text-xl font-semibold">System Prompt</h2>
                   <div className="bg-black/30 p-4 rounded-lg">
                     <pre className="whitespace-pre-wrap font-mono text-sm">
-                      {testAgent.systemPrompt}
+                      {testAgent.system_prompt}
                     </pre>
                   </div>
                 </div>

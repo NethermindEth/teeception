@@ -7,6 +7,7 @@ export interface AgentDetails {
   name: string
   balance: string
   promptPrice: string
+  systemPrompt: string
   breakAttempts: number
   endTime: string
   tokenAddress: string
@@ -44,6 +45,7 @@ interface IndexerAgentResponse {
     end_time: string
     prompt_price: string
     break_attempts: string
+    system_prompt: string
     latest_prompts: Array<{
       prompt: string
       is_success: boolean
@@ -88,6 +90,7 @@ export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsP
           address: agent.address,
           name: agent.name,
           balance: agent.balance,
+          systemPrompt: agent.system_prompt,
           promptPrice: agent.prompt_price,
           breakAttempts: parseInt(agent.break_attempts),
           endTime: agent.end_time,
