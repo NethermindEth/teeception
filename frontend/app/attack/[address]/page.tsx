@@ -716,23 +716,6 @@ export default function AgentChallengePage() {
               Test Defeated
             </button>
           </div>
-
-          {currentTweetId && (
-            <div className="mt-6">
-              <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
-              {isProcessingPayment && (
-                <div className="mt-4 flex items-center justify-center text-[#6F6F6F]">
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  Processing payment...
-                </div>
-              )}
-              {paymentError && (
-                <div className="mt-4 text-red-500 text-sm">
-                  {paymentError}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </>
