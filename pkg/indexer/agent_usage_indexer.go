@@ -16,6 +16,7 @@ import (
 type AgentUsage struct {
 	BreakAttempts uint64
 	LatestPrompts []*AgentUsageLatestPrompt
+	IsDrained     bool
 }
 
 type AgentUsageLatestPrompt struct {
@@ -206,6 +207,10 @@ func (i *AgentUsageIndexer) addAttempt(usage *AgentUsage, agentAddr *felt.Felt, 
 	if !ok {
 		slog.Error("prompt not found in cache", "agent", agentAddr, "prompt", promptId)
 		prompt = ""
+	}
+
+	if succeeded {
+		usage.IsDrained = true
 	}
 
 	usage.LatestPrompts = append(usage.LatestPrompts, &AgentUsageLatestPrompt{

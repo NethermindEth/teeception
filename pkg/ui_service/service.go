@@ -171,6 +171,8 @@ type AgentData struct {
 	Name          string                   `json:"name"`
 	Balance       string                   `json:"balance"`
 	EndTime       string                   `json:"end_time"`
+	IsDrained     bool                     `json:"is_drained"`
+	IsFinalized   bool                     `json:"is_finalized"`
 	PromptPrice   string                   `json:"prompt_price"`
 	BreakAttempts string                   `json:"break_attempts"`
 	LatestPrompts []*AgentDataLatestPrompt `json:"latest_prompts"`
@@ -247,6 +249,8 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			Token:         balance.Token.String(),
 			Balance:       balance.Amount.String(),
 			EndTime:       strconv.FormatUint(balance.EndTime, 10),
+			IsDrained:     usage.IsDrained,
+			IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
 			PromptPrice:   info.PromptPrice.String(),
 			BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
 			LatestPrompts: latestPrompts,
@@ -309,6 +313,8 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 		Token:         balance.Token.String(),
 		Balance:       balance.Amount.String(),
 		EndTime:       strconv.FormatUint(balance.EndTime, 10),
+		IsDrained:     usage.IsDrained,
+		IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
 		PromptPrice:   info.PromptPrice.String(),
 		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
 		LatestPrompts: latestPrompts,
@@ -372,6 +378,8 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 			Token:         balance.Token.String(),
 			Balance:       balance.Amount.String(),
 			EndTime:       strconv.FormatUint(balance.EndTime, 10),
+			IsDrained:     usage.IsDrained,
+			IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
 			PromptPrice:   info.PromptPrice.String(),
 			BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
 			LatestPrompts: latestPrompts,
@@ -454,6 +462,8 @@ func (s *UIService) agentDataFromAgentInfo(info *indexer.AgentInfo) (*AgentData,
 		Token:         balance.Token.String(),
 		Balance:       balance.Amount.String(),
 		EndTime:       strconv.FormatUint(balance.EndTime, 10),
+		IsDrained:     usage.IsDrained,
+		IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
 		PromptPrice:   info.PromptPrice.String(),
 		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
 		LatestPrompts: latestPrompts,
