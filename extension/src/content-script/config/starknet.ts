@@ -66,7 +66,8 @@ export const STARKNET_CONFIG = {
 export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia
 
 // Initialize Nethermind provider
-const NETHERMIND_API_KEY = 'BqyrrrCXajIYmrrDurtUBKlmsOCGcYCkm4PyBACuMtvtGmwODFz11RikUh1KueKd'
+export const NETHERMIND_API_KEY = 'BqyrrrCXajIYmrrDurtUBKlmsOCGcYCkm4PyBACuMtvtGmwODFz11RikUh1KueKd'
+
 export const provider = new RpcProvider({
   nodeUrl: `https://rpc.nethermind.io/sepolia-juno/?apikey=${NETHERMIND_API_KEY}`,
 })

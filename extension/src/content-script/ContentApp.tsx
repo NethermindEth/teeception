@@ -11,14 +11,22 @@ import { extractAgentName } from './utils/twitter'
 import { payForTweet, getAgentAddressByName } from './utils/contracts'
 import { useAccount } from '@starknet-react/core'
 import { TWITTER_CONFIG } from './config/starknet'
+import { useSetAtom } from 'jotai'
+import { configWriteAtom, initializeConfig, setConfigErrorAtom } from '@/config/atoms'
+import { useConfig } from '@/config/useConfig'
 
 const ContentApp = () => {
+
+
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [currentAgentName, setCurrentAgentName] = useState<string | null>(null)
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const { account } = useAccount()
+  const { config, loading, error } = useConfig()
   const originalButtonRef = useRef<HTMLElement | null>(null)
+
+  console.log('registry address', config.STARKNET_CONFIG.sepolia.agentRegistryAddress)
 
   const handleTweetAttempt = useCallback(() => {
     const text = getTweetText()
@@ -93,7 +101,12 @@ const ContentApp = () => {
   }, [])
 
   // Use tweet observer
-  const { updateBanner, checkUnpaidTweets, markTweetAsPaid } = useTweetObserver(handlePayment, currentUser)
+  const { updateBanner, checkUnpaidTweets, markTweetAsPaid } = useTweetObserver(
+    handlePayment,
+    currentUser
+  )
+
+  if (loading) return <h1>Loading...</h1>
 
   return (
     <>
