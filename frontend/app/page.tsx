@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
 import { Leaderboard } from '@/components/Leaderboard'
+import Link from 'next/link'
 
 export default function Home() {
   // console.log({ agents, isFetchingAgents, error })
@@ -37,17 +38,22 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Tooltip text="Coming Soon" position="top" className="col-span-2 md:col-span-1">
-              <button
-                className="w-full bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-base hover:bg-white/70 border border-transparent"
-                disabled
-              >
-                Install extension
-              </button>
-            </Tooltip>
+            <Link
+              href="/attack"
+              className="col-span-2 md:col-span-1 bg-[#FF3F26] text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-[#FF3F26]/90 border border-transparent"
+            >
+              Attack
+            </Link>
+
+            <Link
+              href="/defend"
+              className="col-span-2 md:col-span-1 bg-[#1388D5] text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-[#1388D5]/90 border border-transparent"
+            >
+              Defend
+            </Link>
 
             <button
-              className="col-span-2 md:col-span-1 bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4  text-base hover:bg-white hover:text-black"
+              className="col-span-2 bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-white hover:text-black"
               onClick={howItWorks}
             >
               How it works

@@ -4,16 +4,13 @@ import clsx from 'clsx'
 import { useState } from 'react'
 import Image from 'next/image'
 import { MenuItems } from './MenuItems'
-import { Tooltip } from './Tooltip'
 import { MenuIcon, Plus } from 'lucide-react'
 import Link from 'next/link'
+import { ConnectButton } from './ConnectButton'
 
-export const Header = ({}) => {
+export const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false)
-  const handleInstallExtension = () => {
-    //TODO: add chrome line
-    console.log('install extension handler called')
-  }
+
   return (
     <header
       className={clsx(
@@ -34,16 +31,8 @@ export const Header = ({}) => {
           </div>
         </div>
 
-        <div className="hidden md:flex">
-          <Tooltip text="Coming Soon" position="bottom">
-            <button
-              onClick={handleInstallExtension}
-              className="bg-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-black text-sm md:text-base hover:bg-white/70"
-              disabled
-            >
-              Install extension
-            </button>
-          </Tooltip>
+        <div className="hidden md:flex gap-4">
+          <ConnectButton />
         </div>
         <button className="ms-auto md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? <Plus className="rotate-45" /> : <MenuIcon />}
