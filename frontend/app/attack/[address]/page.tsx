@@ -27,7 +27,34 @@ interface Challenge {
 
 const extractTweetId = (url: string): string | null => {
   try {
-    const urlObj = new URL(url)
+    // Handle direct tweet ID input (numeric string) first
+    if (url.match(/^\d+$/)) {
+      return url
+    }
+
+    // Basic URL validation
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return null
+    }
+
+    // Clean the URL
+    const cleanUrl = url.trim()
+
+    // Handle URLs without protocol
+    const urlWithProtocol = cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`
+
+    // Basic URL format validation before construction
+    if (!urlWithProtocol.includes('.')) {
+      return null
+    }
+
+    const urlObj = new URL(urlWithProtocol)
+    
+    // Handle both twitter.com and x.com domains
+    if (!urlObj.hostname.includes('twitter.com') && !urlObj.hostname.includes('x.com')) {
+      return null
+    }
+    
     const pathParts = urlObj.pathname.split('/')
     const statusIndex = pathParts.indexOf('status')
     if (statusIndex !== -1 && pathParts[statusIndex + 1]) {
