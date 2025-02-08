@@ -254,48 +254,32 @@ export default function AgentChallengePage() {
     e.preventDefault()
     setIsSubmitting(true)
     setIsRedirecting(true)
-    setLoadingProgress(0)
     
     try {
       const tweetText = `${X_BOT_NAME} :${testAgent.name}: ${challenge}`
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
       
-      // Animate loading bar
-      const startTime = performance.now()
-      const duration = 2000 // 2 seconds total
+      // Wait for 2 seconds to show the animation
+      await new Promise(resolve => setTimeout(resolve, 2000))
       
-      const animate = (currentTime: number) => {
-        const elapsed = currentTime - startTime
-        const progress = Math.min(elapsed / duration, 1)
-        // Ease out cubic function for smooth deceleration
-        const eased = 1 - Math.pow(1 - progress, 3)
-        setLoadingProgress(eased * 100)
-        
-        if (progress < 1) {
-          requestAnimationFrame(animate)
-        } else {
-          const twitterWindow = window.open(tweetIntent, '_blank')
-          if (!twitterWindow) {
-            throw new Error('Please allow popups to share on Twitter')
-          }
-          
-          // Wait a moment before showing the URL submission form
-          setTimeout(() => {
-            setPendingTweet({ text: challenge, submitted: false })
-            setChallenge('')
-            setIsSubmitting(false)
-            setIsRedirecting(false)
-            setLoadingProgress(0)
-          }, 1000)
-        }
+      // Then proceed with opening Twitter
+      const twitterWindow = window.open(tweetIntent, '_blank')
+      if (!twitterWindow) {
+        throw new Error('Please allow popups to share on Twitter')
       }
       
-      requestAnimationFrame(animate)
+      // Wait a moment before showing the URL submission form
+      setTimeout(() => {
+        setPendingTweet({ text: challenge, submitted: false })
+        setChallenge('')
+        setIsSubmitting(false)
+        setIsRedirecting(false)
+      }, 1000)
+      
     } catch (error) {
       console.error('Failed to submit challenge:', error)
       setIsSubmitting(false)
       setIsRedirecting(false)
-      setLoadingProgress(0)
     }
   }
 
@@ -476,11 +460,10 @@ export default function AgentChallengePage() {
                             <span>Return</span>
                           </div>
                         </div>
-                        <div className="w-full max-w-[300px] h-1 bg-[#FF3F26]/10 rounded-full overflow-hidden">
+                        <div className="w-full max-w-[300px] h-1 bg-[#FF3F26]/10 rounded-full overflow-hidden relative">
                           <div 
-                            className="h-full bg-[#FF3F26] rounded-full transform-gpu transition-all duration-300"
+                            className="absolute inset-0 h-full bg-[#FF3F26] rounded-full animate-loading-progress"
                             style={{ 
-                              width: `${loadingProgress}%`,
                               boxShadow: '0 0 8px rgba(255, 63, 38, 0.3), 0 0 4px rgba(255, 63, 38, 0.2)'
                             }}
                           />

@@ -107,3 +107,16 @@ body {
 .tweet-embed iframe[data-theme='light'] {
   filter: invert(100%) hue-rotate(180deg);
 }
+
+@keyframes loading-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-loading-progress {
+  animation: loading-progress 2s ease-in-out infinite;
+}
