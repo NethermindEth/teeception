@@ -11,7 +11,6 @@ import { divideFloatStrings, calculateTimeLeft } from '@/lib/utils'
 import { X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
-import { uint256 } from 'starknet'
 import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { TweetPreview } from '@/components/TweetPreview'
@@ -405,13 +404,13 @@ export default function AgentChallengePage() {
         <div className="container mx-auto px-2 md:px-8 py-8 md:py-20 max-w-[1560px] relative">
           <Link 
             href="/attack" 
-            className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors mb-8 relative z-10"
+            className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors mb-8 relative z-20"
           >
             <ChevronLeft className="w-5 h-5" />
             <span>Agents</span>
           </Link>
 
-          <div className="absolute top-[96px] inset-x-0 z-0 h-[180px] flex items-center">
+          <div className="absolute top-[140px] inset-x-0 z-10 h-[180px] flex items-center">
             <div className="w-full">
               <div className="max-w-[1560px] mx-auto px-4">
                 <div className="">
@@ -439,9 +438,16 @@ export default function AgentChallengePage() {
             </div>
           </div>
 
-          <div className="pt-[200px]">
+          <div className="relative z-10 pt-[280px]">
             {testAgent.status === 'undefeated' && (
-              <div className="max-w-3xl mx-auto">
+              <div className="max-w-3xl mx-auto space-y-8">
+                <div className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">System Prompt</div>
+                
+                <div className="flex max-w-[800px] mx-auto mb-12">
+                  <div className="white-gradient-border"></div>
+                  <div className="white-gradient-border rotate-180"></div>
+                </div>
+
                 <SystemPromptDisplay />
               </div>
             )}
@@ -639,11 +645,24 @@ export default function AgentChallengePage() {
             {/* Winning Challenge Display with System Prompt */}
             {testAgent.status === 'defeated' && (
               <div className="max-w-3xl mx-auto space-y-8">
+                <div className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">Winning Challenge</div>
+                
+                <div className="flex max-w-[800px] mx-auto mb-12">
+                  <div className="white-gradient-border"></div>
+                  <div className="white-gradient-border rotate-180"></div>
+                </div>
+
                 <ChallengeDisplay challenge={challenges.find(c => c.isWinningPrompt)!} />
                 
-                <div className="bg-[#1388D5]/10 backdrop-blur-lg p-6 rounded-lg border border-[#1388D5]/20">
-                  <h2 className="text-xl font-semibold text-[#1388D5] mb-4">System Prompt</h2>
-                  <pre className="whitespace-pre-wrap font-mono text-lg text-gray-300">
+                <div className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">System Prompt</div>
+                
+                <div className="flex max-w-[800px] mx-auto mb-12">
+                  <div className="white-gradient-border"></div>
+                  <div className="white-gradient-border rotate-180"></div>
+                </div>
+
+                <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg border-2 border-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]">
+                  <pre className="whitespace-pre-wrap font-mono text-lg text-[#FFD700]">
                     {testAgent.systemPrompt}
                   </pre>
                 </div>
@@ -719,7 +738,6 @@ export default function AgentChallengePage() {
                 Test Active
               </button>
               <button
-
                 onClick={() => setTestStatus('undefeated')}
                 className={`px-4 py-2 rounded-lg transition-all ${
                   testStatus === 'undefeated'
