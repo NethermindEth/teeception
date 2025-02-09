@@ -3,7 +3,6 @@
 import { Tooltip } from '@/components/Tooltip'
 import Image from 'next/image'
 import { Footer } from '@/components/Footer'
-import { Header } from '@/components/Header'
 import { Leaderboard } from '@/components/Leaderboard'
 import Link from 'next/link'
 
@@ -21,13 +20,12 @@ export default function Home() {
 
   return (
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
-      <Header />
       <div className="min-h-screen flex flex-col justify-center">
         <div className="max-w-[1560px] mx-auto p-3">
           <div className="flex items-stretch gap-4 w-full justify-center hidden md:flex">
             {/* Defenders section */}
             <Link href="/defend" className="flex-1 group">
-              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)] shadow-glow">DEFENDER</h2>
+              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-mediumal font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)] shadow-glow">DEFENDER</h2>
               <div className="flex justify-end gap-4">
                 <div className="flex flex-col gap-4 text-right group-hover:text-[#1388D5] transition-colors duration-300 whitespace-nowrap">
                   <p className="text-lg">Create unbreakable prompts</p>
@@ -52,7 +50,7 @@ export default function Home() {
 
             {/* Attackers section */}
             <Link href="/attack" className="flex-1 group">
-              <h2 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)] shadow-glow">ATTACKER</h2>
+              <h2 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-mediumal font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)] shadow-glow">ATTACKER</h2>
               <div className="flex gap-4">
                 <div className="w-1 bg-[#FF3F26] shadow-[0_0_8px_#FF3F26] shadow-glow rounded-md group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300" />
                 <div className="flex flex-col gap-4 group-hover:text-[#FF3F26] transition-colors duration-300 whitespace-nowrap">
@@ -79,7 +77,7 @@ export default function Home() {
             </div>
 
             <Link href="/attack" className="block group">
-              <h2 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)]">ATTACKER</h2>
+              <h3 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-medium font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)]">ATTACKER</h3>
               <div className="flex gap-4">
                 <div className="w-1 bg-[#FF3F26] shadow-[0_0_8px_#FF3F26] rounded-md group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300" />
                 <div className="flex flex-col gap-4 group-hover:text-[#FF3F26] transition-colors duration-300 whitespace-nowrap">
@@ -92,7 +90,7 @@ export default function Home() {
             </Link>
 
             <Link href="/defend" className="block group">
-              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)]">DEFENDER</h2>
+              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-mediumal font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)]">DEFENDER</h2>
               <div className="flex justify-end gap-4">
                 <div className="flex flex-col gap-4 text-right group-hover:text-[#1388D5] transition-colors duration-300 whitespace-nowrap">
                   <p className="text-lg">Create unbreakable prompts</p>
