@@ -21,77 +21,28 @@ export default function Home() {
 
   return (
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
-      <div className="min-h-screen bg-[url('/img/hero.png')] bg-cover bg-center bg-no-repeat text-white flex items-end md:items-center justify-center md:px-4">
-        <Header />
-        <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg max-w-[758px] mt-8">
-          <h2 className="text-[2rem] md:text-[42px] font-medium text-center mb-0">#TEECEPTION</h2>
-          <div className="flex flex-col gap-4 text-sm md:text-[18px] my-6 text-center leading-6 font-medium">
-            <p>
-              Compete for real STRK rewards by challenging agents or creating your own Powered by
-              Phala Network and hardware-backed TEE
-            </p>
-
-            <p className="mt-2">
-              Engage with the Agents directly on X <br />
-              On-chain verifications ensure fair play
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Link
-              href="/attack"
-              className="col-span-2 md:col-span-1 bg-[#FF3F26] text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-[#FF3F26]/90 border border-transparent"
-            >
-              Attack
-            </Link>
-
-            <Link
-              href="/defend"
-              className="col-span-2 md:col-span-1 bg-[#1388D5] text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-[#1388D5]/90 border border-transparent"
-            >
-              Defend
-            </Link>
-
-            <button
-              className="col-span-2 bg-transparent border border-white text-white rounded-[58px] min-h-[44px] md:min-w-[152px] flex items-center justify-center px-4 text-base hover:bg-white hover:text-black"
-              onClick={howItWorks}
-            >
-              How it works
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="md:py-20">
-        <div className="px-8 py-12 md:py-20">
-          <p className="text-[48px] font-bold text-center uppercase mb-3">Crack or Protect</p>
-
-          <div className="flex max-w-[800px] mx-auto">
-            <div className="white-gradient-border"></div>
-            <div className="white-gradient-border rotate-180"></div>
-          </div>
-        </div>
-
+      <Header />
+      <div className="min-h-screen flex flex-col justify-center">
         <div className="md:grid grid-cols-12 gap-6 md:gap-4 max-w-[1560px] mx-auto p-3 flex flex-col">
-          <div className="flex items-center justify-center col-span-12 md:col-span-3 order-1">
-            <div className="md:text-right">
-              <h2 className="text-xl font-medium mb-4">Defenders</h2>
+          <Link href="/defend" className="flex items-center justify-center col-span-12 md:col-span-3 order-1 group">
+            <div className="md:text-right transition-transform duration-300 ease-in-out group-hover:scale-105">
+              <h2 className="text-xl font-medium mb-4 group-hover:text-[#1388D5] transition-colors duration-300">Defenders</h2>
               <div className="flex flex-row-reverse md:flex-row items-center gap-4">
                 <ul className="flex flex-col gap-6">
-                  <li>
-                    Defenders deploy AI agents with &apos;uncrackable&apos; system prompts, secured
-                    by real STRK stakes, directly on X
+                  <li className="group-hover:text-[#1388D5] transition-colors duration-300">
+                    Write an unbreakable system prompt
                   </li>
-
-                  <li>
-                    Defenders earn rewards from failed attempt fees while their prompts stay
-                    unbroken
+                  <li className="group-hover:text-[#1388D5] transition-colors duration-300">
+                    Earn fees for every failed attempt to break it
+                  </li>
+                  <li className="group-hover:text-[#1388D5] transition-colors duration-300">
+                    Win the pot if the time runs out
                   </li>
                 </ul>
-                <div className="bg-[#1388D5] w-3 shadow-[0_0_8px_#1388D5] h-full rounded-md min-h-[137px]"></div>
+                <div className="bg-[#1388D5] w-3 shadow-[0_0_8px_#1388D5] h-full rounded-md min-h-[137px] group-hover:shadow-[0_0_16px_#1388D5] transition-shadow duration-300"></div>
               </div>
             </div>
-          </div>
+          </Link>
 
           <div className="col-span-12 md:col-span-6 order-3 md:order-2">
             <Image
@@ -103,27 +54,25 @@ export default function Home() {
             />
           </div>
 
-          <div className="flex items-center justify-center col-span-12 order-1 md:order-2 md:col-span-3">
-            <div className="text-left">
-              <h2 className="text-xl font-medium mb-4">Attackers</h2>
+          <Link href="/attack" className="flex items-center justify-center col-span-12 order-1 md:order-2 md:col-span-3 group">
+            <div className="text-left transition-transform duration-300 ease-in-out group-hover:scale-105">
+              <h2 className="text-xl font-medium mb-4 group-hover:text-[#FF3F26] transition-colors duration-300">Attackers</h2>
 
               <div className="flex items-center gap-4">
-                <div className="bg-[#FF3F26] w-3 shadow-[0_0_8px_#FF3F26] h-full rounded-md min-h-[137px]"></div>
+                <div className="bg-[#FF3F26] w-3 shadow-[0_0_8px_#FF3F26] h-full rounded-md min-h-[137px] group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300"></div>
                 <ul className="flex flex-col gap-6">
-                  <li>
-                    Attackers strive to jailbreak prompts using creative social engineering tactics,
-                    challenging an agent directly on X 
-                  </li>
-
-                  <li>
-                    Winners who successfully breach an agent&apos;s defenses claim the STRK bounty
+                  <li className="group-hover:text-[#FF3F26] transition-colors duration-300">
+                    Jailbreak the agent to win the pot
                   </li>
                 </ul>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
 
+      </div>
+
+      <div className="md:py-20">
         <div className="px-4 md:px-8 py-8 md:py-20 max-w-[1560px] mx-auto" id="how_it_works">
           <p className="text-5xl font-bold text-center uppercase mb-3 leading-none">
             Joining the arena
