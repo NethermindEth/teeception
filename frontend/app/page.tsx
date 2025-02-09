@@ -22,6 +22,7 @@ export default function Home() {
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <div className="min-h-screen flex flex-col justify-center">
         <div className="max-w-[1560px] mx-auto p-3">
+          <h1 className="text-[2rem] md:text-[42px] font-medium text-center mb-0">#TEECEPTION</h1>
           <div className="flex items-stretch gap-4 w-full justify-center hidden md:flex">
             {/* Defenders section */}
             <Link href="/defend" className="flex-1 group">
