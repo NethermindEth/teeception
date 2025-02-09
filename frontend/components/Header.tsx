@@ -6,7 +6,6 @@ import Image from 'next/image'
 import { MenuItems } from './MenuItems'
 import { MenuIcon, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { ConnectButton } from './ConnectButton'
 
 export const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -31,18 +30,10 @@ export const Header = () => {
           </div>
         </div>
 
-        <div className="hidden md:flex gap-4">
-          <ConnectButton />
-        </div>
         <button className="ms-auto md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? <Plus className="rotate-45" /> : <MenuIcon />}
         </button>
       </div>
-      {menuOpen && (
-        <div className="py-4 fadeIn">
-          <MenuItems />
-        </div>
-      )}
     </header>
   )
 }

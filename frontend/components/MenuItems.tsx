@@ -8,11 +8,6 @@ export const MenuItems = () => {
           Leaderboard
         </Link>
       </li>
-      <li className="px-6">
-        <Link href="/#how_it_works" className="hover:text-white">
-          How it works
-        </Link>
-      </li>
     </ul>
   )
 }
