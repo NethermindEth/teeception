@@ -23,53 +23,88 @@ export default function Home() {
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <Header />
       <div className="min-h-screen flex flex-col justify-center">
-        <div className="md:grid grid-cols-12 gap-6 md:gap-4 max-w-[1560px] mx-auto p-3 flex flex-col">
-          <Link href="/defend" className="flex items-center justify-center col-span-12 md:col-span-3 order-1 group">
-            <div className="md:text-right transition-transform duration-300 ease-in-out group-hover:scale-105">
-              <h2 className="text-xl font-medium mb-4 group-hover:text-[#1388D5] transition-colors duration-300">Defenders</h2>
-              <div className="flex flex-row-reverse md:flex-row items-center gap-4">
-                <ul className="flex flex-col gap-6">
-                  <li className="group-hover:text-[#1388D5] transition-colors duration-300">
-                    Write an unbreakable system prompt
-                  </li>
-                  <li className="group-hover:text-[#1388D5] transition-colors duration-300">
-                    Earn fees for every failed attempt to break it
-                  </li>
-                  <li className="group-hover:text-[#1388D5] transition-colors duration-300">
-                    Win the pot if the time runs out
-                  </li>
-                </ul>
-                <div className="bg-[#1388D5] w-3 shadow-[0_0_8px_#1388D5] h-full rounded-md min-h-[137px] group-hover:shadow-[0_0_16px_#1388D5] transition-shadow duration-300"></div>
+        <div className="max-w-[1560px] mx-auto p-3">
+          <div className="flex items-stretch gap-4 w-full justify-center hidden md:flex">
+            {/* Defenders section */}
+            <Link href="/defend" className="flex-1 group">
+              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)] shadow-glow">DEFENDER</h2>
+              <div className="flex justify-end gap-4">
+                <div className="flex flex-col gap-4 text-right group-hover:text-[#1388D5] transition-colors duration-300 whitespace-nowrap">
+                  <p className="text-lg">Create unbreakable prompts</p>
+                  <p className="text-lg">Earn fees for every attempt</p>
+                  <p className="text-lg">Survive to the end</p>
+                  <p className="text-lg">Build your reputation</p>
+                </div>
+                <div className="w-1 bg-[#1388D5] shadow-[0_0_8px_#1388D5] shadow-glow rounded-md group-hover:shadow-[0_0_16px_#1388D5] transition-shadow duration-300" />
               </div>
-            </div>
-          </Link>
+            </Link>
 
-          <div className="col-span-12 md:col-span-6 order-3 md:order-2">
-            <Image
-              src="/img/twoRobots.png"
-              width="624"
-              height="257"
-              alt="two robots"
-              className="w-full object-cover"
-            />
+            {/* Center image */}
+            <div className="relative flex items-center">
+              <Image
+                src="/img/twoRobots.png"
+                width="624"
+                height="257"
+                alt="two robots"
+                className="object-contain"
+              />
+            </div>
+
+            {/* Attackers section */}
+            <Link href="/attack" className="flex-1 group">
+              <h2 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)] shadow-glow">ATTACKER</h2>
+              <div className="flex gap-4">
+                <div className="w-1 bg-[#FF3F26] shadow-[0_0_8px_#FF3F26] shadow-glow rounded-md group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300" />
+                <div className="flex flex-col gap-4 group-hover:text-[#FF3F26] transition-colors duration-300 whitespace-nowrap">
+                  <p className="text-lg">Jailbreak the unbreakable</p>
+                  <p className="text-lg">Trick the agents</p>
+                  <p className="text-lg">Win the pot</p>
+                  <p className="text-lg">Build your reputation</p>
+                </div>
+              </div>
+            </Link>
           </div>
 
-          <Link href="/attack" className="flex items-center justify-center col-span-12 order-1 md:order-2 md:col-span-3 group">
-            <div className="text-left transition-transform duration-300 ease-in-out group-hover:scale-105">
-              <h2 className="text-xl font-medium mb-4 group-hover:text-[#FF3F26] transition-colors duration-300">Attackers</h2>
-
-              <div className="flex items-center gap-4">
-                <div className="bg-[#FF3F26] w-3 shadow-[0_0_8px_#FF3F26] h-full rounded-md min-h-[137px] group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300"></div>
-                <ul className="flex flex-col gap-6">
-                  <li className="group-hover:text-[#FF3F26] transition-colors duration-300">
-                    Jailbreak the agent to win the pot
-                  </li>
-                </ul>
-              </div>
+          {/* Mobile version */}
+          <div className="md:hidden space-y-12">
+            {/* Mobile image */}
+            <div className="flex justify-center">
+              <Image
+                src="/img/twoRobots.png"
+                width="624"
+                height="257"
+                alt="two robots"
+                className="object-contain w-full max-w-[624px]"
+              />
             </div>
-          </Link>
-        </div>
 
+            <Link href="/attack" className="block group">
+              <h2 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)]">ATTACKER</h2>
+              <div className="flex gap-4">
+                <div className="w-1 bg-[#FF3F26] shadow-[0_0_8px_#FF3F26] rounded-md group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300" />
+                <div className="flex flex-col gap-4 group-hover:text-[#FF3F26] transition-colors duration-300 whitespace-nowrap">
+                  <p className="text-lg">Jailbreak the unbreakable</p>
+                  <p className="text-lg">Trick the agents</p>
+                  <p className="text-lg">Win the pot</p>
+                  <p className="text-lg">Build your reputation</p>
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/defend" className="block group">
+              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)]">DEFENDER</h2>
+              <div className="flex justify-end gap-4">
+                <div className="flex flex-col gap-4 text-right group-hover:text-[#1388D5] transition-colors duration-300 whitespace-nowrap">
+                  <p className="text-lg">Create unbreakable prompts</p>
+                  <p className="text-lg">Earn fees for every attempt</p>
+                  <p className="text-lg">Survive to the end</p>
+                  <p className="text-lg">Build your reputation</p>
+                </div>
+                <div className="w-1 bg-[#1388D5] shadow-[0_0_8px_#1388D5] rounded-md group-hover:shadow-[0_0_16px_#1388D5] transition-shadow duration-300" />
+              </div>
+            </Link>
+          </div>
+        </div>
       </div>
 
       <div className="md:py-20">
