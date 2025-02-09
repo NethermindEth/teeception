@@ -106,6 +106,8 @@ export default function Home() {
         </div>
       </div>
 
+      <Leaderboard />
+
       <div className="md:py-20">
         <div className="px-4 md:px-8 py-8 md:py-20 max-w-[1560px] mx-auto" id="how_it_works">
           <p className="text-5xl font-bold text-center uppercase mb-3 leading-none">
@@ -220,15 +222,6 @@ export default function Home() {
             </li>
             <li>On-chain verifiability guarantees transparency for every interaction.</li>
           </ul>
-        </div>
-        <Leaderboard />
-        <div className="text-[#B8B8B8] text-sm text-center px-3 mb-12">
-          <p className="mb-3 text-white md:text-[#B8B8B8]">Disclaimer</p>
-
-          <p>
-            This platform is for educational purposes and responsible red teaming. Use your powers
-            for good, and happy hacking!
-          </p>
         </div>
         <Footer />
       </div>
