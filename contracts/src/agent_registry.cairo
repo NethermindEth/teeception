@@ -278,6 +278,7 @@ pub mod AgentRegistry {
         self.tee.write(tee);
     }
 
+
     #[abi(embed_v0)]
     impl AgentRegistryImpl of super::IAgentRegistry<ContractState> {
         /// @inheritdoc IAgentRegistry
@@ -290,35 +291,14 @@ pub mod AgentRegistry {
             initial_balance: u256,
             end_time: u64,
         ) -> ContractAddress {
-            self.pausable.assert_not_paused();
-
-            let name_hash = hash_byte_array(@name);
-
-            let agent_with_name_hash = self.agent_by_name_hash.read(name_hash);
-            assert(agent_with_name_hash == contract_address_const::<0>(), 'Name already used');
-
-            let token_params = self.token_params.read(token);
-            assert(token_params.min_prompt_price != 0, 'Token not supported');
-            assert(prompt_price >= token_params.min_prompt_price, 'Prompt price too low');
-            assert(initial_balance >= token_params.min_initial_balance, 'Initial balance too low');
+            self._assert_not_paused();
+            let name_hash = self._assert_agent_name_unique(@name);
+            self._assert_token_params_met(token, prompt_price, initial_balance);
 
             let creator = get_caller_address();
 
-            let registry = get_contract_address();
-
-            let mut constructor_calldata = ArrayTrait::<felt252>::new();
-            name.serialize(ref constructor_calldata);
-            registry.serialize(ref constructor_calldata);
-            system_prompt.serialize(ref constructor_calldata);
-            token.serialize(ref constructor_calldata);
-            prompt_price.serialize(ref constructor_calldata);
-            creator.serialize(ref constructor_calldata);
-            end_time.serialize(ref constructor_calldata);
-
-            let (deployed_address, _) = deploy_syscall(
-                self.agent_class_hash.read(), 0, constructor_calldata.span(), false,
-            )
-                .unwrap();
+            let deployed_address = self
+                ._deploy_agent(creator, @name, @system_prompt, token, prompt_price, end_time);
 
             let token_dispatcher = IERC20Dispatcher { contract_address: token };
             token_dispatcher.transfer_from(creator, deployed_address, initial_balance);
@@ -333,8 +313,8 @@ pub mod AgentRegistry {
                         AgentRegistered {
                             agent: deployed_address,
                             creator,
-                            name,
-                            system_prompt,
+                            name: name.clone(),
+                            system_prompt: system_prompt.clone(),
                             token,
                             prompt_price,
                             end_time,
@@ -343,6 +323,64 @@ pub mod AgentRegistry {
                 );
 
             deployed_address
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn consume_prompt(
+            ref self: ContractState,
+            agent: ContractAddress,
+            prompt_id: u64,
+            drain_to: ContractAddress,
+        ) {
+            self._assert_not_paused();
+            self._assert_caller_is_tee();
+            self._assert_agent_registered(agent);
+
+            IAgentDispatcher { contract_address: agent }.consume_prompt(prompt_id, drain_to);
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn unencumber(ref self: ContractState) {
+            self._assert_caller_is_owner();
+            self.emit(Event::TeeUnencumbered(TeeUnencumbered { tee: self.tee.read() }));
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn add_supported_token(
+            ref self: ContractState,
+            token: ContractAddress,
+            min_prompt_price: u256,
+            min_initial_balance: u256,
+        ) {
+            self._assert_caller_is_owner();
+
+            self.token_params.write(token, TokenParams { min_prompt_price, min_initial_balance });
+            self
+                .emit(
+                    Event::TokenAdded(TokenAdded { token, min_prompt_price, min_initial_balance }),
+                );
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn remove_supported_token(ref self: ContractState, token: ContractAddress) {
+            self._assert_caller_is_owner();
+
+            self
+                .token_params
+                .write(token, TokenParams { min_prompt_price: 0, min_initial_balance: 0 });
+            self.emit(Event::TokenRemoved(TokenRemoved { token }));
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn pause(ref self: ContractState) {
+            self._assert_caller_is_owner();
+            self.pausable.pause();
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn unpause(ref self: ContractState) {
+            self._assert_caller_is_owner();
+            self.pausable.unpause();
         }
 
         /// @inheritdoc IAgentRegistry
@@ -384,55 +422,6 @@ pub mod AgentRegistry {
         }
 
         /// @inheritdoc IAgentRegistry
-        fn consume_prompt(
-            ref self: ContractState,
-            agent: ContractAddress,
-            prompt_id: u64,
-            drain_to: ContractAddress,
-        ) {
-            self.pausable.assert_not_paused();
-            assert(get_caller_address() == self.tee.read(), 'Only tee can consume');
-
-            IAgentDispatcher { contract_address: agent }.consume_prompt(prompt_id, drain_to);
-        }
-
-        /// @inheritdoc IAgentRegistry
-        fn pause(ref self: ContractState) {
-            self.ownable.assert_only_owner();
-            self.pausable.pause();
-        }
-
-        /// @inheritdoc IAgentRegistry
-        fn unpause(ref self: ContractState) {
-            self.ownable.assert_only_owner();
-            self.pausable.unpause();
-        }
-
-        /// @inheritdoc IAgentRegistry
-        fn add_supported_token(
-            ref self: ContractState,
-            token: ContractAddress,
-            min_prompt_price: u256,
-            min_initial_balance: u256,
-        ) {
-            self.ownable.assert_only_owner();
-            self.token_params.write(token, TokenParams { min_prompt_price, min_initial_balance });
-            self
-                .emit(
-                    Event::TokenAdded(TokenAdded { token, min_prompt_price, min_initial_balance }),
-                );
-        }
-
-        /// @inheritdoc IAgentRegistry
-        fn remove_supported_token(ref self: ContractState, token: ContractAddress) {
-            self.ownable.assert_only_owner();
-            self
-                .token_params
-                .write(token, TokenParams { min_prompt_price: 0, min_initial_balance: 0 });
-            self.emit(Event::TokenRemoved(TokenRemoved { token }));
-        }
-
-        /// @inheritdoc IAgentRegistry
         fn is_token_supported(self: @ContractState, token: ContractAddress) -> bool {
             let params = self.token_params.read(token);
 
@@ -451,7 +440,7 @@ pub mod AgentRegistry {
 
         /// @inheritdoc IAgentRegistry
         fn set_tee(ref self: ContractState, tee: ContractAddress) {
-            self.ownable.assert_only_owner();
+            self._assert_caller_is_owner();
             self.tee.write(tee);
         }
 
@@ -462,14 +451,101 @@ pub mod AgentRegistry {
 
         /// @inheritdoc IAgentRegistry
         fn set_agent_class_hash(ref self: ContractState, agent_class_hash: ClassHash) {
-            self.ownable.assert_only_owner();
+            self._assert_caller_is_owner();
             self.agent_class_hash.write(agent_class_hash);
         }
+    }
 
-        /// @inheritdoc IAgentRegistry
-        fn unencumber(ref self: ContractState) {
+    /// @notice Internal helper functions for the AgentRegistry contract
+    /// @dev Contains utility functions for agent deployment and validation
+    #[generate_trait]
+    impl InternalImpl of InternalTrait {
+        /// @notice Deploys a new agent contract
+        /// @param creator Address that will own the agent
+        /// @param name Unique name for the agent
+        /// @param system_prompt Base prompt defining agent behavior
+        /// @param token Token used for payments
+        /// @param prompt_price Price per prompt in token units
+        /// @param end_time Timestamp when agent stops accepting prompts
+        /// @return The deployed agent's address
+        /// @dev Serializes constructor args and deploys using class hash
+        fn _deploy_agent(
+            self: @ContractState,
+            creator: ContractAddress,
+            name: @ByteArray,
+            system_prompt: @ByteArray,
+            token: ContractAddress,
+            prompt_price: u256,
+            end_time: u64,
+        ) -> ContractAddress {
+            let registry = get_contract_address();
+
+            let mut constructor_calldata = ArrayTrait::<felt252>::new();
+            name.serialize(ref constructor_calldata);
+            registry.serialize(ref constructor_calldata);
+            system_prompt.serialize(ref constructor_calldata);
+            token.serialize(ref constructor_calldata);
+            prompt_price.serialize(ref constructor_calldata);
+            creator.serialize(ref constructor_calldata);
+            end_time.serialize(ref constructor_calldata);
+
+            let (deployed_address, _) = deploy_syscall(
+                self.agent_class_hash.read(), 0, constructor_calldata.span(), false,
+            )
+                .unwrap();
+
+            deployed_address
+        }
+
+        /// @notice Checks if caller is owner
+        /// @dev Reverts if caller is not owner
+        fn _assert_caller_is_owner(self: @ContractState) {
             self.ownable.assert_only_owner();
-            self.emit(Event::TeeUnencumbered(TeeUnencumbered { tee: self.tee.read() }));
+        }
+
+        /// @notice Checks if caller is TEE
+        /// @dev Reverts if caller is not TEE
+        fn _assert_caller_is_tee(self: @ContractState) {
+            assert(get_caller_address() == self.tee.read(), 'Only tee can call');
+        }
+
+        /// @notice Checks if contract is not paused
+        /// @dev Reverts if contract is paused
+        fn _assert_not_paused(self: @ContractState) {
+            self.pausable.assert_not_paused();
+        }
+
+        /// @notice Checks if agent is registered
+        /// @param agent Address of agent to check
+        /// @dev Reverts if agent is not registered
+        fn _assert_agent_registered(self: @ContractState, agent: ContractAddress) {
+            assert(self.agent_registered.read(agent), 'Agent not registered');
+        }
+
+        /// @notice Validates token parameters are met
+        /// @param token Token address to validate
+        /// @param prompt_price Price per prompt to validate
+        /// @param initial_balance Initial balance to validate
+        /// @dev Reverts if any parameters are invalid
+        fn _assert_token_params_met(
+            self: @ContractState, token: ContractAddress, prompt_price: u256, initial_balance: u256,
+        ) {
+            let token_params = self.token_params.read(token);
+            assert(token_params.min_prompt_price != 0, 'Token not supported');
+            assert(prompt_price >= token_params.min_prompt_price, 'Prompt price too low');
+            assert(initial_balance >= token_params.min_initial_balance, 'Initial balance too low');
+        }
+
+        /// @notice Checks if agent name is unique
+        /// @param name Name to check uniqueness
+        /// @return Hash of the name
+        /// @dev Reverts if name is already used
+        fn _assert_agent_name_unique(self: @ContractState, name: @ByteArray) -> felt252 {
+            let name_hash = hash_byte_array(name);
+            let agent_with_name_hash = self.agent_by_name_hash.read(name_hash);
+            assert(agent_with_name_hash == contract_address_const::<0>(), 'Name already used');
+
+            name_hash
         }
     }
 }
