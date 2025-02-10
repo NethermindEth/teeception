@@ -27,14 +27,14 @@ export const STARKNET_CONFIG = {
     agentRegistryAddress: '0x00f415ab3f224935ed532dfa06485881c526fef8cb31e6e7e95cafc95fdc5e8d',
     tokens: [
       {
-        address: '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
+        address: '0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
         name: 'Starknet Token',
         symbol: 'STRK',
         decimals: 18,
         image: 'https://assets.starknet.io/strk.svg',
       },
       {
-        address: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+        address: '0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
         name: 'Ethereum',
         symbol: 'ETH',
         decimals: 18,
