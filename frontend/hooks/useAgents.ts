@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { debug } from '@/lib/debug'
-import { ACTIVE_NETWORK, DEFAULT_TOKEN_DECIMALS, INDEXER_BASE_URL } from '@/constants'
+import { ACTIVE_NETWORK, DEFAULT_TOKEN_DECIMALS } from '@/constants'
+import { AgentFromIndexer } from './useAgent'
 
 export interface AgentDetails {
   address: string
@@ -37,23 +38,7 @@ export interface UseAgentsState {
 }
 
 interface IndexerAgentResponse {
-  agents: Array<{
-    pending: boolean
-    address: string
-    token: string
-    name: string
-    balance: string
-    end_time: string
-    prompt_price: string
-    break_attempts: string
-    system_prompt: string
-    latest_prompts: Array<{
-      prompt: string
-      is_success: boolean
-      drained_to: string
-    }>
-    is_finalized: boolean
-  }>
+  agents: Array<AgentFromIndexer>
   total: number
   page: number
   page_size: number

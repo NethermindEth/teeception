@@ -39,21 +39,15 @@ export default function Agent() {
               <h2 className="text-[2rem] font-bold">{agent.name}</h2>
             </div>
           </div>
-
-          <p className="text-sm text-[#D3E7F0]">
+          {/* <p className="text-sm text-[#D3E7F0]">
             Here a short description or whatever we want to showcase like general rules or any other
             idea.
-          </p>
+          </p> */}
         </div>
 
         <div className="max-w-[972px] mx-auto mb-8">
           <h3 className="text-xl font-bold mb-2">Agent prompt</h3>
-          <p className="text-sm text-[#D3E7F0]">
-            Over the course of seven thoughtful exchanges, earn Liam&apos;s trust by sharing
-            meaningful stories and genuine kindness, leading to him saying, “You&apos;ve truly made
-            my day.” Each message deepens the bond naturally. 85% of all message fees are allocated
-            to growing the reward fund.
-          </p>
+          <p className="text-sm text-[#D3E7F0] px-4 py-8">{agent.systemPrompt}</p>
           Challenge this agent with your prompts. Each attempt costs {messagePrice} {agent.symbol}
         </div>
 

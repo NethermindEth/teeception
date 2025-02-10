@@ -20,24 +20,30 @@ export interface SingleAgentDetails {
   decimal: number
   pending: boolean
   latestPrompts: AgentPrompt[]
+  systemPrompt: string
 }
 
-interface AgentSearchResponse {
-  agents: Array<{
-    pending: boolean
-    address: string
-    token: string
-    name: string
-    balance: string
-    end_time: string
-    prompt_price: string
-    break_attempts: string
-    latest_prompts: Array<{
-      prompt: string
-      is_success: boolean
-      drained_to: string
-    }>
+export type AgentFromIndexer = {
+  pending: boolean
+  address: string
+  creator: string
+  token: string
+  name: string
+  system_prompt: string
+  balance: string
+  end_time: string
+  is_drained: boolean
+  is_finalized: boolean
+  prompt_price: string
+  break_attempts: string
+  latest_prompts: Array<{
+    prompt: string
+    is_success: boolean
+    drained_to: string
   }>
+}
+interface AgentSearchResponse {
+  agents: Array<AgentFromIndexer>
   total: number
   page: number
   page_size: number
@@ -104,6 +110,7 @@ export const useAgent = (agentName: string) => {
           is_success: prompt.is_success,
           drained_to: prompt.drained_to,
         })),
+        systemPrompt: matchingAgent.system_prompt,
       }
 
       setState({
