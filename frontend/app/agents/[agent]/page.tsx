@@ -1,8 +1,28 @@
+'use client'
+
 import Image from 'next/image'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentChat } from '@/components/AgentChat'
+import { useAgent } from '@/hooks/useAgent'
+import { useParams } from 'next/navigation'
+import { divideFloatStrings } from '@/lib/utils'
+import { AgentStates } from '@/components/AgentStates'
 
 export default function Agent() {
+  const params = useParams()
+  const agentName = decodeURIComponent(params.agent as string)
+  const { agent, loading, error } = useAgent(agentName)
+  console.log({ loading, error })
+
+  if (loading || error || !agent) {
+    return <AgentStates loading={!!loading} error={error} isNotFound={!agent} />
+  }
+
+  console.log('Agent', agent)
+
+  const prizePool = divideFloatStrings(agent.balance, agent.decimal)
+  const messagePrice = divideFloatStrings(agent.promptPrice, agent.decimal)
+
   return (
     <div className="max-w-[1560px] mx-auto py-5 md:py-10 px-2">
       <div className="text-center">
@@ -19,7 +39,7 @@ export default function Agent() {
             </div>
 
             <div>
-              <h2 className="text-[2rem] font-bold">Agent name</h2>
+              <h2 className="text-[2rem] font-bold">{agent.name}</h2>
             </div>
           </div>
 
@@ -37,6 +57,7 @@ export default function Agent() {
             my day.” Each message deepens the bond naturally. 85% of all message fees are allocated
             to growing the reward fund.
           </p>
+          Challenge this agent with your prompts. Each attempt costs {messagePrice} {agent.symbol}
         </div>
 
         <div className="bg-gradient-to-l from-[#35546266] via-[#2E404966] to-[#6e9aaf66] p-[1px] rounded-lg max-w-[624px] mx-auto">
@@ -44,34 +65,30 @@ export default function Agent() {
             <div className="bg-[#12121266] w-full h-full rounded-lg p-3 md:p-[18px] flex justify-between">
               <div>
                 <p className="text-[10px] md:text-xs text-[#E1EDF2]">Prize pool</p>
-                <h4 className="text-xl md:text-2xl font-bold">$42,234</h4>
+                <h4 className="text-xl md:text-2xl font-bold">
+                  {prizePool} {agent.symbol}
+                </h4>
               </div>
 
               <div className="h-full w-[1px] bg-[#35546266] min-h-12"></div>
 
               <div>
-                <p className="text-[10px] md:text-xs text-[#E1EDF2]">Average message price</p>
-                <h4 className="text-xl md:text-2xl font-bold">$2.79</h4>
-              </div>
-
-              <div className="h-full w-[1px] bg-[#35546266] min-h-12"></div>
-
-              <div>
-                <p className="text-[10px] md:text-xs text-[#E1EDF2]">Total attackers</p>
-                <h4 className="text-xl md:text-2xl font-bold">182</h4>
+                <p className="text-[10px] md:text-xs text-[#E1EDF2]">Message price</p>
+                <h4 className="text-xl md:text-2xl font-bold">
+                  {messagePrice} {agent.symbol}
+                </h4>
               </div>
 
               <div className="h-full w-[1px] bg-[#35546266] min-h-12"></div>
 
               <div>
                 <p className="text-[10px] md:text-xs text-[#E1EDF2]">Break attempts</p>
-                <h4 className="text-xl md:text-2xl font-bold">1,098</h4>
+                <h4 className="text-xl md:text-2xl font-bold">{agent.breakAttempts}</h4>
               </div>
             </div>
           </div>
         </div>
       </div>
-
       <div className="mt-8">
         <div className="">
           <Tabs defaultValue="latest-prompts" className="w-full">
@@ -82,25 +99,13 @@ export default function Agent() {
                     className="text-white font-light px-1 sm:px-2 text-xs md:text-sm md:px-5"
                     value="latest-prompts"
                   >
-                    Latest prompts
+                    Latest prompts ({agent.latestPrompts.length})
                   </TabsTrigger>
                   <TabsTrigger
                     className="text-white font-light px-1 sm:px-2 text-xs md:text-sm md:px-5"
-                    value="winner-user"
+                    value="successful-attempts"
                   >
-                    Winner user
-                  </TabsTrigger>
-                  <TabsTrigger
-                    className="text-white font-light px-1 sm:px-2 text-xs md:text-sm md:px-5"
-                    value="featured-user"
-                  >
-                    Featured user(*)
-                  </TabsTrigger>
-                  <TabsTrigger
-                    className="text-white font-light px-1 sm:px-2 text-xs md:text-sm md:px-5"
-                    value="featured-user-2"
-                  >
-                    Featured user 2 (*)
+                    Successful attempts ({agent.latestPrompts.filter((p) => p.is_success).length})
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -108,16 +113,10 @@ export default function Agent() {
             </div>
 
             <TabsContent value="latest-prompts">
-              <AgentChat />
+              <AgentChat prompts={agent.latestPrompts} />
             </TabsContent>
-            <TabsContent value="winner-user">
-              <AgentChat />
-            </TabsContent>
-            <TabsContent value="featured-user">
-              <AgentChat />
-            </TabsContent>
-            <TabsContent value="featured-user-2">
-              <AgentChat />
+            <TabsContent value="successful-attempts">
+              <AgentChat prompts={agent.latestPrompts.filter((p) => p.is_success)} />
             </TabsContent>
           </Tabs>
         </div>
