@@ -25,6 +25,7 @@ use teeception::agent_registry::IAgentRegistryDispatcherTrait;
 use teeception::agent::Agent;
 use teeception::agent::IAgentDispatcher;
 use teeception::agent::IAgentDispatcherTrait;
+use teeception::agent::PromptState;
 
 #[derive(Drop)]
 struct TestSetup {
@@ -283,7 +284,7 @@ fn test_register_multiple_agents() {
 }
 
 #[test]
-#[should_panic(expected: ('Only tee can consume',))]
+#[should_panic(expected: ('Only tee can call',))]
 fn test_unauthorized_transfer() {
     let setup = setup();
 
@@ -415,7 +416,7 @@ fn test_authorized_token_transfer() {
 }
 
 #[test]
-#[should_panic(expected: ('Only tee can consume',))]
+#[should_panic(expected: ('Only tee can call',))]
 fn test_unauthorized_token_transfer() {
     let setup = setup();
 
@@ -701,12 +702,12 @@ fn test_reclaim_after_delay() {
     // Verify the tokens were returned
     assert(setup.token.balance_of(user) == initial_balance + 100, 'Tokens not reclaimed');
 
-    let pending = agent.get_pending_prompt(prompt_id);
-    assert(pending.amount == 0, 'Reclaim failed');
+    let prompt_state = agent.get_prompt_state(prompt_id);
+    assert(prompt_state == PromptState::Reclaimed, 'Prompt not reclaimed');
 }
 
 #[test]
-#[should_panic(expected: ('Only tee can consume',))]
+#[should_panic(expected: ('Only tee can call',))]
 fn test_unauthorized_consumption() {
     let setup = setup();
 
@@ -1023,4 +1024,217 @@ fn test_withdraw_after_drain() {
     // Creator should be able to withdraw after drain
     start_cheat_caller_address(agent_address, setup.creator);
     agent.withdraw(); // Should succeed
+}
+
+#[test]
+fn test_prompt_state_transitions() {
+    let setup = setup();
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Register agent
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test_agent",
+            "Test Prompt",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+
+    // Fund user and approve spending
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Pay for prompt
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Verify initial state
+    assert(
+        agent.get_prompt_state(prompt_id) == PromptState::Submitted((user, get_block_timestamp())),
+        'Wrong initial state',
+    );
+
+    // Consume prompt
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup.registry.consume_prompt(agent_address, prompt_id, agent_address);
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    // Verify consumed state
+    assert(agent.get_prompt_state(prompt_id) == PromptState::Consumed, 'Prompt not consumed');
+}
+
+#[test]
+#[should_panic(expected: ('Prompt not in SUBMITTED state',))]
+fn test_consume_invalid_prompt_state() {
+    let setup = setup();
+
+    // Register agent
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test_agent",
+            "Test Prompt",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    // Try to consume non-existent prompt
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup.registry.consume_prompt(agent_address, 999, agent_address);
+}
+
+#[test]
+#[should_panic(expected: ('Prompt not in SUBMITTED state',))]
+fn test_unknown_prompt_state() {
+    let setup = setup();
+
+    // Register agent
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test_agent",
+            "Test Prompt",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let state = agent.get_prompt_state(999);
+
+    assert(state == PromptState::Unknown, 'Prompt state should be unknown');
+}
+
+#[test]
+fn test_prompt_reclaim_flow() {
+    let setup = setup();
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Register agent
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test_agent",
+            "Test Prompt",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+
+    // Fund user and approve spending
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Pay for prompt
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Fast forward time past reclaim delay
+    start_cheat_block_timestamp_global(get_block_timestamp() + agent.RECLAIM_DELAY() + 1);
+
+    let initial_balance = setup.token.balance_of(user);
+
+    // Reclaim prompt
+    start_cheat_caller_address(agent_address, user);
+    agent.reclaim_prompt(prompt_id);
+    stop_cheat_caller_address(agent_address);
+
+    // Verify state and balance
+    assert(agent.get_prompt_state(prompt_id) == PromptState::Reclaimed, 'Prompt not reclaimed');
+    assert(
+        setup.token.balance_of(user) == initial_balance + setup.prompt_price,
+        'Tokens not reclaimed',
+    );
+}
+
+#[test]
+fn test_fee_distribution_accuracy() {
+    let setup = setup();
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Register agent
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test_agent",
+            "Test Prompt",
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    let agent = IAgentDispatcher { contract_address: agent_address };
+
+    // Fund user and approve spending
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Pay for prompt
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Record initial balances
+    let initial_creator_balance = setup.token.balance_of(setup.creator);
+    let initial_protocol_balance = setup.token.balance_of(setup.registry.contract_address);
+
+    // Consume prompt
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup.registry.consume_prompt(agent_address, prompt_id, agent_address);
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    // Verify fee distribution
+    let expected_creator_fee = (setup.prompt_price * agent.CREATOR_REWARD_BPS().into())
+        / agent.BPS_DENOMINATOR().into();
+    let expected_protocol_fee = (setup.prompt_price * agent.PROTOCOL_FEE_BPS().into())
+        / agent.BPS_DENOMINATOR().into();
+
+    assert(
+        setup.token.balance_of(setup.creator) == initial_creator_balance + expected_creator_fee,
+        'Creator fee incorrect',
+    );
+    assert(
+        setup.token.balance_of(setup.registry.contract_address) == initial_protocol_balance
+            + expected_protocol_fee,
+        'Protocol fee incorrect',
+    );
 }
