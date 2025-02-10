@@ -653,7 +653,7 @@ func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error
 func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, promptID uint64) (bool, error) {
 	fnCall := rpc.FunctionCall{
 		ContractAddress:    agentAddress,
-		EntryPointSelector: starknetgoutils.GetSelectorFromNameFelt("get_pending_prompt"),
+		EntryPointSelector: starknetgoutils.GetSelectorFromNameFelt("get_pending_prompt_submitter"),
 		Calldata:           []*felt.Felt{new(felt.Felt).SetUint64(promptID)},
 	}
 
@@ -667,15 +667,11 @@ func (a *Agent) isPromptConsumed(ctx context.Context, agentAddress *felt.Felt, p
 		return false, fmt.Errorf("failed to call get_pending_prompt: %w", snaccount.FormatRpcError(err))
 	}
 
-	// The pending prompt struct has 3 fields:
-	// - reclaimer: ContractAddress
-	// - amount: u256 (2 felts)
-	// - timestamp: u64
-	if len(resp) < 4 {
-		return false, fmt.Errorf("invalid response length: got %d, want at least 4", len(resp))
+	if len(resp) < 1 {
+		return false, fmt.Errorf("invalid response length: got %d, want at least 1", len(resp))
 	}
 
-	// Check if reclaimer is zero address (indicating consumed)
+	// Check if submitter is zero address (indicating consumed)
 	return resp[0].IsZero(), nil
 }
 

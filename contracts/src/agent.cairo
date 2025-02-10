@@ -3,16 +3,18 @@
 /// @dev Implements prompt payment, consumption, and reward distribution
 use core::starknet::ContractAddress;
 
-/// @notice Represents a pending prompt that has been paid for but not yet consumed
-/// @dev Used to track prompt state and enable reclaiming after delay
-#[derive(Drop, Copy, Serde, starknet::Store)]
-struct PendingPrompt {
-    /// @notice Address that can reclaim the prompt if not consumed in time
-    pub reclaimer: ContractAddress,
-    /// @notice Amount of tokens paid for this prompt
-    pub amount: u256,
-    /// @notice Timestamp when prompt was created
-    pub timestamp: u64,
+/// @notice Represents a prompt's state
+#[derive(Default, Drop, Copy, PartialEq, Serde, starknet::Store)]
+pub enum PromptState {
+    /// @notice Prompt is unknown
+    #[default]
+    Unknown,
+    /// @notice Prompt has been submitted by <user> at <timestamp>
+    Submitted: (ContractAddress, u64),
+    /// @notice Prompt has been consumed
+    Consumed,
+    /// @notice Prompt has been reclaimed
+    Reclaimed,
 }
 
 /// @notice Interface for interacting with Agent contracts
@@ -91,11 +93,6 @@ pub trait IAgent<TContractState> {
     /// @return The next prompt ID
     fn get_next_prompt_id(self: @TContractState) -> u64;
 
-    /// @notice Get details of a pending prompt
-    /// @param prompt_id ID of prompt to query
-    /// @return The pending prompt details
-    fn get_pending_prompt(self: @TContractState, prompt_id: u64) -> PendingPrompt;
-
     /// @notice Get total number of prompts created
     /// @return The total prompt count
     fn get_prompt_count(self: @TContractState) -> u64;
@@ -135,6 +132,16 @@ pub trait IAgent<TContractState> {
         self: @TContractState, user: ContractAddress, tweet_id: u64, start: u64, end: u64,
     ) -> Array<u64>;
 
+    /// @notice Gets a prompt's state
+    /// @param prompt_id ID of prompt to check
+    /// @return The prompt's state
+    fn get_prompt_state(self: @TContractState, prompt_id: u64) -> PromptState;
+
+    /// @notice Gets a prompt's submitter
+    /// @param prompt_id ID of prompt to check
+    /// @return The prompt's submitter
+    fn get_pending_prompt_submitter(self: @TContractState, prompt_id: u64) -> ContractAddress;
+
     /// @notice Check if agent is no longer accepting prompts
     /// @return True if agent is finalized
     fn is_finalized(self: @TContractState) -> bool;
@@ -166,11 +173,11 @@ pub trait IAgent<TContractState> {
 #[starknet::contract]
 pub mod Agent {
     use core::starknet::storage::Map;
+    use core::starknet::storage::StoragePathEntry;
+    use core::starknet::storage::StoragePointerReadAccess;
+    use core::starknet::storage::StoragePointerWriteAccess;
     use core::starknet::storage::StorageMapReadAccess;
     use core::starknet::storage::StorageMapWriteAccess;
-    use core::starknet::storage::StoragePointerReadAccess;
-    use core::starknet::storage::StoragePathEntry;
-    use core::starknet::storage::StoragePointerWriteAccess;
     use core::starknet::storage::Vec;
     use core::starknet::storage::VecTrait;
     use core::starknet::storage::MutableVecTrait;
@@ -188,7 +195,7 @@ pub mod Agent {
     use openzeppelin::security::interface::IPausableDispatcher;
     use openzeppelin::security::interface::IPausableDispatcherTrait;
 
-    use super::PendingPrompt;
+    use super::PromptState;
 
     /// @notice Reward share for agent (70%)
     const PROMPT_REWARD_BPS: u16 = 7000;
@@ -277,8 +284,8 @@ pub mod Agent {
         pending_pool: u256,
         /// @notice Address that created this agent
         creator: ContractAddress,
-        /// @notice Mapping of prompt ID to pending prompt details
-        pending_prompts: Map::<u64, PendingPrompt>,
+        /// @notice Mapping of prompt ID to prompt state
+        prompt_states: Map::<u64, PromptState>,
         /// @notice Mapping of user/tweet to prompt IDs
         user_tweet_prompts: Map::<ContractAddress, Map<u64, Vec<u64>>>,
         /// @notice Next prompt ID to be assigned
@@ -368,8 +375,17 @@ pub mod Agent {
         }
 
         /// @inheritdoc IAgent
-        fn get_pending_prompt(self: @ContractState, prompt_id: u64) -> PendingPrompt {
-            self.pending_prompts.read(prompt_id)
+        fn get_prompt_state(self: @ContractState, prompt_id: u64) -> PromptState {
+            self.prompt_states.read(prompt_id)
+        }
+
+        /// @inheritdoc IAgent
+        fn get_pending_prompt_submitter(self: @ContractState, prompt_id: u64) -> ContractAddress {
+            if let PromptState::Submitted((submitter, _)) = self.prompt_states.read(prompt_id) {
+                submitter
+            } else {
+                contract_address_const::<0>()
+            }
         }
 
         /// @inheritdoc IAgent
@@ -457,17 +473,9 @@ pub mod Agent {
             let prompt_id = self.next_prompt_id.read();
             self.next_prompt_id.write(prompt_id + 1);
 
-            // Store pending prompt
             self
-                .pending_prompts
-                .write(
-                    prompt_id,
-                    PendingPrompt {
-                        reclaimer: caller, amount: prompt_price, timestamp: get_block_timestamp(),
-                    },
-                );
-
-            // Store prompt ID
+                .prompt_states
+                .write(prompt_id, PromptState::Submitted((caller, get_block_timestamp())));
             self.user_tweet_prompts.entry(caller).entry(tweet_id).append().write(prompt_id);
 
             self.emit(Event::PromptPaid(PromptPaid { user: caller, prompt_id, tweet_id, prompt }));
@@ -477,24 +485,26 @@ pub mod Agent {
 
         /// @inheritdoc IAgent
         fn reclaim_prompt(ref self: ContractState, prompt_id: u64) {
-            let pending = self.pending_prompts.read(prompt_id);
+            let prompt_state = self.prompt_states.read(prompt_id);
+            let amount = self.prompt_price.read();
             let caller = get_caller_address();
 
-            assert(
-                get_block_timestamp() >= pending.timestamp + RECLAIM_DELAY, 'Too early to reclaim',
-            );
-
-            self._clear_pending_prompt(prompt_id);
-
+            self.prompt_states.write(prompt_id, PromptState::Reclaimed);
             self
                 .emit(
                     Event::PromptReclaimed(
-                        PromptReclaimed { prompt_id, amount: pending.amount, reclaimer: caller },
+                        PromptReclaimed { prompt_id, amount, reclaimer: caller },
                     ),
                 );
 
-            let token = IERC20Dispatcher { contract_address: self.token.read() };
-            token.transfer(pending.reclaimer, pending.amount);
+            if let PromptState::Submitted((submitter, timestamp)) = prompt_state {
+                assert(get_block_timestamp() >= timestamp + RECLAIM_DELAY, 'Too early to reclaim');
+
+                let token = IERC20Dispatcher { contract_address: self.token.read() };
+                token.transfer(submitter, amount);
+            } else {
+                assert(false, 'Prompt not submitted');
+            }
         }
 
         /// @inheritdoc IAgent
@@ -502,17 +512,20 @@ pub mod Agent {
             self._assert_caller_is_registry();
             self._assert_not_finalized();
 
-            let pending = self.pending_prompts.read(prompt_id);
-            assert(pending.reclaimer != contract_address_const::<0>(), 'No pending prompt');
+            if let PromptState::Submitted(_) = self
+                .prompt_states
+                .read(prompt_id) {} else {
+                    assert(false, 'Prompt not in SUBMITTED state');
+                }
 
             let token = IERC20Dispatcher { contract_address: self.token.read() };
-            let amount = pending.amount;
+            let amount = self.prompt_price.read();
 
             // Calculate fee splits
             let (agent_amount, creator_fee, protocol_fee) = self._split_amounts(amount);
 
             // Clear pending prompt
-            self._clear_pending_prompt(prompt_id);
+            self.prompt_states.write(prompt_id, PromptState::Consumed);
 
             self
                 .emit(
@@ -589,20 +602,6 @@ pub mod Agent {
             let protocol_fee = (amount * PROTOCOL_FEE_BPS.into()) / BPS_DENOMINATOR.into();
             let agent_amount = amount - creator_fee - protocol_fee;
             (agent_amount, creator_fee, protocol_fee)
-        }
-
-        /// @notice Clears a pending prompt after processing
-        /// @param prompt_id ID of prompt to clear
-        /// @dev Sets all fields to zero/null values
-        fn _clear_pending_prompt(ref self: ContractState, prompt_id: u64) {
-            self
-                .pending_prompts
-                .write(
-                    prompt_id,
-                    PendingPrompt {
-                        reclaimer: contract_address_const::<0>(), amount: 0, timestamp: 0,
-                    },
-                );
         }
 
         /// @notice Calculates available prize pool
