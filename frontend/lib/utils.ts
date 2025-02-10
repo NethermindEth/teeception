@@ -9,8 +9,6 @@ export const calculateTimeLeft = (endTime: number) => {
   const now = Date.now()
   const diff = endTime * 1000 - now
 
-  console.log({ endTime, now })
-
   if (diff <= 0) {
     return 'Inactive'
   }
@@ -27,7 +25,6 @@ export const calculateTimeLeft = (endTime: number) => {
 }
 
 export const divideFloatStrings = (a: string, b: number): string => {
-  console.log({ a, b })
   const numA = parseFloat(a)
   const numB = Number(10 ** b)
 

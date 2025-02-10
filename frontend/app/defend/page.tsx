@@ -14,7 +14,7 @@ export default function DefendPage() {
     systemPrompt: '',
     feePerMessage: '',
     initialBalance: '',
-    duration: '30' // 30 days default
+    duration: '30', // 30 days default
   })
 
   if (!address) {
@@ -43,9 +43,11 @@ export default function DefendPage() {
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   return (
@@ -53,7 +55,7 @@ export default function DefendPage() {
       <Header />
       <div className="container mx-auto px-4 py-8 pt-24">
         <h1 className="text-4xl font-bold mb-8">Deploy Agent</h1>
-        
+
         <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6">
           <div>
             <label className="block text-sm font-medium mb-2">Agent Name</label>
@@ -144,4 +146,4 @@ export default function DefendPage() {
       </div>
     </>
   )
-} 
+}

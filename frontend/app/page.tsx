@@ -6,8 +6,6 @@ import { Leaderboard } from '@/components/Leaderboard'
 import Link from 'next/link'
 
 export default function Home() {
-  // console.log({ agents, isFetchingAgents, error })
-
   return (
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <div className="min-h-screen flex flex-col justify-center">

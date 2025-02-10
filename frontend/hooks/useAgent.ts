@@ -71,7 +71,6 @@ export const useAgent = (agentName: string) => {
 
     try {
       const encodedName = encodeURIComponent(agentName)
-      console.log('agent name hook', encodedName)
       const response = await fetch(`/api/agent?name=${encodedName}`)
 
       if (!response.ok) {
@@ -79,8 +78,6 @@ export const useAgent = (agentName: string) => {
       }
 
       const data: AgentSearchResponse = await response.json()
-
-      console.log('agent data', data)
 
       // Find the agent with matching name
       const matchingAgent = data.agents.find((agent) => agent.name === agentName)

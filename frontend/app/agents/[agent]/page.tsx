@@ -12,13 +12,10 @@ export default function Agent() {
   const params = useParams()
   const agentName = decodeURIComponent(params.agent as string)
   const { agent, loading, error } = useAgent(agentName)
-  console.log({ loading, error })
 
   if (loading || error || !agent) {
     return <AgentStates loading={!!loading} error={error} isNotFound={!agent} />
   }
-
-  console.log('Agent', agent)
 
   const prizePool = divideFloatStrings(agent.balance, agent.decimal)
   const messagePrice = divideFloatStrings(agent.promptPrice, agent.decimal)

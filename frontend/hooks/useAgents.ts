@@ -74,7 +74,6 @@ export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsP
 
   const fetchAgents = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true }))
-    console.log('url', `${INDEXER_BASE_URL}/leaderboard?page=${page}&pageSize=${pageSize}`)
     try {
       const response = await fetch(`/api/leaderboard?page=${page}&pageSize=${pageSize}`)
 
@@ -83,7 +82,6 @@ export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsP
       }
 
       const data: IndexerAgentResponse = await response.json()
-      console.log('Indexer data', data)
 
       const formattedAgents: AgentDetails[] = data.agents.map((agent) => {
         const token = ACTIVE_NETWORK.tokens.find(({ address }) => address === agent.token)

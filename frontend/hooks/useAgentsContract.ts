@@ -105,7 +105,6 @@ export const useAgents = ({
           )
         )
 
-        console.log('token address', tokenAddress.toString(16))
         const tokenAddressHex = `0x0${tokenAddress.toString(16)}`
         const token = ACTIVE_NETWORK.tokens.find(({ address }) => address === tokenAddressHex)
         const symbol = !!token ? token.symbol : ''
@@ -142,8 +141,6 @@ export const useAgents = ({
 
       // Fetch total agents count
       const totalAgents = await registryRef.current.get_agents_count()
-
-      console.log('Total agents', totalAgents)
 
       // Fetch agent addresses for the current page
       const rawAgentAddresses = await registryRef.current.get_agents(start, effectiveEnd)
