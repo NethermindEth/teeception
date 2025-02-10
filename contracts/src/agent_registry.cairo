@@ -190,7 +190,7 @@ pub mod AgentRegistry {
 
     /// @notice Events emitted by the contract
     #[event]
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub enum Event {
         /// @notice Emitted when contract is paused/unpaused
         #[flat]
@@ -209,7 +209,7 @@ pub mod AgentRegistry {
     }
 
     /// @notice Emitted when a new agent is registered
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub struct AgentRegistered {
         /// @notice Address of the deployed agent contract
         #[key]
@@ -232,7 +232,7 @@ pub mod AgentRegistry {
     }
 
     /// @notice Emitted when a new token is supported
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub struct TokenAdded {
         /// @notice Address of the supported token
         #[key]
@@ -244,7 +244,7 @@ pub mod AgentRegistry {
     }
 
     /// @notice Emitted when a token is removed from supported tokens
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub struct TokenRemoved {
         /// @notice Address of the removed token
         #[key]
@@ -252,7 +252,7 @@ pub mod AgentRegistry {
     }
 
     /// @notice Emitted when TEE is unencumbered
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub struct TeeUnencumbered {
         /// @notice Address of the unencumbered TEE
         #[key]

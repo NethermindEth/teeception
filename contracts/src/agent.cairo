@@ -215,7 +215,7 @@ pub mod Agent {
 
     /// @notice Events emitted by the contract
     #[event]
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub enum Event {
         /// @notice Emitted when a prompt is paid for
         PromptPaid: PromptPaid,
@@ -227,7 +227,7 @@ pub mod Agent {
 
     /// @notice Emitted when a prompt is paid for
     /// @dev Contains details about the prompt payment and user
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub struct PromptPaid {
         /// @notice Address that paid for prompt
         #[key]
@@ -244,7 +244,7 @@ pub mod Agent {
 
     /// @notice Emitted when a prompt is consumed
     /// @dev Contains details about reward distribution
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub struct PromptConsumed {
         /// @notice ID of consumed prompt
         #[key]
@@ -261,7 +261,7 @@ pub mod Agent {
 
     /// @notice Emitted when a prompt is reclaimed
     /// @dev Contains details about the reclaimed prompt
-    #[derive(Drop, starknet::Event)]
+    #[derive(Drop, PartialEq, starknet::Event)]
     pub struct PromptReclaimed {
         /// @notice ID of reclaimed prompt
         #[key]

@@ -1541,3 +1541,232 @@ fn test_register_agent_with_unsupported_model() {
         );
     stop_cheat_caller_address(setup.registry.contract_address);
 }
+
+#[test]
+fn test_event_emissions() {
+    let setup = setup();
+    let mut spy = spy_events();
+
+    // Test AgentRegistry events
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+
+    // Test pause/unpause events
+    setup.registry.pause();
+    setup.registry.unpause();
+
+    // Test token support events
+    let new_token = deploy_test_token(setup.creator);
+    setup.registry.add_supported_token(new_token, 50, 500);
+    setup.registry.remove_supported_token(new_token);
+
+    // Test TEE unencumbrance event
+    setup.registry.unencumber();
+
+    // Test agent registration event
+    let agent_address = setup
+        .registry
+        .register_agent(
+            "test_agent",
+            "Test Prompt",
+            setup.model,
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    // Test Agent events
+    let agent = IAgentDispatcher { contract_address: agent_address };
+    let user = starknet::contract_address_const::<0x456>();
+
+    // Fund user with enough tokens for multiple transactions
+    start_cheat_caller_address(setup.token.contract_address, setup.creator);
+    setup.token.transfer(user, setup.prompt_price * 2); // Transfer enough for two prompts
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Approve spending for first prompt
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Test PromptPaid event
+    start_cheat_caller_address(agent_address, user);
+    let prompt_id = agent.pay_for_prompt(123, "test prompt");
+    stop_cheat_caller_address(agent_address);
+
+    // Test PromptConsumed event
+    start_cheat_caller_address(setup.registry.contract_address, setup.tee);
+    setup.registry.consume_prompt(agent_address, prompt_id, agent_address);
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    // Approve spending for second prompt
+    start_cheat_caller_address(setup.token.contract_address, user);
+    setup.token.approve(agent_address, setup.prompt_price);
+    stop_cheat_caller_address(setup.token.contract_address);
+
+    // Create a new prompt that can be reclaimed
+    start_cheat_caller_address(agent_address, user);
+    let reclaim_prompt_id = agent.pay_for_prompt(124, "reclaim test");
+    stop_cheat_caller_address(agent_address);
+
+    // Move time forward to allow reclaim
+    start_cheat_block_timestamp_global(get_block_timestamp() + agent.RECLAIM_DELAY() + 1);
+
+    // Reclaim the prompt
+    start_cheat_caller_address(agent_address, user);
+    agent.reclaim_prompt(reclaim_prompt_id);
+    stop_cheat_caller_address(agent_address);
+
+    stop_cheat_block_timestamp_global();
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.registry.contract_address,
+                    AgentRegistry::Event::PausableEvent(
+                        PausableComponent::Event::Paused(
+                            PausableComponent::Paused { account: setup.creator },
+                        ),
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.registry.contract_address,
+                    AgentRegistry::Event::PausableEvent(
+                        PausableComponent::Event::Unpaused(
+                            PausableComponent::Unpaused { account: setup.creator },
+                        ),
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.registry.contract_address,
+                    AgentRegistry::Event::TokenAdded(
+                        AgentRegistry::TokenAdded {
+                            token: new_token, min_prompt_price: 50, min_initial_balance: 500,
+                        },
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.registry.contract_address,
+                    AgentRegistry::Event::TokenRemoved(
+                        AgentRegistry::TokenRemoved { token: new_token },
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.registry.contract_address,
+                    AgentRegistry::Event::TeeUnencumbered(
+                        AgentRegistry::TeeUnencumbered { tee: setup.tee },
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.registry.contract_address,
+                    AgentRegistry::Event::AgentRegistered(
+                        AgentRegistry::AgentRegistered {
+                            agent: agent_address,
+                            creator: setup.creator,
+                            name: "test_agent",
+                            system_prompt: "Test Prompt",
+                            model: setup.model,
+                            token: setup.token_address,
+                            prompt_price: setup.prompt_price,
+                            end_time: setup.end_time,
+                        },
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    agent_address,
+                    Agent::Event::PromptPaid(
+                        Agent::PromptPaid { user, prompt_id, tweet_id: 123, prompt: "test prompt" },
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    agent_address,
+                    Agent::Event::PromptConsumed(
+                        Agent::PromptConsumed {
+                            prompt_id,
+                            amount: setup.prompt_price - (setup.prompt_price * 3000) / 10000,
+                            creator_fee: (setup.prompt_price * 2000) / 10000,
+                            protocol_fee: (setup.prompt_price * 1000) / 10000,
+                            drained_to: agent_address,
+                        },
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    agent_address,
+                    Agent::Event::PromptPaid(
+                        Agent::PromptPaid {
+                            user,
+                            prompt_id: reclaim_prompt_id,
+                            tweet_id: 124,
+                            prompt: "reclaim test",
+                        },
+                    ),
+                ),
+            ],
+        );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    agent_address,
+                    Agent::Event::PromptReclaimed(
+                        Agent::PromptReclaimed {
+                            prompt_id: reclaim_prompt_id,
+                            amount: setup.prompt_price,
+                            reclaimer: user,
+                        },
+                    ),
+                ),
+            ],
+        );
+}
