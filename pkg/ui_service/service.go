@@ -167,8 +167,10 @@ func (s *UIService) startServer(ctx context.Context) error {
 type AgentData struct {
 	Pending       bool                     `json:"pending"`
 	Address       string                   `json:"address"`
+	Creator       string                   `json:"creator"`
 	Token         string                   `json:"token"`
 	Name          string                   `json:"name"`
+	SystemPrompt  string                   `json:"system_prompt"`
 	Balance       string                   `json:"balance"`
 	EndTime       string                   `json:"end_time"`
 	IsDrained     bool                     `json:"is_drained"`
@@ -262,7 +264,9 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 		agentDatas = append(agentDatas, &AgentData{
 			Pending:       balance.Pending,
 			Address:       agentAddr.String(),
+			Creator:       info.Creator.String(),
 			Name:          info.Name,
+			SystemPrompt:  info.SystemPrompt,
 			Token:         balance.Token.String(),
 			Balance:       balance.Amount.String(),
 			EndTime:       strconv.FormatUint(balance.EndTime, 10),
@@ -326,7 +330,9 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, &AgentData{
 		Pending:       balance.Pending,
 		Address:       agentAddr.String(),
+		Creator:       info.Creator.String(),
 		Name:          info.Name,
+		SystemPrompt:  info.SystemPrompt,
 		Token:         balance.Token.String(),
 		Balance:       balance.Amount.String(),
 		EndTime:       strconv.FormatUint(balance.EndTime, 10),
@@ -398,7 +404,9 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 		agentDatas = append(agentDatas, &AgentData{
 			Pending:       balance.Pending,
 			Address:       info.Address.String(),
+			Creator:       info.Creator.String(),
 			Name:          info.Name,
+			SystemPrompt:  info.SystemPrompt,
 			Token:         balance.Token.String(),
 			Balance:       balance.Amount.String(),
 			EndTime:       strconv.FormatUint(balance.EndTime, 10),
@@ -489,7 +497,9 @@ func (s *UIService) agentDataFromAgentInfo(info *indexer.AgentInfo) (*AgentData,
 	return &AgentData{
 		Pending:       balance.Pending,
 		Address:       info.Address.String(),
+		Creator:       info.Creator.String(),
 		Name:          info.Name,
+		SystemPrompt:  info.SystemPrompt,
 		Token:         balance.Token.String(),
 		Balance:       balance.Amount.String(),
 		EndTime:       strconv.FormatUint(balance.EndTime, 10),
