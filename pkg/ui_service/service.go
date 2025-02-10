@@ -95,7 +95,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		MaxPrompts:      10,
 		EventWatcher:    eventWatcher,
 		InitialState: &indexer.AgentUsageIndexerInitialState{
-			Db: indexer.NewAgentUsageIndexerDatabaseInMemory(lastIndexedBlock),
+			Db: indexer.NewAgentUsageIndexerDatabaseInMemory(lastIndexedBlock, 10),
 		},
 	})
 
