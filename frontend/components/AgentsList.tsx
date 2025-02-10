@@ -1,8 +1,5 @@
 'use client'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { DOTS, usePagination } from '@/hooks/usePagination'
 import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AgentDetails } from '@/hooks/useAgents'
 import { calculateTimeLeft, divideFloatStrings } from '@/lib/utils'
@@ -12,9 +9,6 @@ export enum TabType {
   ActiveAgents = 'ACTIVE_AGENTS',
   TopAttackers = 'TOP_ATTACKERS',
 }
-
-const PAGE_SIZE = 10
-const SIBLING_COUNT = 1
 
 export const AgentsList = ({
   agents,
@@ -28,16 +22,6 @@ export const AgentsList = ({
   onAgentClick?: (agent: AgentDetails) => void
 }) => {
   const router = useRouter()
-  const [currentPage, setCurrentPage] = useState(1)
-
-  const totalCount = agents.length
-  const paginationRange = usePagination({
-    currentPage,
-    totalCount,
-    pageSize: PAGE_SIZE,
-    siblingCount: SIBLING_COUNT,
-  })
-
   const handleAgentClick = (agent: AgentDetails) => {
     if (onAgentClick) {
       onAgentClick(agent)
@@ -45,25 +29,6 @@ export const AgentsList = ({
       router.push(`/agents/${encodeURIComponent(agent.name)}`)
     }
   }
-
-  const onPageChange = (page: number) => {
-    setCurrentPage(page)
-  }
-
-  const onNext = () => {
-    onPageChange(currentPage + 1)
-  }
-
-  const onPrevious = () => {
-    onPageChange(currentPage - 1)
-  }
-
-  const startIndex = (currentPage - 1) * PAGE_SIZE
-  const endIndex = startIndex + PAGE_SIZE
-  const currentAgents = agents.slice(startIndex, endIndex)
-  const lastPage = Math.ceil(totalCount / PAGE_SIZE)
-
-  console.log('current agents', currentAgents)
 
   return (
     <>
@@ -88,7 +53,7 @@ export const AgentsList = ({
                 <div className="col-span-2 border-l border-l-[#6F6F6F] ps-4">Break attempts</div>
               </div>
 
-              {currentAgents.map((agent, idx) => {
+              {agents.map((agent, idx) => {
                 const timeLeft = calculateTimeLeft(Number(agent.endTime))
                 const promptPrice = divideFloatStrings(agent.promptPrice, agent.decimal)
                 const prizePool = divideFloatStrings(agent.balance, agent.decimal)
@@ -103,18 +68,17 @@ export const AgentsList = ({
                       <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                       <div className="col-span-2 flex gap-1 items-center">
                         <div className="mr-4">{agent.name}</div>
-                     </div>
+                      </div>
                     </div>
                     <div className="col-span-3 ps-4">{`${prizePool} ${agent.symbol}`.trim()}</div>
                     <div className="col-span-2 ps-4">{`${promptPrice} ${agent.symbol}`.trim()}</div>
                     <div className="col-span-2 ps-4">{agent.breakAttempts}</div>
-                        {timeLeft !== 'Inactive' && (
-                          <div className="rounded-full bg-black px-4 py-2 flex items-center justify-end">
-                            <div className="w-2 h-2 bg-[#00D369] rounded-full flex-shrink-0"></div>
-                            <div className="pl-1">{timeLeft}</div>
-                          </div>
-                        )}
- 
+                    {!agent.isFinalized && timeLeft !== 'Inactive' && (
+                      <div className="rounded-full bg-black px-4 py-2 flex items-center justify-end">
+                        <div className="w-2 h-2 bg-[#00D369] rounded-full flex-shrink-0"></div>
+                        <div className="pl-1">{timeLeft}</div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -122,47 +86,6 @@ export const AgentsList = ({
           )}
         </>
       )}
-
-      <div className="flex gap-1 mx-auto text-[#B8B8B8] text-xs w-fit mt-6 items-center">
-        <button
-          onClick={onPrevious}
-          className={`hover:text-white ${
-            currentPage === 1 ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-          }`}
-          disabled={currentPage === 1}
-        >
-          <ChevronLeft />
-        </button>
-
-        {paginationRange.map((pageNumber, index) => {
-          if (pageNumber === DOTS) {
-            return (
-              <span key={index} className="text-[#B8B8B8]">
-                ...
-              </span>
-            )
-          }
-
-          return (
-            <button
-              onClick={() => onPageChange(+pageNumber)}
-              key={index}
-              className={`${pageNumber === currentPage ? 'text-white' : 'text-[#B8B8B8]'} p-2`}
-            >
-              {pageNumber}
-            </button>
-          )
-        })}
-        <button
-          onClick={onNext}
-          className={`hover:text-white ${
-            currentPage === lastPage ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-          }`}
-          disabled={currentPage === lastPage}
-        >
-          <ChevronRight />
-        </button>
-      </div>
     </>
   )
 }

@@ -19,6 +19,7 @@ export interface AgentDetails {
     isSuccess: boolean
     drainedTo: string
   }>
+  isFinalized: boolean
 }
 
 export interface UseAgentsProps {
@@ -51,6 +52,7 @@ interface IndexerAgentResponse {
       is_success: boolean
       drained_to: string
     }>
+    is_finalized: boolean
   }>
   total: number
   page: number
@@ -103,6 +105,7 @@ export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsP
             isSuccess: prompt.is_success,
             drainedTo: prompt.drained_to,
           })),
+          isFinalized: agent.is_finalized,
         }
       })
 
