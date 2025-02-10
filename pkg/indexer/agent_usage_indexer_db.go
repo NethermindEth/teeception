@@ -1,7 +1,8 @@
 package indexer
 
 import (
-	"fmt"
+	"crypto/sha256"
+	"encoding/binary"
 	"log/slog"
 	"sync"
 	"time"
@@ -29,12 +30,17 @@ type AgentUsageIndexerDatabase interface {
 }
 
 type AgentUsageIndexerDatabaseInMemory struct {
-	mu               sync.RWMutex
-	usages           map[[32]byte]*AgentUsage
-	maxPrompts       uint64
-	promptCache      *expirable.LRU[string, AgentUsageIndexerDatabaseInMemoryPromptCacheData]
+	mu          sync.RWMutex
+	usages      map[[32]byte]*AgentUsage
+	maxPrompts  uint64
+	promptCache *expirable.LRU[
+		AgentUsageIndexerDatabaseInMemoryPromptCacheKey,
+		AgentUsageIndexerDatabaseInMemoryPromptCacheData,
+	]
 	lastIndexedBlock uint64
 }
+
+type AgentUsageIndexerDatabaseInMemoryPromptCacheKey [32]byte
 
 type AgentUsageIndexerDatabaseInMemoryPromptCacheData struct {
 	TweetID uint64
@@ -50,7 +56,10 @@ func NewAgentUsageIndexerDatabaseInMemory(initialBlock, maxPrompts uint64) *Agen
 	return &AgentUsageIndexerDatabaseInMemory{
 		usages:     make(map[[32]byte]*AgentUsage),
 		maxPrompts: maxPrompts,
-		promptCache: expirable.NewLRU[string, AgentUsageIndexerDatabaseInMemoryPromptCacheData](
+		promptCache: expirable.NewLRU[
+			AgentUsageIndexerDatabaseInMemoryPromptCacheKey,
+			AgentUsageIndexerDatabaseInMemoryPromptCacheData,
+		](
 			agentUsageIndexerPromptCacheSize,
 			nil,
 			agentUsageIndexerPromptCacheTTL,
@@ -169,6 +178,11 @@ func (db *AgentUsageIndexerDatabaseInMemory) getOrCreateAgentUsage(addr [32]byte
 	return usage
 }
 
-func (db *AgentUsageIndexerDatabaseInMemory) promptCacheKey(addr [32]byte, promptID uint64) string {
-	return fmt.Sprintf("%s-%d", addr, promptID)
+func (db *AgentUsageIndexerDatabaseInMemory) promptCacheKey(addr [32]byte, promptID uint64) AgentUsageIndexerDatabaseInMemoryPromptCacheKey {
+	data := make([]byte, 40)
+	copy(data[:32], addr[:])
+	binary.BigEndian.PutUint64(data[32:], promptID)
+
+	hash := sha256.Sum256(data)
+	return AgentUsageIndexerDatabaseInMemoryPromptCacheKey(hash)
 }
