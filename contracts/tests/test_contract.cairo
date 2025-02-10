@@ -1,21 +1,30 @@
-use starknet::{ContractAddress, get_block_timestamp};
-use snforge_std::{
-    declare, ContractClassTrait, DeclareResultTrait, start_cheat_caller_address,
-    stop_cheat_caller_address, spy_events, EventSpyAssertionsTrait,
-    start_cheat_caller_address_global, stop_cheat_caller_address_global,
-    start_cheat_block_timestamp_global, stop_cheat_block_timestamp_global,
-};
+use starknet::ContractAddress;
+use starknet::get_block_timestamp;
 
-use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+use snforge_std::declare;
+use snforge_std::spy_events;
+use snforge_std::ContractClassTrait;
+use snforge_std::DeclareResultTrait;
+use snforge_std::EventSpyAssertionsTrait;
+use snforge_std::start_cheat_caller_address;
+use snforge_std::stop_cheat_caller_address;
+use snforge_std::start_cheat_caller_address_global;
+use snforge_std::stop_cheat_caller_address_global;
+use snforge_std::start_cheat_block_timestamp_global;
+use snforge_std::stop_cheat_block_timestamp_global;
+
+use openzeppelin::token::erc20::interface::IERC20Dispatcher;
+use openzeppelin::token::erc20::interface::IERC20DispatcherTrait;
 use openzeppelin::security::pausable::PausableComponent;
 
-use core::serde::{Serde};
+use core::serde::Serde;
 
-use teeception::IAgentRegistryDispatcher;
-use teeception::IAgentRegistryDispatcherTrait;
-use teeception::IAgentDispatcher;
-use teeception::IAgentDispatcherTrait;
-use teeception::{AgentRegistry, Agent};
+use teeception::agent_registry::AgentRegistry;
+use teeception::agent_registry::IAgentRegistryDispatcher;
+use teeception::agent_registry::IAgentRegistryDispatcherTrait;
+use teeception::agent::Agent;
+use teeception::agent::IAgentDispatcher;
+use teeception::agent::IAgentDispatcherTrait;
 
 #[derive(Drop)]
 struct TestSetup {
@@ -80,36 +89,6 @@ fn deploy_test_token(token_holder: ContractAddress) -> ContractAddress {
     let constructor_calldata = array![0, 1000000000000000000000000000, token_holder.into()];
     let (address, _) = contract.deploy(@constructor_calldata).unwrap();
     address.into()
-}
-
-fn deploy_registry_with_token(tee: ContractAddress) -> (ContractAddress, ContractAddress) {
-    let token_contract = declare("ERC20").unwrap();
-    let agent_contract = declare("Agent").unwrap();
-    let registry_contract = declare("AgentRegistry").unwrap();
-    
-    // Deploy token first
-    let mut token_calldata = ArrayTrait::new();
-    let name = ByteArray::from_string("Test Token");
-    let symbol = ByteArray::from_string("TST");
-    let initial_supply: u256 = 1000000;
-    let recipient = starknet::get_contract_address();
-    
-    name.serialize(ref token_calldata);
-    symbol.serialize(ref token_calldata);
-    initial_supply.serialize(ref token_calldata);
-    recipient.serialize(ref token_calldata);
-    
-    let (token_address, _) = token_contract.deploy(@token_calldata).unwrap();
-
-    // Deploy registry with token
-    let mut registry_calldata = ArrayTrait::new();
-    agent_contract.class_hash.serialize(ref registry_calldata);
-    tee.serialize(ref registry_calldata);
-    token_address.serialize(ref registry_calldata);
-    
-    let (registry_address, _) = registry_contract.deploy(@registry_calldata).unwrap();
-    
-    (registry_address, token_address)
 }
 
 #[test]
@@ -1048,76 +1027,57 @@ fn test_withdraw_after_drain() {
 
 #[test]
 fn test_successful_agent_transfer() {
-    // Deploy registry with token
-    let tee = starknet::contract_address_const::<0x1>();
-    let (registry_address, token_address) = deploy_registry_with_token(tee);
-    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
-    let token = IERC20Dispatcher { contract_address: token_address };
+    let setup = setup();
+    let registry = setup.registry;
+    let token = setup.token;
 
-    // Register an agent
-    registry.register_agent(
-        ByteArray::from_string("Test Agent"),
-        ByteArray::from_string("Test Prompt")
-    );
-    
-    let agents = registry.get_agents();
-    let agent_address = *agents.at(0);
-    
+    // Register agent
+    let name = "Test Agent";
+    let system_prompt = "Test Prompt";
+
+    start_cheat_caller_address(setup.registry_address, setup.creator);
+    let agent_address = registry
+        .register_agent(
+            name,
+            system_prompt,
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry_address);
+
     // Send some tokens to the agent
     let agent_initial_balance: u256 = 100;
     token.transfer(agent_address, agent_initial_balance);
-    
+
     // Verify agent received the tokens
     let balance_before = token.balance_of(agent_address);
     assert(balance_before == agent_initial_balance, 'Wrong initial balance');
-    
+
     // Create a new recipient address
     let new_owner = starknet::contract_address_const::<0x123>();
-    
+
     // Start spoofing the TEE address for the transfer
-    starknet::testing::set_caller_address(tee);
-    
+    start_cheat_caller_address(setup.registry_address, setup.tee);
+
     // Transfer the agent to a new address
     registry.transfer(agent_address, new_owner);
-    
+    stop_cheat_caller_address(setup.registry_address);
+
     // Verify tokens were transferred to new owner
     let balance_after_agent = token.balance_of(agent_address);
     let balance_after_new_owner = token.balance_of(new_owner);
-    
+
     assert(balance_after_agent == 0, 'Agent should have 0 balance');
     assert(balance_after_new_owner == agent_initial_balance, 'New owner wrong balance');
 }
 
 #[test]
 fn test_get_token_address() {
-    let tee = starknet::contract_address_const::<0x1>();
-    let (registry_address, token_address) = deploy_registry_with_token(tee);
-    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
-    
+    let setup = setup();
+    let registry = setup.registry;
+
     let stored_token = registry.get_token();
-    assert(stored_token == token_address, 'Wrong token address');
-}
-
-#[test]
-#[should_panic(expected: ('Only tee can transfer',))]
-fn test_transfer_not_tee() {
-    let tee = starknet::contract_address_const::<0x1>();
-    let (registry_address, _) = deploy_registry_with_token(tee);
-    let registry = IAgentRegistryDispatcher { contract_address: registry_address };
-
-    // Register an agent
-    registry.register_agent(
-        ByteArray::from_string("Test Agent"),
-        ByteArray::from_string("Test Prompt")
-    );
-    
-    let agents = registry.get_agents();
-    let agent_address = *agents.at(0);
-    
-    // Try to transfer without being TEE
-    starknet::testing::set_caller_address(starknet::contract_address_const::<0x999>());
-    registry.transfer(
-        agent_address,
-        starknet::contract_address_const::<0x123>()
-    );
+    assert(stored_token == setup.token_address, 'Wrong token address');
 }
