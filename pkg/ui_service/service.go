@@ -235,47 +235,13 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 			continue
 		}
 
-		balance, ok := s.agentBalanceIndexer.GetBalance(agentAddr)
-		if !ok {
-			slog.Error("failed to get agent balance", "error", err)
+		agentData, err := s.buildAgentData(&info)
+		if err != nil {
+			slog.Error("failed to build agent data", "error", err)
 			continue
 		}
 
-		usage, ok := s.agentUsageIndexer.GetAgentUsage(agentAddr)
-		if !ok {
-			slog.Error("failed to get agent usage", "error", err)
-			continue
-		}
-
-		if agentAddr == nil || balance.Token == nil || balance.Amount == nil {
-			slog.Error("agent processing error", "agent", agentAddr.String())
-			continue
-		}
-
-		latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
-		for _, prompt := range usage.LatestPrompts {
-			latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
-				Prompt:    prompt.Prompt,
-				IsSuccess: prompt.IsSuccess,
-				DrainedTo: prompt.DrainedTo.String(),
-			})
-		}
-
-		agentDatas = append(agentDatas, &AgentData{
-			Pending:       balance.Pending,
-			Address:       agentAddr.String(),
-			Creator:       info.Creator.String(),
-			Name:          info.Name,
-			SystemPrompt:  info.SystemPrompt,
-			Token:         balance.Token.String(),
-			Balance:       balance.Amount.String(),
-			EndTime:       strconv.FormatUint(balance.EndTime, 10),
-			IsDrained:     usage.IsDrained,
-			IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
-			PromptPrice:   info.PromptPrice.String(),
-			BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
-			LatestPrompts: latestPrompts,
-		})
+		agentDatas = append(agentDatas, agentData)
 	}
 
 	c.JSON(http.StatusOK, &AgentPageResponse{
@@ -295,53 +261,19 @@ func (s *UIService) HandleGetAgent(c *gin.Context) {
 		return
 	}
 
-	balance, ok := s.agentBalanceIndexer.GetBalance(agentAddr)
-	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in balance indexer"})
-		return
-	}
-
 	info, ok := s.agentIndexer.GetAgentInfo(agentAddr)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in agent indexer"})
 		return
 	}
 
-	usage, ok := s.agentUsageIndexer.GetAgentUsage(agentAddr)
-	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent not found in agent usage indexer"})
+	agentData, err := s.buildAgentData(&info)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to build agent data"})
 		return
 	}
 
-	if agentAddr == nil || balance.Token == nil || balance.Amount == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "agent processing error"})
-		return
-	}
-
-	latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
-	for _, prompt := range usage.LatestPrompts {
-		latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
-			Prompt:    prompt.Prompt,
-			IsSuccess: prompt.IsSuccess,
-			DrainedTo: prompt.DrainedTo.String(),
-		})
-	}
-
-	c.JSON(http.StatusOK, &AgentData{
-		Pending:       balance.Pending,
-		Address:       agentAddr.String(),
-		Creator:       info.Creator.String(),
-		Name:          info.Name,
-		SystemPrompt:  info.SystemPrompt,
-		Token:         balance.Token.String(),
-		Balance:       balance.Amount.String(),
-		EndTime:       strconv.FormatUint(balance.EndTime, 10),
-		IsDrained:     usage.IsDrained,
-		IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
-		PromptPrice:   info.PromptPrice.String(),
-		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
-		LatestPrompts: latestPrompts,
-	})
+	c.JSON(http.StatusOK, agentData)
 }
 
 func (s *UIService) HandleGetUserAgents(c *gin.Context) {
@@ -380,42 +312,12 @@ func (s *UIService) HandleGetUserAgents(c *gin.Context) {
 
 	agentDatas := make([]*AgentData, 0, len(agents.Agents))
 	for _, info := range agents.Agents {
-		balance, ok := s.agentBalanceIndexer.GetBalance(info.Address)
-		if !ok {
-			slog.Error("failed to get agent balance", "agent", info.Address)
+		agentData, err := s.buildAgentData(&info)
+		if err != nil {
+			slog.Error("failed to build agent data", "error", err)
 			continue
 		}
-
-		usage, ok := s.agentUsageIndexer.GetAgentUsage(info.Address)
-		if !ok {
-			slog.Error("failed to get agent usage", "agent", info.Address)
-			continue
-		}
-
-		latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
-		for _, prompt := range usage.LatestPrompts {
-			latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
-				Prompt:    prompt.Prompt,
-				IsSuccess: prompt.IsSuccess,
-				DrainedTo: prompt.DrainedTo.String(),
-			})
-		}
-
-		agentDatas = append(agentDatas, &AgentData{
-			Pending:       balance.Pending,
-			Address:       info.Address.String(),
-			Creator:       info.Creator.String(),
-			Name:          info.Name,
-			SystemPrompt:  info.SystemPrompt,
-			Token:         balance.Token.String(),
-			Balance:       balance.Amount.String(),
-			EndTime:       strconv.FormatUint(balance.EndTime, 10),
-			IsDrained:     usage.IsDrained,
-			IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
-			PromptPrice:   info.PromptPrice.String(),
-			BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
-			LatestPrompts: latestPrompts,
-		})
+		agentDatas = append(agentDatas, agentData)
 	}
 
 	c.JSON(http.StatusOK, &AgentPageResponse{
@@ -457,9 +359,9 @@ func (s *UIService) HandleSearchAgents(c *gin.Context) {
 
 	agentDatas := make([]*AgentData, 0, len(agents.AgentInfos))
 	for _, info := range agents.AgentInfos {
-		agentData, err := s.agentDataFromAgentInfo(info)
+		agentData, err := s.buildAgentData(info)
 		if err != nil {
-			slog.Error("failed to get agent data", "error", err)
+			slog.Error("failed to build agent data", "error", err)
 			continue
 		}
 		agentDatas = append(agentDatas, agentData)
@@ -474,15 +376,19 @@ func (s *UIService) HandleSearchAgents(c *gin.Context) {
 	})
 }
 
-func (s *UIService) agentDataFromAgentInfo(info *indexer.AgentInfo) (*AgentData, error) {
+func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) {
 	balance, ok := s.agentBalanceIndexer.GetBalance(info.Address)
 	if !ok {
-		return nil, fmt.Errorf("failed to get agent balance", "agent", info.Address)
+		return nil, fmt.Errorf("failed to get agent balance for %s", info.Address)
+	}
+
+	if balance.Token == nil || balance.Amount == nil {
+		return nil, fmt.Errorf("invalid balance data for agent %s", info.Address)
 	}
 
 	usage, ok := s.agentUsageIndexer.GetAgentUsage(info.Address)
 	if !ok {
-		return nil, fmt.Errorf("failed to get agent usage", "agent", info.Address)
+		return nil, fmt.Errorf("failed to get agent usage for %s", info.Address)
 	}
 
 	latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
