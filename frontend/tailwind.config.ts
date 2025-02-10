@@ -15,6 +15,8 @@ export default {
       animation: {
         marquee: 'marquee 25s linear infinite',
         marquee2: 'marquee2 25s linear infinite',
+        shimmer: 'shimmer 8s ease-in-out infinite',
+        flash: 'flash 1s ease-in-out',
       },
       keyframes: {
         marquee: {
@@ -25,22 +27,16 @@ export default {
           '0%': { transform: 'translateX(0%)' },
           '100%': { transform: 'translateX(-200%)' },
         },
-      },
-      keyframes: {
         shimmer: {
           '0%': { backgroundPosition: '200% 0' },
-          '100%': { backgroundPosition: '-200% 0' }
+          '100%': { backgroundPosition: '-200% 0' },
         },
         flash: {
           '0%': { opacity: '1' },
           '50%': { opacity: '0.5' },
-          '100%': { opacity: '1' }
-        }
+          '100%': { opacity: '1' },
+        },
       },
-      animation: {
-        shimmer: 'shimmer 8s ease-in-out infinite',
-        flash: 'flash 1s ease-in-out'
-      }
     },
   },
   plugins: [],

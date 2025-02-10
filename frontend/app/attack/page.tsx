@@ -1,13 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAgents, AgentDetails } from '@/hooks/useAgents'
 import { useAccount } from '@starknet-react/core'
 import { Loader2, Search } from 'lucide-react'
-import Link from 'next/link'
 import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
-import { divideFloatStrings, calculateTimeLeft } from '@/lib/utils'
+import { calculateTimeLeft } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useMemo } from 'react'
 import { AgentsList } from '@/components/AgentsList'
@@ -16,7 +15,7 @@ import { useRouter } from 'next/navigation'
 enum TabType {
   AllAgents = 'all-agents',
   ActiveAgents = 'active-agents',
-  HighestRewards = 'highest-rewards'
+  HighestRewards = 'highest-rewards',
 }
 
 export default function AttackPage() {
@@ -34,7 +33,7 @@ export default function AttackPage() {
     [agents]
   )
 
-  const filterAgents = (agentsList: any[], query: string) => {
+  const filterAgents = (agentsList: AgentDetails[], query: string) => {
     if (!query.trim()) return agentsList
 
     const lowercaseQuery = query.toLowerCase().trim()
@@ -106,9 +105,7 @@ export default function AttackPage() {
           <Tabs defaultValue={TabType.ActiveAgents} className="w-full">
             <div className="flex flex-col md:flex-row items-center justify-between mb-6">
               <TabsList className="flex w-full">
-                <TabsTrigger value={TabType.AllAgents}>
-                  All agents ({agents.length})
-                </TabsTrigger>
+                <TabsTrigger value={TabType.AllAgents}>All agents ({agents.length})</TabsTrigger>
                 <TabsTrigger value={TabType.ActiveAgents}>
                   Active agents ({activeAgents.length})
                 </TabsTrigger>
@@ -161,4 +158,4 @@ export default function AttackPage() {
       </div>
     </>
   )
-} 
+}

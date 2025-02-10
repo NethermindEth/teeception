@@ -78,10 +78,8 @@ export default function AgentChallengePage() {
     submitted: boolean
   } | null>(null)
   const [tweetUrl, setTweetUrl] = useState('')
-  const [showTweetInput, setShowTweetInput] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [testStatus, setTestStatus] = useState<'active' | 'undefeated' | 'defeated'>('active')
-  const [loadingProgress, setLoadingProgress] = useState(0)
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
@@ -317,7 +315,6 @@ export default function AgentChallengePage() {
     }
 
     setCurrentTweetId(tweetId)
-    setShowTweetInput(false)
     setIsProcessingPayment(true)
     setPaymentError(null)
 
@@ -603,7 +600,7 @@ export default function AgentChallengePage() {
                         <ul className="text-sm leading-6 text-gray-400 space-y-2 list-disc pl-4">
                           <li>This payment will activate the challenge for this tweet</li>
                           <li>
-                            If you are successful you'll get{' '}
+                            If you are successful you&apos;ll get{' '}
                             {divideFloatStrings(testAgent.balance, testAgent.decimal)} STRK
                           </li>
                           <li>If you fail, your STRK is added to the reward</li>

@@ -2,15 +2,15 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Contract, RpcProvider } from 'starknet'
-import { AGENT_REGISTRY_COPY_ABI } from '@/abis/AGENT_REGISTRY'
+// import { AGENT_REGISTRY_COPY_ABI } from '@/abis/AGENT_REGISTRY'
 import { AGENT_ABI } from '@/abis/AGENT_ABI'
-import { ERC20_ABI } from '@/abis/ERC20_ABI'
+// import { ERC20_ABI } from '@/abis/ERC20_ABI'
 import { debug } from '@/lib/debug'
 import {
   ACTIVE_NETWORK,
-  AGENT_REGISTRY_ADDRESS,
+  // AGENT_REGISTRY_ADDRESS,
   DEFAULT_TOKEN_DECIMALS,
-  RPC_NODE_URL,
+  // RPC_NODE_URL,
 } from '@/constants'
 
 export interface AgentDetails {
@@ -41,7 +41,7 @@ export interface UseAgentsState {
   hasMore: boolean
 }
 
-const createProvider = () => new RpcProvider({ nodeUrl: RPC_NODE_URL })
+// const createProvider = () => new RpcProvider({ nodeUrl: RPC_NODE_URL })
 
 const formatAddress = (address: string) => `0x${BigInt(address).toString(16)}`
 
@@ -65,12 +65,12 @@ export const useAgents = ({
 
   // Initialize provider and registry contract
   useEffect(() => {
-    providerRef.current = createProvider()
-    registryRef.current = new Contract(
-      AGENT_REGISTRY_COPY_ABI,
-      AGENT_REGISTRY_ADDRESS,
-      providerRef.current
-    )
+    // providerRef.current = createProvider()
+    // registryRef.current = new Contract(
+    //   AGENT_REGISTRY_COPY_ABI,
+    //   AGENT_REGISTRY_ADDRESS,
+    //   providerRef.current
+    // )
   }, [])
 
   const fetchAgentDetails = useCallback(

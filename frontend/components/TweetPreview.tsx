@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
 import { Tweet } from 'react-tweet'
 
 interface TweetPreviewProps {
@@ -9,7 +7,7 @@ interface TweetPreviewProps {
   isPaid?: boolean
 }
 
-export function TweetPreview({ tweetId, isPaid = false }: TweetPreviewProps) {
+export function TweetPreview({ tweetId }: TweetPreviewProps) {
   if (!tweetId) return null
 
   return (
@@ -30,4 +28,4 @@ declare global {
       }
     }
   }
-} 
+}
