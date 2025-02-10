@@ -29,6 +29,14 @@ const (
 	EventTeeUnencumbered
 )
 
+const (
+	MinimumSizeSelector  = 1
+	MinimumSizeFelt252   = 1
+	MinimumSizeUint64    = 1
+	MinimumSizeUint256   = 2
+	MinimumSizeByteArray = 3
+)
+
 var (
 	EventItems = []struct {
 		SelectorBytes [32]byte
@@ -70,17 +78,32 @@ type AgentRegisteredEvent struct {
 	SystemPrompt string
 }
 
+const (
+	AgentRegisteredEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeFelt252 +
+		MinimumSizeFelt252
+
+	AgentRegisteredEventDataMinimumSize = 0 +
+		MinimumSizeUint256 +
+		MinimumSizeFelt252 +
+		MinimumSizeUint64 +
+		MinimumSizeFelt252 +
+		MinimumSizeByteArray +
+		MinimumSizeByteArray
+)
+
 func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 	if e.Type != EventAgentRegistered {
 		return nil, false
 	}
 
-	if len(e.Raw.Keys) != 3 {
+	if len(e.Raw.Keys) < AgentRegisteredEventKeysMinimumSize {
 		slog.Warn("invalid agent registered event", "keys", e.Raw.Keys)
 		return nil, false
 	}
 
-	if len(e.Raw.Data) < 11 {
+	if len(e.Raw.Data) < AgentRegisteredEventDataMinimumSize {
 		slog.Warn("invalid agent registered event", "data", e.Raw.Data)
 		return nil, false
 	}
@@ -151,12 +174,20 @@ type PromptPaidEvent struct {
 	Prompt   string
 }
 
+const (
+	PromptPaidEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeFelt252 +
+		MinimumSizeFelt252 +
+		MinimumSizeFelt252
+)
+
 func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 	if e.Type != EventPromptPaid {
 		return nil, false
 	}
 
-	if len(e.Raw.Keys) != 4 {
+	if len(e.Raw.Keys) < PromptPaidEventKeysMinimumSize {
 		slog.Warn("invalid prompt paid event", "keys", e.Raw.Keys)
 		return nil, false
 	}
@@ -187,17 +218,29 @@ type PromptConsumedEvent struct {
 	DrainedTo   *felt.Felt
 }
 
+const (
+	PromptConsumedEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeUint64
+
+	PromptConsumedEventDataMinimumSize = 0 +
+		MinimumSizeUint256 +
+		MinimumSizeUint256 +
+		MinimumSizeUint256 +
+		MinimumSizeFelt252
+)
+
 func (e *Event) ToPromptConsumedEvent() (*PromptConsumedEvent, bool) {
 	if e.Type != EventPromptConsumed {
 		return nil, false
 	}
 
-	if len(e.Raw.Keys) != 2 {
+	if len(e.Raw.Keys) < PromptConsumedEventKeysMinimumSize {
 		slog.Warn("invalid prompt consumed event", "keys", e.Raw.Keys)
 		return nil, false
 	}
 
-	if len(e.Raw.Data) != 7 {
+	if len(e.Raw.Data) < PromptConsumedEventDataMinimumSize {
 		slog.Warn("invalid prompt consumed event", "data", e.Raw.Data)
 		return nil, false
 	}
@@ -285,17 +328,27 @@ type TokenAddedEvent struct {
 	MinInitialBalance *big.Int
 }
 
+const (
+	TokenAddedEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeFelt252
+
+	TokenAddedEventDataMinimumSize = 0 +
+		MinimumSizeUint256 +
+		MinimumSizeUint256
+)
+
 func (e *Event) ToTokenAddedEvent() (*TokenAddedEvent, bool) {
 	if e.Type != EventTokenAdded {
 		return nil, false
 	}
 
-	if len(e.Raw.Keys) != 2 {
+	if len(e.Raw.Keys) < TokenAddedEventKeysMinimumSize {
 		slog.Warn("invalid token added event", "keys", e.Raw.Keys)
 		return nil, false
 	}
 
-	if len(e.Raw.Data) != 4 {
+	if len(e.Raw.Data) < TokenAddedEventDataMinimumSize {
 		slog.Warn("invalid token added event", "data", e.Raw.Data)
 		return nil, false
 	}
@@ -316,12 +369,18 @@ type TokenRemovedEvent struct {
 	Token *felt.Felt
 }
 
+const (
+	TokenRemovedEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeFelt252
+)
+
 func (e *Event) ToTokenRemovedEvent() (*TokenRemovedEvent, bool) {
 	if e.Type != EventTokenRemoved {
 		return nil, false
 	}
 
-	if len(e.Raw.Keys) != 2 {
+	if len(e.Raw.Keys) < TokenRemovedEventKeysMinimumSize {
 		slog.Warn("invalid token removed event", "keys", e.Raw.Keys)
 		return nil, false
 	}
@@ -337,8 +396,19 @@ type TeeUnencumberedEvent struct {
 	Tee *felt.Felt
 }
 
+const (
+	TeeUnencumberedEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeFelt252
+)
+
 func (e *Event) ToTeeUnencumberedEvent() (*TeeUnencumberedEvent, bool) {
 	if e.Type != EventTeeUnencumbered {
+		return nil, false
+	}
+
+	if len(e.Raw.Keys) < TeeUnencumberedEventKeysMinimumSize {
+		slog.Warn("invalid tee unencumbered event", "keys", e.Raw.Keys)
 		return nil, false
 	}
 
