@@ -66,6 +66,10 @@ pub trait IAgent<TContractState> {
     /// @return The agent's name
     fn get_name(self: @TContractState) -> ByteArray;
 
+    /// @notice Get the model being used for the agent
+    /// @return The model
+    fn get_model(self: @TContractState) -> felt252;
+
     /// @notice Get address that created this agent
     /// @return The creator's address
     fn get_creator(self: @TContractState) -> ContractAddress;
@@ -277,6 +281,8 @@ pub mod Agent {
         system_prompt: ByteArray,
         /// @notice Unique agent name
         name: ByteArray,
+        /// @notice Model to use for the agent
+        model: felt252,
         /// @notice Token used for payments
         token: ContractAddress,
         /// @notice Price per prompt in token units
@@ -311,6 +317,7 @@ pub mod Agent {
         name: ByteArray,
         registry: ContractAddress,
         system_prompt: ByteArray,
+        model: felt252,
         token: ContractAddress,
         prompt_price: u256,
         creator: ContractAddress,
@@ -319,6 +326,7 @@ pub mod Agent {
         self.registry.write(registry);
         self.name.write(name);
         self.system_prompt.write(system_prompt);
+        self.model.write(model);
         self.token.write(token);
         self.prompt_price.write(prompt_price);
         self.creator.write(creator);
@@ -338,6 +346,11 @@ pub mod Agent {
         /// @inheritdoc IAgent
         fn get_system_prompt(self: @ContractState) -> ByteArray {
             self.system_prompt.read()
+        }
+
+        /// @inheritdoc IAgent
+        fn get_model(self: @ContractState) -> felt252 {
+            self.model.read()
         }
 
         /// @inheritdoc IAgent

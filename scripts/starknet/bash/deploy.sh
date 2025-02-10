@@ -6,6 +6,7 @@ DEFAULT_TEE='0x07143ccc9a6bae3aa5d33aa2b99f4edd0a783dbce7bdf42d56789f8023f6ec1b'
 DEFAULT_STRK='0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
 DEFAULT_MIN_PROMPT_PRICE='1'
 DEFAULT_MIN_INITIAL_BALANCE='1'
+DEFAULT_MODEL="gpt-4"
 DEFAULT_SLEEP_TIME=30
 DEFAULT_POLL_INTERVAL=2
 
@@ -18,6 +19,7 @@ show_help() {
     echo "  -o, --owner ADDR       Owner address (default: $DEFAULT_OWNER)"
     echo "  -t, --tee ADDR         TEE address (default: $DEFAULT_TEE)"
     echo "  -s, --strk ADDR        STRK token address (default: $DEFAULT_STRK)"
+    echo "  -m, --model MODEL      Model (default: $DEFAULT_MODEL)"
     echo "  -p, --prompt-price VAL Min prompt price (default: $DEFAULT_MIN_PROMPT_PRICE)"
     echo "  -b, --balance VAL      Min initial balance (default: $DEFAULT_MIN_INITIAL_BALANCE)"
     echo "  -w, --wait TIME        Sleep time between operations (default: ${DEFAULT_SLEEP_TIME}s)"
@@ -35,6 +37,7 @@ while [[ $# -gt 0 ]]; do
         -s|--strk) STRK="$2"; shift 2 ;;
         -p|--prompt-price) MIN_PROMPT_PRICE="$2"; shift 2 ;;
         -b|--balance) MIN_INITIAL_BALANCE="$2"; shift 2 ;;
+        -m|--model) MODEL="$2"; shift 2 ;;
         -w|--wait) SLEEP_TIME="$2"; shift 2 ;;
         -i|--interval) POLL_INTERVAL="$2"; shift 2 ;;
         --agent-hash) AGENT_CLASS_HASH="$2"; shift 2 ;;
@@ -138,5 +141,16 @@ ADD_TOKEN_RESP=$(sncast invoke \
 ADD_TOKEN_TX_HASH=$(echo "$ADD_TOKEN_RESP" | awk '/transaction_hash:/ {print $2}')
 
 wait_for_transaction "$ADD_TOKEN_TX_HASH"
+
+log "Adding GPT-4o model as supported model..."
+ADD_MODEL_RESP=$(sncast invoke \
+    --contract-address "$REGISTRY_CONTRACT_ADDRESS" \
+    --function add_supported_model \
+    --arguments "'$MODEL'" \
+    --fee-token strk)
+
+ADD_MODEL_TX_HASH=$(echo "$ADD_MODEL_RESP" | awk '/transaction_hash:/ {print $2}')
+
+wait_for_transaction "$ADD_MODEL_TX_HASH"
 
 log "Registry contract deployed with address: $REGISTRY_CONTRACT_ADDRESS"

@@ -73,6 +73,7 @@ pub trait IAgentRegistry<TContractState> {
     /// @notice Registers a new agent with the given parameters
     /// @param name Unique name for the agent
     /// @param system_prompt Base prompt that defines agent behavior
+    /// @param model The model to use for the agent
     /// @param token Address of token used for payments
     /// @param prompt_price Price per prompt in token units
     /// @param initial_balance Initial token balance for the agent
@@ -82,6 +83,7 @@ pub trait IAgentRegistry<TContractState> {
         ref self: TContractState,
         name: ByteArray,
         system_prompt: ByteArray,
+        model: felt252,
         token: ContractAddress,
         prompt_price: u256,
         initial_balance: u256,
@@ -119,10 +121,25 @@ pub trait IAgentRegistry<TContractState> {
     /// @dev Only callable by owner
     fn remove_supported_token(ref self: TContractState, token: ContractAddress);
 
+    /// @notice Adds a model to the allowed models
+    /// @param model The model to add
+    /// @dev Only callable by owner
+    fn add_supported_model(ref self: TContractState, model: felt252);
+
+    /// @notice Removes a model from the allowed models
+    /// @param model The model to remove
+    /// @dev Only callable by owner
+    fn remove_supported_model(ref self: TContractState, model: felt252);
+
     /// @notice Checks if a token is supported
     /// @param token The token address to check
     /// @return True if token is supported
     fn is_token_supported(self: @TContractState, token: ContractAddress) -> bool;
+
+    /// @notice Checks if a model is supported
+    /// @param model The model to check
+    /// @return True if model is supported
+    fn is_model_supported(self: @TContractState, model: felt252) -> bool;
 }
 
 /// @title Agent Registry Contract
@@ -206,6 +223,8 @@ pub mod AgentRegistry {
         pub token: ContractAddress,
         /// @notice Timestamp when agent stops accepting prompts
         pub end_time: u64,
+        /// @notice Model to use for the agent
+        pub model: felt252,
         /// @notice Unique name of the agent
         pub name: ByteArray,
         /// @notice Base prompt defining agent behavior
@@ -260,6 +279,8 @@ pub mod AgentRegistry {
         tee: ContractAddress,
         /// @notice Mapping of token addresses to their parameters
         token_params: Map::<ContractAddress, TokenParams>,
+        /// @notice Mapping of allowed models
+        supported_models: Map::<felt252, bool>,
     }
 
     /// @notice Contract constructor
@@ -286,6 +307,7 @@ pub mod AgentRegistry {
             ref self: ContractState,
             name: ByteArray,
             system_prompt: ByteArray,
+            model: felt252,
             token: ContractAddress,
             prompt_price: u256,
             initial_balance: u256,
@@ -294,11 +316,14 @@ pub mod AgentRegistry {
             self._assert_not_paused();
             let name_hash = self._assert_agent_name_unique(@name);
             self._assert_token_params_met(token, prompt_price, initial_balance);
+            self._assert_model_supported(model);
 
             let creator = get_caller_address();
 
             let deployed_address = self
-                ._deploy_agent(creator, @name, @system_prompt, token, prompt_price, end_time);
+                ._deploy_agent(
+                    creator, @name, @system_prompt, model, token, prompt_price, end_time,
+                );
 
             let token_dispatcher = IERC20Dispatcher { contract_address: token };
             token_dispatcher.transfer_from(creator, deployed_address, initial_balance);
@@ -315,6 +340,7 @@ pub mod AgentRegistry {
                             creator,
                             name: name.clone(),
                             system_prompt: system_prompt.clone(),
+                            model,
                             token,
                             prompt_price,
                             end_time,
@@ -372,6 +398,18 @@ pub mod AgentRegistry {
         }
 
         /// @inheritdoc IAgentRegistry
+        fn add_supported_model(ref self: ContractState, model: felt252) {
+            self._assert_caller_is_owner();
+            self.supported_models.write(model, true);
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn remove_supported_model(ref self: ContractState, model: felt252) {
+            self._assert_caller_is_owner();
+            self.supported_models.write(model, false);
+        }
+
+        /// @inheritdoc IAgentRegistry
         fn pause(ref self: ContractState) {
             self._assert_caller_is_owner();
             self.pausable.pause();
@@ -413,6 +451,11 @@ pub mod AgentRegistry {
         /// @inheritdoc IAgentRegistry
         fn is_agent_registered(self: @ContractState, address: ContractAddress) -> bool {
             self.agent_registered.read(address)
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn is_model_supported(self: @ContractState, model: felt252) -> bool {
+            self.supported_models.read(model)
         }
 
         /// @inheritdoc IAgentRegistry
@@ -474,6 +517,7 @@ pub mod AgentRegistry {
             creator: ContractAddress,
             name: @ByteArray,
             system_prompt: @ByteArray,
+            model: felt252,
             token: ContractAddress,
             prompt_price: u256,
             end_time: u64,
@@ -484,6 +528,7 @@ pub mod AgentRegistry {
             name.serialize(ref constructor_calldata);
             registry.serialize(ref constructor_calldata);
             system_prompt.serialize(ref constructor_calldata);
+            model.serialize(ref constructor_calldata);
             token.serialize(ref constructor_calldata);
             prompt_price.serialize(ref constructor_calldata);
             creator.serialize(ref constructor_calldata);
@@ -546,6 +591,13 @@ pub mod AgentRegistry {
             assert(agent_with_name_hash == contract_address_const::<0>(), 'Name already used');
 
             name_hash
+        }
+
+        // @notice Checks if model is supported
+        // @param model Model to check
+        // @dev Reverts if model is not supported
+        fn _assert_model_supported(self: @ContractState, model: felt252) {
+            assert(self.supported_models.read(model), 'Model not supported');
         }
     }
 }

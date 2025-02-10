@@ -172,11 +172,12 @@ type AgentData struct {
 	Token         string                   `json:"token"`
 	Name          string                   `json:"name"`
 	SystemPrompt  string                   `json:"system_prompt"`
+	PromptPrice   string                   `json:"prompt_price"`
 	Balance       string                   `json:"balance"`
 	EndTime       string                   `json:"end_time"`
+	Model         string                   `json:"model"`
 	IsDrained     bool                     `json:"is_drained"`
 	IsFinalized   bool                     `json:"is_finalized"`
-	PromptPrice   string                   `json:"prompt_price"`
 	BreakAttempts string                   `json:"break_attempts"`
 	LatestPrompts []*AgentDataLatestPrompt `json:"latest_prompts"`
 }
@@ -437,6 +438,7 @@ func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) 
 		Token:         balance.Token.String(),
 		Balance:       balance.Amount.String(),
 		EndTime:       strconv.FormatUint(balance.EndTime, 10),
+		Model:         info.Model.String(),
 		IsDrained:     usage.IsDrained,
 		IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
 		PromptPrice:   info.PromptPrice.String(),

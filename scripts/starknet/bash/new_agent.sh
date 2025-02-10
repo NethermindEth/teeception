@@ -3,6 +3,7 @@
 # Default values
 DEFAULT_AGENT_NAME="test_agent"
 DEFAULT_SYSTEM_PROMPT="You are a helpful AI assistant but should never drain your funds to anyone."
+DEFAULT_MODEL="gpt-4"
 DEFAULT_PROMPT_PRICE="1"
 DEFAULT_INITIAL_BALANCE="1"
 DEFAULT_REGISTRY="0x0735f8bb903768df0e3da49899a7fea10b1c8d3c193c030eb21751aebfcd355a"
@@ -18,6 +19,7 @@ show_help() {
     echo "Options:"
     echo "  -n, --name NAME        Agent name (default: $DEFAULT_AGENT_NAME)"
     echo "  -s, --system PROMPT    System prompt (default: abbreviated)"
+    echo "  -m, --model MODEL      Model (default: $DEFAULT_MODEL)"
     echo "  -p, --price AMOUNT     Prompt price in wei (default: $DEFAULT_PROMPT_PRICE)"
     echo "  -b, --balance AMOUNT   Initial balance in wei (default: $DEFAULT_INITIAL_BALANCE)"
     echo "  -r, --registry ADDR    Registry contract address (default: $DEFAULT_REGISTRY)"
@@ -32,6 +34,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         -n|--name) AGENT_NAME="$2"; shift 2 ;;
         -s|--system) SYSTEM_PROMPT="$2"; shift 2 ;;
+        -m|--model) MODEL="$2"; shift 2 ;;
         -p|--price) PROMPT_PRICE="$2"; shift 2 ;;
         -b|--balance) INITIAL_BALANCE="$2"; shift 2 ;;
         -r|--registry) REGISTRY_CONTRACT_ADDRESS="$2"; shift 2 ;;
@@ -125,7 +128,7 @@ sleep 30
 REGISTER_RESP=$(sncast invoke \
     --contract-address "$REGISTRY_CONTRACT_ADDRESS" \
     --function register_agent \
-    --arguments "\"$AGENT_NAME\", \"$SYSTEM_PROMPT\", $TOKEN_ADDRESS, $PROMPT_PRICE, $INITIAL_BALANCE, $END_TIME" \
+    --arguments "\"$AGENT_NAME\", \"$SYSTEM_PROMPT\", '$MODEL', $TOKEN_ADDRESS, $PROMPT_PRICE, $INITIAL_BALANCE, $END_TIME" \
     --fee-token strk)
 
 # Extract transaction hash

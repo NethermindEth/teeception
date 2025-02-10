@@ -38,6 +38,7 @@ struct TestSetup {
     registry: IAgentRegistryDispatcher,
     token: IERC20Dispatcher,
     end_time: u64,
+    model: felt252,
 }
 
 fn setup() -> TestSetup {
@@ -46,6 +47,7 @@ fn setup() -> TestSetup {
     let prompt_price: u256 = 100;
     let initial_balance: u256 = 1000;
     let end_time = get_block_timestamp() + 3600; // 1 hour from now
+    let model = 'llm';
 
     let agent_contract = declare("Agent").unwrap().contract_class();
     let registry_contract = declare("AgentRegistry").unwrap().contract_class();
@@ -69,6 +71,7 @@ fn setup() -> TestSetup {
 
     start_cheat_caller_address_global(creator);
     registry.add_supported_token(token_address, min_prompt_price, min_initial_balance);
+    registry.add_supported_model(model);
     let _ = token.approve(registry_address, min_initial_balance * 10);
     stop_cheat_caller_address_global();
 
@@ -82,6 +85,7 @@ fn setup() -> TestSetup {
         registry,
         token,
         end_time,
+        model,
     }
 }
 
@@ -106,6 +110,7 @@ fn test_register_agent() {
         .register_agent(
             name.clone(),
             system_prompt.clone(),
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -139,6 +144,7 @@ fn test_register_agent() {
                             creator: setup.creator,
                             name: name.clone(),
                             system_prompt: system_prompt.clone(),
+                            model: setup.model,
                             prompt_price: setup.prompt_price,
                             token: setup.token_address,
                             end_time: setup.end_time,
@@ -164,6 +170,7 @@ fn test_register_agent_name_conflict() {
         .register_agent(
             name.clone(),
             system_prompt,
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -176,6 +183,7 @@ fn test_register_agent_name_conflict() {
         .register_agent(
             name.clone(),
             "Different prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -197,6 +205,7 @@ fn test_pay_for_prompt() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -257,6 +266,7 @@ fn test_register_multiple_agents() {
         .register_agent(
             "agent_1",
             "Prompt 1",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -268,6 +278,7 @@ fn test_register_multiple_agents() {
         .register_agent(
             "agent_2",
             "Prompt 2",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -294,6 +305,7 @@ fn test_unauthorized_transfer() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -316,6 +328,7 @@ fn test_direct_agent_transfer_unauthorized() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -342,6 +355,7 @@ fn test_get_agent_details() {
         .register_agent(
             name.clone(),
             system_prompt.clone(),
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -365,6 +379,7 @@ fn test_authorized_token_transfer() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -426,6 +441,7 @@ fn test_unauthorized_token_transfer() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -456,6 +472,7 @@ fn test_pay_for_prompt_without_approval() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -482,6 +499,7 @@ fn test_is_agent_registered() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -499,7 +517,9 @@ fn test_fee_distribution() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
+        .register_agent(
+            "test", "test", setup.model, setup.token_address, 100, 1000, setup.end_time,
+        );
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -536,7 +556,9 @@ fn test_early_reclaim() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
+        .register_agent(
+            "test", "test", setup.model, setup.token_address, 100, 1000, setup.end_time,
+        );
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -603,7 +625,9 @@ fn test_unsupported_token_registration() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     setup
         .registry
-        .register_agent("test", "test", fake_token, 100, 1000, setup.end_time); // Should panic
+        .register_agent(
+            "test", "test", setup.model, fake_token, 100, 1000, setup.end_time,
+        ); // Should panic
 }
 
 #[test]
@@ -627,7 +651,9 @@ fn test_prompt_lifecycle() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
+        .register_agent(
+            "test", "test", setup.model, setup.token_address, 100, 1000, setup.end_time,
+        );
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -669,7 +695,9 @@ fn test_reclaim_after_delay() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
+        .register_agent(
+            "test", "test", setup.model, setup.token_address, 100, 1000, setup.end_time,
+        );
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let agent = IAgentDispatcher { contract_address: agent_address };
@@ -714,7 +742,9 @@ fn test_unauthorized_consumption() {
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
-        .register_agent("test", "test", setup.token_address, 100, 1000, setup.end_time);
+        .register_agent(
+            "test", "test", setup.model, setup.token_address, 100, 1000, setup.end_time,
+        );
     stop_cheat_caller_address(setup.registry.contract_address);
 
     let hacker = starknet::contract_address_const::<0x456>();
@@ -733,6 +763,7 @@ fn test_withdraw() {
         .register_agent(
             "test",
             "test",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -793,6 +824,7 @@ fn test_early_withdraw() {
         .register_agent(
             "test",
             "test",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -818,6 +850,7 @@ fn test_unauthorized_withdraw() {
         .register_agent(
             "test",
             "test",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -847,6 +880,7 @@ fn test_pay_after_end() {
         .register_agent(
             "test",
             "test",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -885,6 +919,7 @@ fn test_is_finalized() {
         .register_agent(
             "test",
             "test",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -939,6 +974,7 @@ fn test_consume_after_drain() {
         .register_agent(
             "test",
             "test",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -988,6 +1024,7 @@ fn test_withdraw_after_drain() {
         .register_agent(
             "test",
             "test",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1038,6 +1075,7 @@ fn test_prompt_state_transitions() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1088,6 +1126,7 @@ fn test_consume_invalid_prompt_state() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1111,6 +1150,7 @@ fn test_unknown_prompt_state() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1136,6 +1176,7 @@ fn test_prompt_reclaim_flow() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1189,6 +1230,7 @@ fn test_fee_distribution_accuracy() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1250,6 +1292,7 @@ fn test_register_agent_insufficient_balance() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             insufficient_balance,
@@ -1269,6 +1312,7 @@ fn test_register_agent_low_prompt_price() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             low_price,
             setup.initial_balance,
@@ -1343,6 +1387,7 @@ fn test_pending_pool_tracking() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1396,6 +1441,7 @@ fn test_reclaim_after_finalization() {
         .register_agent(
             "test_agent",
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1450,6 +1496,7 @@ fn test_get_agent_by_name() {
         .register_agent(
             name.clone(),
             "Test Prompt",
+            setup.model,
             setup.token_address,
             setup.prompt_price,
             setup.initial_balance,
@@ -1458,4 +1505,39 @@ fn test_get_agent_by_name() {
     stop_cheat_caller_address(setup.registry.contract_address);
 
     assert(setup.registry.get_agent_by_name(name.clone()) == agent_address, 'Wrong agent address');
+}
+
+#[test]
+fn test_is_model_supported() {
+    let setup = setup();
+    let model = setup.model + 1;
+
+    assert(!setup.registry.is_model_supported(model), 'Model should not be supported');
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    setup.registry.add_supported_model(model);
+    stop_cheat_caller_address(setup.registry.contract_address);
+
+    assert(setup.registry.is_model_supported(model), 'Model should be supported');
+}
+
+#[test]
+#[should_panic(expected: ('Model not supported',))]
+fn test_register_agent_with_unsupported_model() {
+    let setup = setup();
+    let unsupported_model = setup.model + 1;
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    setup
+        .registry
+        .register_agent(
+            "test_agent",
+            "Test Prompt",
+            unsupported_model,
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
 }

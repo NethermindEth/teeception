@@ -23,6 +23,7 @@ type AgentInfo struct {
 	PromptPrice  *big.Int
 	TokenAddress *felt.Felt
 	EndTime      uint64
+	Model        *felt.Felt
 }
 
 // AgentIndexer processes AgentRegistered events and tracks known agents.
@@ -122,6 +123,7 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		"prompt_price", agentRegisteredEv.PromptPrice,
 		"token_address", agentRegisteredEv.TokenAddress.String(),
 		"end_time", agentRegisteredEv.EndTime,
+		"model", agentRegisteredEv.Model.String(),
 	)
 
 	if err := i.db.SetAgentInfo(agentRegisteredEv.Agent.Bytes(), AgentInfo{
@@ -132,6 +134,7 @@ func (i *AgentIndexer) onAgentRegistered(ev *Event) {
 		PromptPrice:  agentRegisteredEv.PromptPrice,
 		TokenAddress: agentRegisteredEv.TokenAddress,
 		EndTime:      agentRegisteredEv.EndTime,
+		Model:        agentRegisteredEv.Model,
 	}); err != nil {
 		slog.Error("failed to set agent info", "error", err)
 	}
