@@ -500,7 +500,9 @@ pub mod Agent {
 
             if let PromptState::Submitted((submitter, timestamp)) = prompt_state {
                 if !self.is_finalized() {
-                    assert(get_block_timestamp() >= timestamp + RECLAIM_DELAY, 'Too early to reclaim');
+                    assert(
+                        get_block_timestamp() >= timestamp + RECLAIM_DELAY, 'Too early to reclaim',
+                    );
                 }
 
                 let token = IERC20Dispatcher { contract_address: self.token.read() };
