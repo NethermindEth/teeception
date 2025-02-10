@@ -181,6 +181,8 @@ type AgentData struct {
 }
 
 type AgentDataLatestPrompt struct {
+	PromptID  string `json:"prompt_id"`
+	TweetID   string `json:"tweet_id"`
 	Prompt    string `json:"prompt"`
 	IsSuccess bool   `json:"is_success"`
 	DrainedTo string `json:"drained_to"`
@@ -394,6 +396,8 @@ func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) 
 	latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
 	for _, prompt := range usage.LatestPrompts {
 		latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
+			PromptID:  strconv.FormatUint(prompt.PromptID, 10),
+			TweetID:   strconv.FormatUint(prompt.TweetID, 10),
 			Prompt:    prompt.Prompt,
 			IsSuccess: prompt.IsSuccess,
 			DrainedTo: prompt.DrainedTo.String(),

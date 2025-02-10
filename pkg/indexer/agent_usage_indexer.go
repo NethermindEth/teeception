@@ -20,9 +20,16 @@ type AgentUsage struct {
 }
 
 type AgentUsageLatestPrompt struct {
+	PromptID  uint64
+	TweetID   uint64
 	Prompt    string
 	IsSuccess bool
 	DrainedTo *felt.Felt
+}
+
+type AgentPromptCacheData struct {
+	TweetID uint64
+	Prompt  string
 }
 
 type AgentUsageIndexer struct {
@@ -34,7 +41,7 @@ type AgentUsageIndexer struct {
 	registryAddress *felt.Felt
 
 	maxPrompts  uint64
-	promptCache *lru.Cache[string, string]
+	promptCache *lru.Cache[string, AgentPromptCacheData]
 
 	eventCh      chan *EventSubscriptionData
 	eventSubID   int64
@@ -68,7 +75,7 @@ func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
 	eventCh := make(chan *EventSubscriptionData, 1000)
 	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventPromptConsumed|EventPromptPaid, eventCh)
 
-	promptCache, err := lru.New[string, string](1000)
+	promptCache, err := lru.New[string, AgentPromptCacheData](10000)
 	if err != nil {
 		slog.Error("failed to create prompt cache", "error", err)
 		promptCache = nil
@@ -166,7 +173,10 @@ func (i *AgentUsageIndexer) onPromptPaidEvent(ev *Event) {
 
 	i.promptCache.Add(
 		fmt.Sprintf("%s-%d", ev.Raw.FromAddress, promptPaidEvent.PromptID),
-		promptPaidEvent.Prompt,
+		AgentPromptCacheData{
+			TweetID: promptPaidEvent.TweetID,
+			Prompt:  promptPaidEvent.Prompt,
+		},
 	)
 }
 
@@ -189,7 +199,12 @@ func (i *AgentUsageIndexer) ReadState(f func(AgentUsageIndexerDatabaseReader)) {
 	f(i.db)
 }
 
-func (i *AgentUsageIndexer) addAttempt(usage *AgentUsage, agentAddr *felt.Felt, promptId uint64, drainedTo *felt.Felt) {
+func (i *AgentUsageIndexer) addAttempt(
+	usage *AgentUsage,
+	agentAddr *felt.Felt,
+	promptId uint64,
+	drainedTo *felt.Felt,
+) {
 	usage.BreakAttempts++
 
 	var succeeded bool
@@ -203,10 +218,13 @@ func (i *AgentUsageIndexer) addAttempt(usage *AgentUsage, agentAddr *felt.Felt, 
 		drainAddress = drainedTo
 	}
 
-	prompt, ok := i.promptCache.Get(fmt.Sprintf("%s-%d", agentAddr, promptId))
+	promptCacheData, ok := i.promptCache.Get(fmt.Sprintf("%s-%d", agentAddr, promptId))
 	if !ok {
 		slog.Error("prompt not found in cache", "agent", agentAddr, "prompt", promptId)
-		prompt = ""
+		promptCacheData = AgentPromptCacheData{
+			TweetID: 0,
+			Prompt:  "",
+		}
 	}
 
 	if succeeded {
@@ -214,7 +232,9 @@ func (i *AgentUsageIndexer) addAttempt(usage *AgentUsage, agentAddr *felt.Felt, 
 	}
 
 	usage.LatestPrompts = append(usage.LatestPrompts, &AgentUsageLatestPrompt{
-		Prompt:    prompt,
+		PromptID:  promptId,
+		TweetID:   promptCacheData.TweetID,
+		Prompt:    promptCacheData.Prompt,
 		IsSuccess: succeeded,
 		DrainedTo: drainAddress,
 	})
