@@ -2,11 +2,9 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -20,6 +18,8 @@ type AgentUsage struct {
 }
 
 type AgentUsageLatestPrompt struct {
+	PromptID  uint64
+	TweetID   uint64
 	Prompt    string
 	IsSuccess bool
 	DrainedTo *felt.Felt
@@ -33,8 +33,7 @@ type AgentUsageIndexer struct {
 	db              AgentUsageIndexerDatabase
 	registryAddress *felt.Felt
 
-	maxPrompts  uint64
-	promptCache *lru.Cache[string, string]
+	maxPrompts uint64
 
 	eventCh      chan *EventSubscriptionData
 	eventSubID   int64
@@ -61,25 +60,18 @@ type AgentUsageIndexerConfig struct {
 func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
 	if config.InitialState == nil {
 		config.InitialState = &AgentUsageIndexerInitialState{
-			Db: NewAgentUsageIndexerDatabaseInMemory(0),
+			Db: NewAgentUsageIndexerDatabaseInMemory(0, config.MaxPrompts),
 		}
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
 	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventPromptConsumed|EventPromptPaid, eventCh)
 
-	promptCache, err := lru.New[string, string](1000)
-	if err != nil {
-		slog.Error("failed to create prompt cache", "error", err)
-		promptCache = nil
-	}
-
 	return &AgentUsageIndexer{
 		client:          config.Client,
 		registryAddress: config.RegistryAddress,
 		db:              config.InitialState.Db,
 		maxPrompts:      config.MaxPrompts,
-		promptCache:     promptCache,
 		eventCh:         eventCh,
 		eventSubID:      eventSubID,
 		eventWatcher:    config.EventWatcher,
@@ -131,10 +123,7 @@ func (i *AgentUsageIndexer) onAgentRegisteredEvent(ev *Event) {
 		return
 	}
 
-	i.db.SetAgentUsage(agentRegisteredEvent.Agent.Bytes(), &AgentUsage{
-		BreakAttempts: 0,
-		LatestPrompts: make([]*AgentUsageLatestPrompt, 0, i.maxPrompts+1),
-	})
+	i.db.StoreAgent(agentRegisteredEvent.Agent.Bytes())
 }
 
 func (i *AgentUsageIndexer) onPromptConsumedEvent(ev *Event) {
@@ -148,14 +137,7 @@ func (i *AgentUsageIndexer) onPromptConsumedEvent(ev *Event) {
 		return
 	}
 
-	usage, ok := i.db.GetAgentUsage(ev.Raw.FromAddress.Bytes())
-	if !ok {
-		slog.Error("agent usage not found", "agent", ev.Raw.FromAddress)
-		return
-	}
-
-	i.addAttempt(usage, ev.Raw.FromAddress, promptConsumedEvent.PromptID, promptConsumedEvent.DrainedTo)
-	i.db.SetAgentUsage(ev.Raw.FromAddress.Bytes(), usage)
+	i.db.StorePromptConsumedData(ev.Raw.FromAddress.Bytes(), promptConsumedEvent)
 }
 
 func (i *AgentUsageIndexer) onPromptPaidEvent(ev *Event) {
@@ -164,10 +146,7 @@ func (i *AgentUsageIndexer) onPromptPaidEvent(ev *Event) {
 		return
 	}
 
-	i.promptCache.Add(
-		fmt.Sprintf("%s-%d", ev.Raw.FromAddress, promptPaidEvent.PromptID),
-		promptPaidEvent.Prompt,
-	)
+	i.db.StorePromptPaidData(ev.Raw.FromAddress.Bytes(), promptPaidEvent)
 }
 
 func (i *AgentUsageIndexer) GetAgentUsage(addr *felt.Felt) (*AgentUsage, bool) {
@@ -187,38 +166,4 @@ func (i *AgentUsageIndexer) ReadState(f func(AgentUsageIndexerDatabaseReader)) {
 	defer i.mu.RUnlock()
 
 	f(i.db)
-}
-
-func (i *AgentUsageIndexer) addAttempt(usage *AgentUsage, agentAddr *felt.Felt, promptId uint64, drainedTo *felt.Felt) {
-	usage.BreakAttempts++
-
-	var succeeded bool
-	var drainAddress *felt.Felt
-
-	if drainedTo.Cmp(agentAddr) == 0 {
-		succeeded = false
-		drainAddress = new(felt.Felt)
-	} else {
-		succeeded = true
-		drainAddress = drainedTo
-	}
-
-	prompt, ok := i.promptCache.Get(fmt.Sprintf("%s-%d", agentAddr, promptId))
-	if !ok {
-		slog.Error("prompt not found in cache", "agent", agentAddr, "prompt", promptId)
-		prompt = ""
-	}
-
-	if succeeded {
-		usage.IsDrained = true
-	}
-
-	usage.LatestPrompts = append(usage.LatestPrompts, &AgentUsageLatestPrompt{
-		Prompt:    prompt,
-		IsSuccess: succeeded,
-		DrainedTo: drainAddress,
-	})
-	if uint64(len(usage.LatestPrompts)) > i.maxPrompts {
-		usage.LatestPrompts = usage.LatestPrompts[1:]
-	}
 }
