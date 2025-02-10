@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"math/big"
 	"slices"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ type AgentBalanceIndexerDatabaseReader interface {
 	GetLeaderboardCount() uint64
 	GetAgentExists(addr [32]byte) bool
 	GetAgentBalance(addr [32]byte) (*AgentBalance, bool)
+	GetTotalAgentBalances() map[[32]byte]*big.Int
 	GetLastIndexedBlock() uint64
 }
 
@@ -36,9 +38,11 @@ type AgentBalanceIndexerDatabase interface {
 
 // AgentBalanceIndexerDatabaseInMemory is an in-memory implementation of the AgentBalanceIndexerDatabase interface.
 type AgentBalanceIndexerDatabaseInMemory struct {
-	balances       map[[32]byte]*AgentBalance
-	sortedAgentsMu sync.RWMutex
-	sortedAgents   *utils.LazySortedList[[32]byte]
+	balances map[[32]byte]*AgentBalance
+
+	sortedAgentsMu      sync.RWMutex
+	sortedAgents        *utils.LazySortedList[[32]byte]
+	totalActiveBalances map[[32]byte]*big.Int
 
 	lastIndexedBlock uint64
 }
@@ -48,9 +52,10 @@ var _ AgentBalanceIndexerDatabase = (*AgentBalanceIndexerDatabaseInMemory)(nil)
 // NewAgentBalanceIndexerDatabaseInMemory creates a new in-memory AgentBalanceIndexerDatabase.
 func NewAgentBalanceIndexerDatabaseInMemory(initialBlock uint64) *AgentBalanceIndexerDatabaseInMemory {
 	return &AgentBalanceIndexerDatabaseInMemory{
-		balances:         make(map[[32]byte]*AgentBalance),
-		lastIndexedBlock: initialBlock,
-		sortedAgents:     utils.NewLazySortedList[[32]byte](),
+		balances:            make(map[[32]byte]*AgentBalance),
+		lastIndexedBlock:    initialBlock,
+		sortedAgents:        utils.NewLazySortedList[[32]byte](),
+		totalActiveBalances: make(map[[32]byte]*big.Int),
 	}
 }
 
@@ -100,8 +105,15 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 		balA := db.balances[a]
 		balB := db.balances[b]
 
-		if (balA.EndTime >= currentTime) != (balB.EndTime >= currentTime) {
-			return 0
+		aFinalized := balA.EndTime < currentTime || balA.IsDrained
+		bFinalized := balB.EndTime < currentTime || balB.IsDrained
+
+		if aFinalized != bFinalized {
+			if aFinalized {
+				return 1
+			}
+
+			return -1
 		}
 
 		if balA.Token == balB.Token {
@@ -122,6 +134,25 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 
 		return -balA.Amount.Mul(balA.Amount, rateA).Cmp(balB.Amount.Mul(balB.Amount, rateB))
 	})
+
+	db.totalActiveBalances = make(map[[32]byte]*big.Int)
+	for _, agent := range db.sortedAgents.Items() {
+		bal := db.balances[agent]
+		isFinalized := bal.EndTime < currentTime || bal.IsDrained
+
+		// since we know the finalized agents are at the end of the list, we can break early
+		if isFinalized {
+			break
+		}
+
+		tokenAddr := bal.Token.Bytes()
+		totalActiveBalance, ok := db.totalActiveBalances[tokenAddr]
+		if !ok {
+			totalActiveBalance = big.NewInt(0)
+		}
+
+		db.totalActiveBalances[tokenAddr] = totalActiveBalance.Add(totalActiveBalance, bal.Amount)
+	}
 }
 
 // GetLeaderboard returns the leaderboard for the given range.
@@ -162,4 +193,17 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 // GetLeaderboardCount returns the number of agents in the leaderboard.
 func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboardCount() uint64 {
 	return uint64(db.sortedAgents.Len())
+}
+
+// GetTotalAgentBalances returns the total balances of all agents in the database per token.
+func (db *AgentBalanceIndexerDatabaseInMemory) GetTotalAgentBalances() map[[32]byte]*big.Int {
+	db.sortedAgentsMu.RLock()
+	defer db.sortedAgentsMu.RUnlock()
+
+	balances := make(map[[32]byte]*big.Int)
+	for tokenAddr, balance := range db.totalActiveBalances {
+		balances[tokenAddr] = balance
+	}
+
+	return balances
 }

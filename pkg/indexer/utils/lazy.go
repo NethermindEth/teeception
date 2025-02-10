@@ -68,6 +68,16 @@ func (l *LazySortedList[T]) GetRange(start, end int) ([]T, bool) {
 	return l.items[start:end], true
 }
 
+// Items returns the current items in the list
+func (l *LazySortedList[T]) Items() []T {
+	return l.items[:l.len]
+}
+
+// InnerItems returns the current inner items in the list
+func (l *LazySortedList[T]) InnerItems() []T {
+	return l.items
+}
+
 // Len returns the current length of the list
 func (l *LazySortedList[T]) Len() int {
 	return l.len

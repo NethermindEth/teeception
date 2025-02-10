@@ -144,6 +144,7 @@ func (s *UIService) startServer(ctx context.Context) error {
 	router.GET("/agent/:address", s.HandleGetAgent)
 	router.GET("/user/agents", s.HandleGetUserAgents)
 	router.GET("/search", s.HandleSearchAgents)
+	router.GET("/pools", s.HandleGetPools)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
@@ -194,6 +195,15 @@ type AgentPageResponse struct {
 	Page      int          `json:"page"`
 	PageSize  int          `json:"page_size"`
 	LastBlock int          `json:"last_block"`
+}
+
+type GetPoolsResponse struct {
+	Pools []*GetPoolsResponsePoolData `json:"pools"`
+}
+
+type GetPoolsResponsePoolData struct {
+	Token   string `json:"token"`
+	Balance string `json:"balance"`
 }
 
 func (s *UIService) getPageSize(requestedSize int) int {
@@ -376,6 +386,20 @@ func (s *UIService) HandleSearchAgents(c *gin.Context) {
 		PageSize:  pageSize,
 		LastBlock: int(agents.LastBlock),
 	})
+}
+
+func (s *UIService) HandleGetPools(c *gin.Context) {
+	balances := s.agentBalanceIndexer.GetTotalAgentBalances()
+
+	poolDatas := make([]*GetPoolsResponsePoolData, 0, len(balances))
+	for token, balance := range balances {
+		poolDatas = append(poolDatas, &GetPoolsResponsePoolData{
+			Token:   token.String(),
+			Balance: balance.String(),
+		})
+	}
+
+	c.JSON(http.StatusOK, &GetPoolsResponse{Pools: poolDatas})
 }
 
 func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) {

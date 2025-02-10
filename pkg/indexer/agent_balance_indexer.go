@@ -23,6 +23,7 @@ type AgentBalance struct {
 	Amount          *big.Int
 	AmountUpdatedAt uint64
 	EndTime         uint64
+	IsDrained       bool
 }
 
 type AgentBalanceIndexerPriceCache interface {
@@ -78,7 +79,7 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
-	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventTransfer, eventCh)
+	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventTransfer|EventPromptConsumed, eventCh)
 
 	return &AgentBalanceIndexer{
 		client:          config.Client,
@@ -123,6 +124,8 @@ func (i *AgentBalanceIndexer) run(ctx context.Context) error {
 					i.onTransferEvent(ctx, ev)
 				} else if ev.Type == EventAgentRegistered {
 					i.onAgentRegisteredEvent(ctx, ev)
+				} else if ev.Type == EventPromptConsumed {
+					i.onPromptConsumedEvent(ctx, ev)
 				}
 			}
 		case <-ctx.Done():
@@ -162,6 +165,32 @@ func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Ev
 
 	slog.Info("enqueueing balance update for agent registered", "address", agentRegisteredEvent.Agent.String())
 	i.enqueueBalanceUpdate(agentRegisteredEvent.Agent)
+}
+
+func (i *AgentBalanceIndexer) onPromptConsumedEvent(ctx context.Context, ev *Event) {
+	promptConsumedEvent, ok := ev.ToPromptConsumedEvent()
+	if !ok {
+		return
+	}
+
+	// we're only interested in the drains
+	if promptConsumedEvent.DrainedTo.Cmp(ev.Raw.FromAddress) == 0 {
+		return
+	}
+
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	addrBytes := ev.Raw.FromAddress.Bytes()
+
+	agentBalance, ok := i.db.GetAgentBalance(addrBytes)
+	if !ok {
+		slog.Warn("prompt consumed event for non-existent agent", "agent", ev.Raw.FromAddress.String())
+		return
+	}
+
+	agentBalance.IsDrained = true
+	i.db.SetAgentBalance(addrBytes, agentBalance)
 }
 
 func (i *AgentBalanceIndexer) pushAgent(ev *AgentRegisteredEvent) {
@@ -311,6 +340,20 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 	i.mu.Unlock()
 
 	return nil
+}
+
+func (i *AgentBalanceIndexer) GetTotalAgentBalances() map[*felt.Felt]*big.Int {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	balances := i.db.GetTotalAgentBalances()
+	totalBalances := make(map[*felt.Felt]*big.Int)
+	for tokenAddr, balance := range balances {
+		token := new(felt.Felt).SetBytes(tokenAddr[:])
+		totalBalances[token] = balance
+	}
+
+	return totalBalances
 }
 
 // GetBalance returns the last known agent balance if present.
