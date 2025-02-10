@@ -33,9 +33,10 @@ pub trait IAgent<TContractState> {
 
     /// @notice Reclaim tokens for an unprocessed prompt after delay period
     /// @param prompt_id ID of prompt to reclaim
-    /// @dev Can only be called after RECLAIM_DELAY has passed. Example:
+    /// @dev Can only be called after RECLAIM_DELAY has passed or game is
+    /// finalized. Example:
     /// ```
-    /// // After RECLAIM_DELAY has passed
+    /// // After RECLAIM_DELAY has passed or game is finalized
     /// agent.reclaim_prompt(prompt_id);
     /// ```
     fn reclaim_prompt(ref self: TContractState, prompt_id: u64);
@@ -498,7 +499,9 @@ pub mod Agent {
                 );
 
             if let PromptState::Submitted((submitter, timestamp)) = prompt_state {
-                assert(get_block_timestamp() >= timestamp + RECLAIM_DELAY, 'Too early to reclaim');
+                if !self.is_finalized() {
+                    assert(get_block_timestamp() >= timestamp + RECLAIM_DELAY, 'Too early to reclaim');
+                }
 
                 let token = IERC20Dispatcher { contract_address: self.token.read() };
                 token.transfer(submitter, amount);
