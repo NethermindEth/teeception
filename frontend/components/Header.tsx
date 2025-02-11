@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { MenuItems } from './MenuItems'
 import { MenuIcon, Plus } from 'lucide-react'
 import Link from 'next/link'
+import { ConnectButton } from './ConnectButton'
 
 export const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -13,7 +14,7 @@ export const Header = () => {
   return (
     <header
       className={clsx(
-        'fixed left-0 right-0 top-0 backdrop-blur-lg bg-[#12121266] min-h-[76px] z-10 transition-all',
+        'fixed left-0 right-0 top-0 backdrop-blur-lg bg-[#12121266] min-h-[76px] z-10 transition-all w-full',
         {
           'h-[119px]': menuOpen,
           'h-[67px]': !menuOpen,
@@ -27,6 +28,9 @@ export const Header = () => {
           </Link>
           <div className="hidden md:block">
             <MenuItems />
+          </div>
+          <div className="absolute right-6">
+            <ConnectButton showAddress className="" />
           </div>
         </div>
 
