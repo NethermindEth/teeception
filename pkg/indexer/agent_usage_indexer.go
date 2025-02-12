@@ -158,8 +158,9 @@ func (i *AgentUsageIndexer) GetAgentUsage(addr *felt.Felt) (*AgentUsage, bool) {
 }
 
 type AgentUsageIndexerTotalUsage struct {
-	TotalAttempts  uint64
-	TotalSuccesses uint64
+	TotalRegisteredAgents uint64
+	TotalAttempts         uint64
+	TotalSuccesses        uint64
 }
 
 func (i *AgentUsageIndexer) GetTotalUsage() *AgentUsageIndexerTotalUsage {

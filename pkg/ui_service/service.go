@@ -381,8 +381,9 @@ func (s *UIService) HandleSearchAgents(c *gin.Context) {
 }
 
 type GetUsageResponse struct {
-	Attempts   *GetUsageResponseAttempts  `json:"attempts"`
-	PrizePools GetUsageResponsePrizePools `json:"prize_pools"`
+	RegisteredAgents uint64                     `json:"registered_agents"`
+	Attempts         *GetUsageResponseAttempts  `json:"attempts"`
+	PrizePools       GetUsageResponsePrizePools `json:"prize_pools"`
 }
 
 type GetUsageResponseAttempts struct {
@@ -402,6 +403,7 @@ func (s *UIService) HandleGetUsage(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &GetUsageResponse{
+		RegisteredAgents: usage.TotalRegisteredAgents,
 		Attempts: &GetUsageResponseAttempts{
 			Total:     usage.TotalAttempts,
 			Successes: usage.TotalSuccesses,

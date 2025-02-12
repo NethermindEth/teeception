@@ -93,6 +93,8 @@ func (db *AgentUsageIndexerDatabaseInMemory) StoreAgent(addr [32]byte) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	db.totalUsage.TotalRegisteredAgents++
+
 	usage := db.getOrCreateAgentUsage(addr)
 	db.usages[addr] = usage
 }
