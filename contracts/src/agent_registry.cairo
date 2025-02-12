@@ -104,6 +104,10 @@ pub trait IAgentRegistry<TContractState> {
         ref self: TContractState, agent: ContractAddress, prompt_id: u64, drain_to: ContractAddress,
     );
 
+    /// @notice Withdraws funds from the contract. Used to collect protocol fees
+    /// @dev Only callable by owner
+    fn withdraw(ref self: TContractState, to: ContractAddress, token: ContractAddress, amount: u256);
+
     /// @notice Adds support for a new token with minimum requirements
     /// @param token The token contract address
     /// @param min_prompt_price Minimum allowed price per prompt
@@ -369,6 +373,14 @@ pub mod AgentRegistry {
         fn unencumber(ref self: ContractState) {
             self._assert_caller_is_owner();
             self.emit(Event::TeeUnencumbered(TeeUnencumbered { tee: self.tee.read() }));
+        }
+
+        /// @inheritdoc IAgentRegistry
+        fn withdraw(ref self: ContractState, to: ContractAddress, token: ContractAddress, amount: u256) {
+            self._assert_caller_is_owner();
+
+            let token_dispatcher = IERC20Dispatcher { contract_address: token };
+            token_dispatcher.transfer(to, amount);
         }
 
         /// @inheritdoc IAgentRegistry
