@@ -15,6 +15,6 @@ cairo_test = "2.9.1"
 
 [[target.starknet-contract]]
 build-external-contracts = [
-    "teeception::Agent",
-    "teeception::AgentRegistry"
+    "teeception::agent::Agent",
+    "teeception::agent_registry::AgentRegistry"
 ]
