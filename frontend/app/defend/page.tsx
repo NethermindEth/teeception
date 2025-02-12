@@ -5,6 +5,7 @@ import { useAccount } from '@starknet-react/core'
 import { Loader2 } from 'lucide-react'
 import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
+import { useTokenBalance } from '@/hooks/useTokenBalance'
 
 export default function DefendPage() {
   const { address } = useAccount()
@@ -16,6 +17,7 @@ export default function DefendPage() {
     initialBalance: '',
     duration: '30', // 30 days default
   })
+  const { balance: tokenBalance } = useTokenBalance('STRK')
 
   if (!address) {
     return (
@@ -98,7 +100,14 @@ export default function DefendPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Initial Balance (STRK)</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium">Initial Balance (STRK)</label>
+              {tokenBalance && (
+                <span className="block text-sm text-white/40">
+                  (Available Balance: {Number(tokenBalance?.formatted || 0).toFixed(2)} STRK)
+                </span>
+              )}
+            </div>
             <input
               type="number"
               name="initialBalance"

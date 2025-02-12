@@ -71,3 +71,5 @@ export const STARKNET_CONFIG = {
 
 export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia
 export const DEFAULT_TOKEN_DECIMALS = 18
+export const STARKGATE_FAUCET_URL = 'https://starkgate.starknet.io/bridge/deposit'
+export const SEPOLIA_FAUCET_URL = 'https://blastapi.io/faucets/starknet-sepolia-eth'

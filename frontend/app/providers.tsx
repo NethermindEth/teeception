@@ -4,6 +4,7 @@ import { StarknetConfig, publicProvider } from '@starknet-react/core'
 import { ControllerConnector } from '@cartridge/connector'
 import { sepolia } from '@starknet-react/chains'
 import { ACTIVE_NETWORK, STARKNET_CONFIG } from '@/constants'
+import { AddFundsProvider } from '@/contexts/AddFundsContext'
 
 const policies = {
   contracts: {
@@ -39,7 +40,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       provider={publicProvider()}
       connectors={[cartridgeConnector]}
     >
-      {children}
+      <AddFundsProvider>{children}</AddFundsProvider>
     </StarknetConfig>
   )
 }
