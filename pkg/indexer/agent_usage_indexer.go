@@ -146,6 +146,11 @@ func (i *AgentUsageIndexer) onPromptPaidEvent(ev *Event) {
 		return
 	}
 
+	if !i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
+		slog.Debug("ignoring prompt paid event for unregistered agent", "agent", ev.Raw.FromAddress)
+		return
+	}
+
 	i.db.StorePromptPaidData(ev.Raw.FromAddress.Bytes(), promptPaidEvent)
 }
 
