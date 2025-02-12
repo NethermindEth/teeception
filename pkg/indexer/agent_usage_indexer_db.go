@@ -103,6 +103,10 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptPaidData(addr [32]byte, 
 
 	db.totalUsage.TotalAttempts++
 
+	usage := db.getOrCreateAgentUsage(addr)
+	usage.BreakAttempts++
+	db.usages[addr] = usage
+
 	db.promptCache.Add(
 		db.promptCacheKey(addr, promptPaidEvent.PromptID),
 		AgentUsageIndexerDatabaseInMemoryPromptCacheData{
@@ -117,8 +121,6 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptConsumedData(addr [32]by
 	defer db.mu.Unlock()
 
 	usage := db.getOrCreateAgentUsage(addr)
-
-	usage.BreakAttempts++
 
 	var succeeded bool
 	var drainAddress *felt.Felt
