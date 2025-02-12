@@ -6,14 +6,15 @@ import Link from 'next/link'
 
 export const Footer = () => {
   return (
-    <div className="fixed bottom-0 left-0 right-0">
-      <div className="flex items-center flex-wrap gap-3 justify-between max-w-[1560px] mx-auto px-4">
-        <ul className="text-[#B8B8B8] flex flex-col gap-1">
+    <div className="fixed bottom-0 left-0 right-0 w-full backdrop-blur-md">
+      <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 justify-between max-w-[1560px] mx-auto px-4 py-2">
+        {/* Powered by section */}
+        <ul className="text-[#B8B8B8] flex flex-col gap-0 w-full md:w-auto">
           <li>
-            <p className="text-[10.42px]">powered by</p>
+            <p className="text-[10.42px] text-center md:text-left">powered by</p>
           </li>
 
-          <li className="flex items-center gap-3">
+          <li className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
             <Link
               href="https://nethermind.io"
               target="_blank"
@@ -25,7 +26,7 @@ export const Footer = () => {
                 className="h-[17px] w-auto"
               />
             </Link>
-            <span className="text-[#B8B8B8] text-lg">×</span>
+            <span className="text-[#B8B8B8] text-lg hidden md:inline">×</span>
             <Link
               href="https://starknet.io"
               target="_blank"
@@ -33,7 +34,7 @@ export const Footer = () => {
             >
               <Image src="/icons/starknet.svg" width={76} height={17} alt="starknet" />
             </Link>
-            <span className="text-[#B8B8B8] text-lg">×</span>
+            <span className="text-[#B8B8B8] text-lg hidden md:inline">×</span>
             <Link
               href="https://phala.network"
               target="_blank"
@@ -47,7 +48,7 @@ export const Footer = () => {
                 className="bg-black rounded-sm"
               />
             </Link>
-            <span className="text-[#B8B8B8] text-lg">×</span>
+            <span className="text-[#B8B8B8] text-lg hidden md:inline">×</span>
             <Link
               href="https://cartridge.gg"
               target="_blank"
@@ -64,8 +65,9 @@ export const Footer = () => {
           </li>
         </ul>
 
-        <div className="flex flex-row gap-20">
-          <p className="text-sm">©2025 Nethermind. All Rights Reserved</p>
+        {/* Copyright and contracts section */}
+        <div className="flex flex-col md:flex-row gap-2 md:gap-20 items-center">
+          <p className="text-sm text-center">©2025 Nethermind. All Rights Reserved</p>
           <Link
             href="https://github.com/NethermindEth/teeception/tree/main/contracts"
             className="underline hover:no-underline text-sm"
@@ -75,7 +77,8 @@ export const Footer = () => {
           </Link>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Social links section */}
+        <div className="flex items-center gap-4 mt-2 md:mt-0">
           <Link
             href="https://x.com/nethermindeth"
             target="_blank"

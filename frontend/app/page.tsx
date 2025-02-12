@@ -105,7 +105,10 @@ export default function Home() {
       <Leaderboard />
 
       <div className="md:py-20">
-        <div className="px-4 md:px-8 py-8 md:py-20 max-w-[1560px] mx-auto" id="how_it_works">
+        <div
+          className="px-4 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto mb-20 md:mb-0"
+          id="how_it_works"
+        >
           <p className="text-5xl font-bold text-center uppercase mb-3 leading-none">
             Joining the arena
           </p>
