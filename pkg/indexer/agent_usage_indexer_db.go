@@ -66,6 +66,7 @@ func NewAgentUsageIndexerDatabaseInMemory(initialBlock, maxPrompts uint64) *Agen
 			nil,
 			agentUsageIndexerPromptCacheTTL,
 		),
+		totalUsage:       &AgentUsageIndexerTotalUsage{},
 		lastIndexedBlock: initialBlock,
 	}
 }
