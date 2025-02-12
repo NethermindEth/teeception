@@ -144,7 +144,7 @@ func (s *UIService) startServer(ctx context.Context) error {
 	router.GET("/agent/:address", s.HandleGetAgent)
 	router.GET("/user/agents", s.HandleGetUserAgents)
 	router.GET("/search", s.HandleSearchAgents)
-	router.GET("/pools", s.HandleGetPools)
+	router.GET("/usage", s.HandleGetUsage)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
@@ -196,15 +196,6 @@ type AgentPageResponse struct {
 	Page      int          `json:"page"`
 	PageSize  int          `json:"page_size"`
 	LastBlock int          `json:"last_block"`
-}
-
-type GetPoolsResponse struct {
-	Pools []*GetPoolsResponsePoolData `json:"pools"`
-}
-
-type GetPoolsResponsePoolData struct {
-	Token   string `json:"token"`
-	Balance string `json:"balance"`
 }
 
 func (s *UIService) getPageSize(requestedSize int) int {
@@ -389,18 +380,34 @@ func (s *UIService) HandleSearchAgents(c *gin.Context) {
 	})
 }
 
-func (s *UIService) HandleGetPools(c *gin.Context) {
+type GetUsageResponse struct {
+	Attempts   *GetUsageResponseAttempts  `json:"attempts"`
+	PrizePools GetUsageResponsePrizePools `json:"prize_pools"`
+}
+
+type GetUsageResponseAttempts struct {
+	Total     uint64 `json:"total"`
+	Successes uint64 `json:"successes"`
+}
+
+type GetUsageResponsePrizePools = map[string]string
+
+func (s *UIService) HandleGetUsage(c *gin.Context) {
+	usage := s.agentUsageIndexer.GetTotalUsage()
 	balances := s.agentBalanceIndexer.GetTotalAgentBalances()
 
-	poolDatas := make([]*GetPoolsResponsePoolData, 0, len(balances))
+	prizePools := make(GetUsageResponsePrizePools)
 	for token, balance := range balances {
-		poolDatas = append(poolDatas, &GetPoolsResponsePoolData{
-			Token:   token.String(),
-			Balance: balance.String(),
-		})
+		prizePools[token.String()] = balance.String()
 	}
 
-	c.JSON(http.StatusOK, &GetPoolsResponse{Pools: poolDatas})
+	c.JSON(http.StatusOK, &GetUsageResponse{
+		Attempts: &GetUsageResponseAttempts{
+			Total:     usage.TotalAttempts,
+			Successes: usage.TotalSuccesses,
+		},
+		PrizePools: prizePools,
+	})
 }
 
 func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) {

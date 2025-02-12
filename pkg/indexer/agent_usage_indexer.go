@@ -157,6 +157,18 @@ func (i *AgentUsageIndexer) GetAgentUsage(addr *felt.Felt) (*AgentUsage, bool) {
 	return usage, ok
 }
 
+type AgentUsageIndexerTotalUsage struct {
+	TotalAttempts  uint64
+	TotalSuccesses uint64
+}
+
+func (i *AgentUsageIndexer) GetTotalUsage() *AgentUsageIndexerTotalUsage {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	return i.db.GetTotalUsage()
+}
+
 func (i *AgentUsageIndexer) GetLastIndexedBlock() uint64 {
 	return i.db.GetLastIndexedBlock()
 }

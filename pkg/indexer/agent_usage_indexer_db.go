@@ -15,6 +15,7 @@ type AgentUsageIndexerDatabaseReader interface {
 	GetAgentUsage(addr [32]byte) (*AgentUsage, bool)
 	GetAgentExists(addr [32]byte) bool
 	GetLastIndexedBlock() uint64
+	GetTotalUsage() *AgentUsageIndexerTotalUsage
 }
 
 type AgentUsageIndexerDatabaseWriter interface {
@@ -37,6 +38,7 @@ type AgentUsageIndexerDatabaseInMemory struct {
 		AgentUsageIndexerDatabaseInMemoryPromptCacheKey,
 		AgentUsageIndexerDatabaseInMemoryPromptCacheData,
 	]
+	totalUsage       *AgentUsageIndexerTotalUsage
 	lastIndexedBlock uint64
 }
 
@@ -99,6 +101,8 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptPaidData(addr [32]byte, 
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
+	db.totalUsage.TotalAttempts++
+
 	db.promptCache.Add(
 		db.promptCacheKey(addr, promptPaidEvent.PromptID),
 		AgentUsageIndexerDatabaseInMemoryPromptCacheData{
@@ -138,6 +142,7 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptConsumedData(addr [32]by
 
 	if succeeded {
 		usage.IsDrained = true
+		db.totalUsage.TotalSuccesses++
 	}
 
 	usage.LatestPrompts = append(usage.LatestPrompts, &AgentUsageLatestPrompt{
@@ -152,6 +157,13 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptConsumedData(addr [32]by
 	}
 
 	db.usages[addr] = usage
+}
+
+func (db *AgentUsageIndexerDatabaseInMemory) GetTotalUsage() *AgentUsageIndexerTotalUsage {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return db.totalUsage
 }
 
 func (db *AgentUsageIndexerDatabaseInMemory) GetLastIndexedBlock() uint64 {
