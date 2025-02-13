@@ -49,6 +49,109 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.white-gradient-border-vertical-top {
+  background: rgb(255, 255, 255, 0.5);
+  background: linear-gradient(
+    85deg,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background: -moz-linear-gradient(
+    85deg,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background: -webkit-linear-gradient(
+    85deg,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.white-gradient-border-vertical-bottom {
+  background: rgb(255, 255, 255, 0.5);
+  background: linear-gradient(
+    240deg,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background: -moz-linear-gradient(
+    240deg,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background: -webkit-linear-gradient(
+    240deg,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgb(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.robo-card {
+  animation: 8s rotate linear infinite;
+  background-color: black;
+  animation-timing-function: ease-out;
+  animation-duration: 1.5s;
+}
+
+.robo-img-defender {
+  background: linear-gradient(
+    to right,
+    rgba(19, 136, 213, 0.2),
+    rgba(19, 136, 213, 0.196),
+    transparent
+  );
+}
+
+.robo-card:hover .robo-img-defender {
+  background: linear-gradient(
+    to right,
+    rgba(19, 136, 213, 0.27),
+    rgba(19, 136, 213, 0.3),
+    transparent
+  );
+}
+
+.robo-img-attacker {
+  background: linear-gradient(
+    to left,
+    rgba(229, 57, 34, 0.2),
+    rgba(229, 57, 34, 0.196),
+    transparent
+  );
+}
+
+.robo-card:hover .robo-img-attacker {
+  background: linear-gradient(
+    to left,
+    rgba(229, 57, 34, 0.27),
+    rgba(229, 57, 34, 0.3),
+    transparent
+  );
+}
+
+.robo-card.defender:hover {
+  border: 1px solid #00000000;
+  background: linear-gradient(#000000, #000000) padding-box,
+    linear-gradient(var(--angle), #1388d500, #e53922) border-box;
+}
+
+.robo-card.attacker:hover {
+  border: 1px solid #00000000;
+  background: linear-gradient(#000000, #000000) padding-box,
+    linear-gradient(var(--angle), #1388d500, #1388d5) border-box;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
 .white-gradient-border {
   border-image: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.9) 100%)
     1;
@@ -57,7 +160,27 @@ body {
   padding: 0px;
   width: 50%;
 }
+.gradient-border {
+  border-width: 1px;
+  border-style: solid;
+  padding: 0px;
+  width: 50%;
+  border-bottom: none;
+}
+.gradient-border.red {
+  border-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 0%, rgba(229, 57, 34, 0.9) 100%)
+    1;
+}
+.gradient-border.blue {
+  border-image: linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.05) 0%,
+      rgba(85, 142, 180, 0.9) 100%
+    )
+    1;
+}
 
+red-gradient-border
 /* Twitter Embed Dark Mode */
 .tweet-embed {
   --tweet-container-margin: 0;
@@ -70,7 +193,7 @@ body {
   --tweet-border-hover: none;
   --tweet-font: inherit;
   --tweet-font-color: #fff;
-  --tweet-font-color-secondary: #6F6F6F;
+  --tweet-font-color-secondary: #6f6f6f;
   --tweet-link-color: #1d9bf0;
   --tweet-link-color-hover: #1a8cd8;
   --tweet-color-blue-primary: #1d9bf0;
@@ -146,4 +269,16 @@ body {
   100% {
     transform: translateX(-200%);
   }
+}
+
+@keyframes rotate {
+  to {
+    --angle: 360deg;
+  }
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }

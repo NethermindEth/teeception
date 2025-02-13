@@ -3,112 +3,23 @@
 import Image from 'next/image'
 import { Footer } from '@/components/Footer'
 import { Leaderboard } from '@/components/Leaderboard'
-import Link from 'next/link'
+// import Link from 'next/link'
 import { Header } from '@/components/Header'
+import { LandingPage } from '@/components/LandingPage'
 
 export default function Home() {
   return (
     <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <div className="min-h-screen flex flex-col justify-center">
         <Header />
-        <div className="max-w-[1560px] mx-auto p-3">
-          <h1 className="text-[2rem] md:text-[42px] font-medium text-center mb-0">#TEECEPTION</h1>
-          <div className="flex items-stretch gap-4 w-full justify-center hidden md:flex">
-            {/* Defenders section */}
-            <Link href="/defend" className="flex-1 group">
-              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-mediumal font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)] shadow-glow">
-                DEFENDER
-              </h2>
-              <div className="flex justify-end gap-4">
-                <div className="flex flex-col gap-4 text-right group-hover:text-[#1388D5] transition-colors duration-300 whitespace-nowrap">
-                  <p className="text-lg">Create unbreakable prompts</p>
-                  <p className="text-lg">Earn fees for every attempt</p>
-                  <p className="text-lg">Survive to the end</p>
-                  <p className="text-lg">Build your reputation</p>
-                </div>
-                <div className="w-1 bg-[#1388D5] shadow-[0_0_8px_#1388D5] shadow-glow rounded-md group-hover:shadow-[0_0_16px_#1388D5] transition-shadow duration-300" />
-              </div>
-            </Link>
-
-            {/* Center image */}
-            <div className="relative flex items-center">
-              <Image
-                src="/img/twoRobots.png"
-                width="624"
-                height="257"
-                alt="two robots"
-                className="object-contain"
-              />
-            </div>
-
-            {/* Attackers section */}
-            <Link href="/attack" className="flex-1 group">
-              <h2 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-mediumal font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)] shadow-glow">
-                ATTACKER
-              </h2>
-              <div className="flex gap-4">
-                <div className="w-1 bg-[#FF3F26] shadow-[0_0_8px_#FF3F26] shadow-glow rounded-md group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300" />
-                <div className="flex flex-col gap-4 group-hover:text-[#FF3F26] transition-colors duration-300 whitespace-nowrap">
-                  <p className="text-lg">Jailbreak the unbreakable</p>
-                  <p className="text-lg">Trick the agents</p>
-                  <p className="text-lg">Win the pot</p>
-                  <p className="text-lg">Build your reputation</p>
-                </div>
-              </div>
-            </Link>
-          </div>
-
-          {/* Mobile version */}
-          <div className="md:hidden space-y-12">
-            {/* Mobile image */}
-            <div className="flex justify-center">
-              <Image
-                src="/img/twoRobots.png"
-                width="624"
-                height="257"
-                alt="two robots"
-                className="object-contain w-full max-w-[624px]"
-              />
-            </div>
-
-            <Link href="/attack" className="block group">
-              <h3 className="text-3xl mb-8 text-[#FF3F26] group-hover:scale-105 transition-transform duration-300 font-medium font-bold tracking-wider drop-shadow-[0_0_8px_rgba(255,63,38,0.5)]">
-                ATTACKER
-              </h3>
-              <div className="flex gap-4">
-                <div className="w-1 bg-[#FF3F26] shadow-[0_0_8px_#FF3F26] rounded-md group-hover:shadow-[0_0_16px_#FF3F26] transition-shadow duration-300" />
-                <div className="flex flex-col gap-4 group-hover:text-[#FF3F26] transition-colors duration-300 whitespace-nowrap">
-                  <p className="text-lg">Jailbreak the unbreakable</p>
-                  <p className="text-lg">Trick the agents</p>
-                  <p className="text-lg">Win the pot</p>
-                  <p className="text-lg">Build your reputation</p>
-                </div>
-              </div>
-            </Link>
-
-            <Link href="/defend" className="block group">
-              <h2 className="text-3xl mb-8 text-[#1388D5] group-hover:scale-105 transition-transform duration-300 text-right font-mediumal font-bold tracking-wider drop-shadow-[0_0_8px_rgba(19,136,213,0.5)]">
-                DEFENDER
-              </h2>
-              <div className="flex justify-end gap-4">
-                <div className="flex flex-col gap-4 text-right group-hover:text-[#1388D5] transition-colors duration-300 whitespace-nowrap">
-                  <p className="text-lg">Create unbreakable prompts</p>
-                  <p className="text-lg">Earn fees for every attempt</p>
-                  <p className="text-lg">Survive to the end</p>
-                  <p className="text-lg">Build your reputation</p>
-                </div>
-                <div className="w-1 bg-[#1388D5] shadow-[0_0_8px_#1388D5] rounded-md group-hover:shadow-[0_0_16px_#1388D5] transition-shadow duration-300" />
-              </div>
-            </Link>
-          </div>
-        </div>
+        <LandingPage />
       </div>
 
       <Leaderboard />
 
       <div className="md:py-20">
         <div
-          className="px-4 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto mb-20 md:mb-0"
+          className="px-4 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto mb-20 md:mb-0 hidden"
           id="how_it_works"
         >
           <p className="text-5xl font-bold text-center uppercase mb-3 leading-none">
@@ -197,7 +108,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="px-8 md:py-20 max-w-[1560px] mx-auto hidden md:block">
+        <div className="px-8 md:py-20 max-w-[1560px] mx-auto hidden">
           <p className="text-4xl md:text-[48px] font-bold text-center uppercase mb-1">
             TEE TRUSTED EXECUTION ENVIROMENT
           </p>
