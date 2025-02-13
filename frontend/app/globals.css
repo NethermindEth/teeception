@@ -5,6 +5,8 @@
 :root {
   --background: #000000;
   --foreground: #ffffff;
+  --font-dm-sans: 'DM Sans', sans-serif;
+  --font-ibm-plex-mono: 'IBM Plex Mono', monospace;
 }
 
 @media (prefers-color-scheme: dark) {
