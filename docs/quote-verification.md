@@ -1,7 +1,6 @@
 # Quote Verification Guide
 
-This guide outlines the process for verifying a TDX quote from TEEception
-based on the DStack platform.
+This guide explains how to verify TDX quotes from TEEception agents running on the DStack platform. Quote verification ensures the authenticity and integrity of TEE-based operations.
 
 ## Prerequisites
 
@@ -9,30 +8,39 @@ based on the DStack platform.
 
 ## Steps
 
-1. **Fetch the quote from the agent**
+1. **Obtain the Quote**
 
-Get the agent's address and port (default is :8080), then make a GET request to /quote endpoint:
+   Request a quote from your TEEception agent:
 
-```
-curl http://<agent-address>:<agent-port>/quote -o quote.json
-```
+   ```bash
+   curl http://<agent-address>:<agent-port>/quote -o quote.json
+   ```
 
-2. **Get the App ID from Dstack**
+   The default port is 8080 if not specified otherwise.
 
-This will be made available publicly in the DStack dashboard, and also by
-the deployers.
+2. **Retrieve the App ID**
 
-3. **Verify the quote**
+   Get the App ID from either:
+   - The public DStack dashboard
+   - The TEEception deployment team
 
-```
-go run test/quote/verify/main.go -quote quote.json -app-id <app-id> --submit
-```
+3. **Verify and Submit**
 
-This will fetch the TCB info from the DStack app, double-checking all relevant
-metadata to make sure the program being executed is indeed the expected and the
-TEE quote fields are valid. The quote will then be submitted to
-[TEE Attestation Explorer](https://proof.t16z.com).
+   Run the verification tool:
 
-You'll also be able to see, from the quote, what is the TEE address on
-Starknet, the configured contract address and the Twitter username. With that,
-you can be sure that the agent actions are to be trusted!
+   ```bash
+   go run cmd/verify/main.go -quote quote.json -app-id <app-id> --submit
+   ```
+
+   The tool performs several important checks:
+   - Fetches and validates TCB (Trusted Computing Base) information from DStack
+   - Verifies program integrity and execution environment
+   - Validates all TEE quote fields
+   - Submits the verified quote to the [TEE Attestation Explorer](https://proof.t16z.com)
+
+   Upon successful verification, you can view critical information from the quote:
+   - The TEE's Starknet address
+   - The configured contract address
+   - The associated Twitter username
+
+   These details provide cryptographic proof that the agent's actions are authentic and trustworthy.
