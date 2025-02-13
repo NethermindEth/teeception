@@ -1,12 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useAccount, useConnect, useDisconnect, useNetwork } from '@starknet-react/core'
-import { Copy, Loader2 } from 'lucide-react'
+import { useAccount, useNetwork } from '@starknet-react/core'
+import { Copy } from 'lucide-react'
 import clsx from 'clsx'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './Tooltip'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { useAddFunds } from '@/hooks/useAddFunds'
+import { useConnectWallet } from '@/hooks/useConnetWallet'
 
 interface ConnectButtonProps {
   className?: string
@@ -15,26 +16,25 @@ interface ConnectButtonProps {
 
 export const ConnectButton = ({ className = '', showAddress = true }: ConnectButtonProps) => {
   const { address } = useAccount()
-  const { connect, connectors } = useConnect()
-  const { disconnect } = useDisconnect()
-  const [isConnecting, setIsConnecting] = useState(false)
   const [copied, setCopied] = useState(false)
   const { balance: tokenBalance, isLoading: loading } = useTokenBalance('STRK')
   const { chain } = useNetwork()
   const addFunds = useAddFunds()
+  const connectWallet = useConnectWallet()
 
   const handleConnect = async () => {
-    const connector = connectors[0]
-    if (!connector) return
+    // const connector = connectors[0]
+    // if (!connector) return
 
-    try {
-      setIsConnecting(true)
-      await connect({ connector })
-    } catch (error) {
-      console.error('Failed to connect:', error)
-    } finally {
-      setIsConnecting(false)
-    }
+    // try {
+    //   setIsConnecting(true)
+    //   await connect({ connector })
+    // } catch (error) {
+    //   console.error('Failed to connect:', error)
+    // } finally {
+    //   setIsConnecting(false)
+    // }
+    connectWallet.showWalletModal()
   }
 
   const formatAddress = (addr: string) => {
@@ -106,15 +106,10 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
   }
 
   return (
-    <button onClick={handleConnect} disabled={isConnecting} className={className}>
-      {isConnecting ? (
-        <>
-          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-          Connecting...
-        </>
-      ) : (
-        'Connect Wallet'
-      )}
-    </button>
+    <div>
+      <button onClick={handleConnect} className={className}>
+        Connect Wallet
+      </button>
+    </div>
   )
 }

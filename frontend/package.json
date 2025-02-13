@@ -13,8 +13,8 @@
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.6",
-    "@starknet-react/core": "^3.7.2",
     "@starknet-react/chains": "latest",
+    "@starknet-react/core": "^3.7.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "embla-carousel-autoplay": "^8.5.2",
@@ -25,6 +25,7 @@
     "react-dom": "18.2.0",
     "react-tweet": "^3.2.1",
     "starknet": "^6.11.0",
+    "starknetkit": "^2.6.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7"
   },
