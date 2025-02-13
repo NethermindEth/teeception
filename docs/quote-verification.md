@@ -34,8 +34,8 @@ This guide explains how to verify TDX quotes from TEEception agents running on t
 
    The tool performs several important checks:
    - Fetches and validates TCB (Trusted Computing Base) information from DStack
-   - Verifies program integrity and execution environment
-   - Validates all TEE quote fields
+   - Verifies program integrity and execution environment based on the TCB and
+   the TEE quote
    - Submits the verified quote to the [TEE Attestation Explorer](https://proof.t16z.com)
 
    Upon successful verification, you can view critical information from the quote:
