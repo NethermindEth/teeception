@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import Image from 'next/image'
 
 export const LandingPage = () => {
@@ -82,9 +83,12 @@ export const LandingPage = () => {
           </div>
 
           <div>
-            <button className="border border-[#558EB4] rounded-[8px] w-full min-h-11 p-2 transition-all text-[#558EB4] group-hover:bg-[#1388D5] group-hover:text-black group-hover:border-[#1388D5]">
+            <Link
+              href="/defend"
+              className="block border border-[#558EB4] rounded-[8px] w-full min-h-11 p-2 transition-all text-[#558EB4] group-hover:bg-[#1388D5] group-hover:text-black group-hover:border-[#1388D5]"
+            >
               Launch an agent
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -121,9 +125,12 @@ export const LandingPage = () => {
           </div>
 
           <div>
-            <button className="border border-[#8F564E] rounded-[8px] w-full min-h-11 p-2 transition-all text-[#8F564E] group-hover:bg-[#E53922] group-hover:text-black group-hover:border-[#E53922]">
-              Launch an agent
-            </button>
+            <Link
+              href="/attack"
+              className="block border border-[#8F564E] rounded-[8px] w-full min-h-11 p-2 transition-all text-[#8F564E] group-hover:bg-[#E53922] group-hover:text-black group-hover:border-[#E53922]"
+            >
+              Challenge an agent
+            </Link>
           </div>
         </div>
       </div>
