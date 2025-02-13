@@ -36,3 +36,6 @@ out
 
 # Node.js
 node_modules
+
+# Folder for testing and playing around
+playground/
