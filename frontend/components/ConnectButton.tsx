@@ -51,7 +51,7 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
 
   if (address) {
     return showAddress ? (
-      <div className={clsx(className, 'flex items-center gap-3')}>
+      <div className={clsx('flex items-center gap-3')}>
         {/* {strkBalance < 0.01 && <button>Add funds</button>} */}
         {
           <button className="text-xs underline" onClick={addFunds.showAddFundsModal}>
@@ -66,6 +66,16 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
         )}
 
         <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <p className="text-[#A4A4A4] text-xs">
+                {loading ? '...' : `${strkBalance.toFixed(2)} STRK`}
+              </p>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Your balance</p>
+            </TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <button onClick={() => disconnect()} className={className}>
@@ -88,18 +98,6 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
             </TooltipTrigger>
             <TooltipContent>
               <p>Click to copy address</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="text-[#A4A4A4] text-xs">
-                {loading ? '...' : `${strkBalance.toFixed(2)} STRK`}
-              </p>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Your balance</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

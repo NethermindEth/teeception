@@ -1,4 +1,5 @@
 import { constants } from 'starknet'
+import { mainnet, sepolia } from '@starknet-react/chains'
 export const DEFAULT_RPC_URL = 'https://api.cartridge.gg/x/starknet/sepolia'
 export const RPC_NODE_URL = process.env.NEXT_PUBLIC_RPC_NODE_URL || DEFAULT_RPC_URL
 export const AGENT_REGISTRY_ADDRESS =
@@ -18,7 +19,7 @@ interface Token {
 
 export const STARKNET_CONFIG = {
   sepolia: {
-    chain: 'sepolia',
+    chain: sepolia,
     chainId: constants.StarknetChainId.SN_SEPOLIA,
     name: 'Sepolia',
     explorer: 'https://sepolia.voyager.online',
@@ -43,7 +44,7 @@ export const STARKNET_CONFIG = {
     ] as Token[],
   },
   mainnet: {
-    chain: 'mainnet',
+    chain: mainnet,
     chainId: constants.StarknetChainId.SN_MAIN,
     name: 'Mainnet',
     explorer: 'https://voyager.online',

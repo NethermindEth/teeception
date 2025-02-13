@@ -30,7 +30,10 @@ export const Header = () => {
             <MenuItems />
           </div>
           <div className="absolute right-6">
-            <ConnectButton showAddress className="" />
+            <ConnectButton
+              showAddress
+              className="bg-white text-black px-6 py-2 rounded-full hover:bg-white/90"
+            />
           </div>
         </div>
 
