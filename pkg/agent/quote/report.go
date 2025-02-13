@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"golang.org/x/crypto/sha3"
 )
 
 // ReportData is the data that is sent to the Quoter to get a quote.
@@ -43,4 +44,20 @@ func (r *ReportData) MarshalBinary() ([]byte, error) {
 	}
 
 	return writer.Bytes(), nil
+}
+
+func (r *ReportData) ToTappdQuoteField(tag string) ([64]byte, error) {
+	reportDataBytes, err := r.MarshalBinary()
+	if err != nil {
+		return [64]byte{}, fmt.Errorf("failed to marshal report data: %w", err)
+	}
+
+	var keccakHash [64]byte
+	keccak := sha3.NewLegacyKeccak256()
+	keccak.Write([]byte(tag))
+	keccak.Write([]byte(":"))
+	keccak.Write(reportDataBytes)
+	copy(keccakHash[:], keccak.Sum(nil))
+
+	return keccakHash, nil
 }
