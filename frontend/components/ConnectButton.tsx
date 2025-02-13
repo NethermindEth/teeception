@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { useAccount, useNetwork } from '@starknet-react/core'
+import { useAccount, useDisconnect, useNetwork } from '@starknet-react/core'
 import { Copy } from 'lucide-react'
 import clsx from 'clsx'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './Tooltip'
@@ -21,19 +21,9 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
   const { chain } = useNetwork()
   const addFunds = useAddFunds()
   const connectWallet = useConnectWallet()
+  const { disconnect } = useDisconnect()
 
   const handleConnect = async () => {
-    // const connector = connectors[0]
-    // if (!connector) return
-
-    // try {
-    //   setIsConnecting(true)
-    //   await connect({ connector })
-    // } catch (error) {
-    //   console.error('Failed to connect:', error)
-    // } finally {
-    //   setIsConnecting(false)
-    // }
     connectWallet.showWalletModal()
   }
 

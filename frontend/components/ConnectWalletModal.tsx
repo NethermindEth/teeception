@@ -1,13 +1,38 @@
+import { useConnectWallet } from '@/hooks/useConnetWallet'
 import { Dialog } from './Dialog'
-import { useConnect } from '@starknet-react/core'
+import { Connector, useConnect } from '@starknet-react/core'
 
 interface ConnectWalletModal {
   open: boolean
   onCancel: () => void
 }
 
+export const getConnectorName = (connectorId: string) => {
+  const connectorIdLCase = connectorId.toLowerCase()
+  switch (connectorIdLCase) {
+    case 'controller':
+      return 'Cartridge Controller'
+    case 'argentwebwallet':
+      return 'Argent Web Wallet'
+    default:
+      return connectorId
+  }
+}
+
 export const ConnectWalletModal = ({ open, onCancel }: ConnectWalletModal) => {
-  const { connect, connectors } = useConnect()
+  const { connect, connectors, isSuccess } = useConnect()
+  const connectWallet = useConnectWallet()
+
+  const handleConnect = async (connector: Connector) => {
+    try {
+      await connect({ connector })
+      if (isSuccess) {
+        connectWallet.hideWalletModal()
+      }
+    } catch (error: unknown) {
+      console.error('error', error)
+    }
+  }
 
   return (
     <Dialog open={open} onClose={onCancel}>
@@ -18,15 +43,19 @@ export const ConnectWalletModal = ({ open, onCancel }: ConnectWalletModal) => {
         </div>
 
         <div className="space-y-3">
-          {connectors.map((connector) => (
-            <button
-              key={connector.id}
-              onClick={() => connect({ connector })}
-              className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              Connect {connector.id}
-            </button>
-          ))}
+          {connectors
+            .filter((connector) => connector.available())
+            .map((connector) => (
+              <button
+                key={connector.id}
+                onClick={() => {
+                  handleConnect(connector)
+                }}
+                className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {getConnectorName(connector.id)}
+              </button>
+            ))}
         </div>
 
         <div className="flex justify-end gap-3">
