@@ -41,15 +41,19 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
 
   if (address) {
     return showAddress ? (
-      <div className={clsx('flex items-center gap-3')}>
+      <div
+        className={clsx(
+          'lg:flex items-center gap-3 grid grid-cols-12 w-full p-3 justify-items-end'
+        )}
+      >
         {/* {strkBalance < 0.01 && <button>Add funds</button>} */}
         {
-          <button className="text-xs underline" onClick={addFunds.showAddFundsModal}>
+          <button className="text-xs underline col-span-5" onClick={addFunds.showAddFundsModal}>
             Add funds to your wallet
           </button>
         }
         {chain?.network && (
-          <div className="flex border px-2 py-2 text-xs justify-center items-center gap-2 border-white/30 rounded-md">
+          <div className="flex border px-2 py-2 text-xs justify-center items-center gap-2 border-white/30 rounded-md col-span-4">
             <div className="w-[6px] h-[6px] bg-[#58F083] rounded-full"></div>
             <div className="uppercase"> {chain?.network}</div>
           </div>
@@ -58,7 +62,7 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <p className="text-[#A4A4A4] text-xs">
+              <p className="text-[#A4A4A4] text-xs col-span-3">
                 {loading ? '...' : `${strkBalance.toFixed(2)} STRK`}
               </p>
             </TooltipTrigger>
@@ -78,7 +82,10 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button className="flex items-center gap-1.5 -ml-[6px]" onClick={handleCopyAddress}>
+              <button
+                className="flex items-center gap-1.5 -ml-[6px] col-span-1"
+                onClick={handleCopyAddress}
+              >
                 <Copy
                   width={12}
                   height={12}

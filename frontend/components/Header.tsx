@@ -16,7 +16,7 @@ export const Header = () => {
       className={clsx(
         'fixed left-0 right-0 top-0 backdrop-blur-lg bg-[#12121266] min-h-[76px] z-10 transition-all w-full',
         {
-          'h-[119px]': menuOpen,
+          'h-[180px]': menuOpen,
           'h-[67px]': !menuOpen,
         }
       )}
@@ -26,13 +26,26 @@ export const Header = () => {
           <Link className="block mr-1 md:mr-4" href="/">
             <Image src={'/icons/shield.svg'} width={40} height={44} alt="shield" />
           </Link>
-          <div className="hidden md:block">
+          <div className="">
             <MenuItems />
           </div>
-          <div className="absolute right-6">
+          <div
+            className={clsx(
+              'absolute right-6 top-16 flex items-center justify-end lg:top-auto lg:block left-0 lg:left-auto',
+              {
+                hidden: !menuOpen,
+              }
+            )}
+          >
             <ConnectButton
               showAddress
-              className="bg-white text-black px-6 py-2 rounded-full hover:bg-white/90"
+              className={clsx(
+                'bg-white text-black px-6 py-2 rounded-full hover:bg-white/90 lg:block col-span-11',
+                {
+                  block: menuOpen,
+                  hidden: !menuOpen,
+                }
+              )}
             />
           </div>
         </div>

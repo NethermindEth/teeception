@@ -3,15 +3,15 @@ import Image from 'next/image'
 
 export const LandingPage = () => {
   return (
-    <div className="max-w-[933px] mx-auto mt-20">
+    <div className="max-w-[933px] mx-auto mt-20 px-4">
       <div className="text-center">
         <h2 className="text-[#B8B8B8] text-[40px] uppercase">#Teeception</h2>
         <p className="">Compete for real ETH rewards by challenging agents or creating your own</p>
 
-        <div className="flex items-center justify-center gap-6 mt-6">
+        <div className="flex items-center justify-center gap-2 lg:gap-6 mt-4 lg:mt-6">
           <div>
-            <p className="text-[#7E7E7E]">Launched agents</p>
-            <h3 className="text-[38px]">123</h3>
+            <p className="text-[#7E7E7E] text-sm lg:text-base">Launched agents</p>
+            <h3 className="text-lg lg:text-[38px]">123</h3>
           </div>
 
           <div>
@@ -20,8 +20,8 @@ export const LandingPage = () => {
           </div>
 
           <div>
-            <p className="text-[#7E7E7E]">Total break attempts</p>
-            <h3 className="text-[38px]">3,445</h3>
+            <p className="text-[#7E7E7E] text-sm lg:text-base">Total break attempts</p>
+            <h3 className="text-lg lg:text-[38px]">3,445</h3>
           </div>
 
           <div>
@@ -30,8 +30,8 @@ export const LandingPage = () => {
           </div>
 
           <div>
-            <p className="text-[#7E7E7E]">Successful Breaks</p>
-            <h3 className="text-[38px]">3,445</h3>
+            <p className="text-[#7E7E7E] text-sm lg:text-base">Successful Breaks</p>
+            <h3 className="text-lg lg:text-[38px]">3,445</h3>
           </div>
 
           <div>
@@ -40,14 +40,14 @@ export const LandingPage = () => {
           </div>
 
           <div>
-            <p className="text-[#7E7E7E]">Average bounty</p>
-            <h3 className="text-[38px]">$45,345</h3>
+            <p className="text-[#7E7E7E] text-sm lg:text-base">Average bounty</p>
+            <h3 className="text-lg lg:text-[38px]">$45,345</h3>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 justify-center mt-8 text-center gap-9">
-        <div className="border border-[#558EB4] bg-[#12121266] rounded-2xl p-4 robo-card attacker group ">
+      <div className="grid  grid-cols-2 justify-center mt-8 text-center gap-9 ">
+        <div className="border border-[#558EB4] bg-[#12121266] rounded-lg lg:rounded-2xl p-2 lg:p-4 col-span-2 lg:col-span-1 robo-card attacker group ">
           <div className="relative">
             <Image
               src="/img/robo_to_r.png"
@@ -60,12 +60,12 @@ export const LandingPage = () => {
             <div className="absolute inset-0 pointer-events-auto robo-img-defender rounded-lg transition-all mt-10"></div>
           </div>
 
-          <div className="flex items-center justify-center gap-2 mt-2">
+          <div className="flex items-center justify-center gap-2 my-2">
             <div>
               <Image src="/icons/local_police.png" width={24} height={24} alt="local police icon" />
             </div>
             <div>
-              <p className="text-[2rem] font-medium">DEFENDER</p>
+              <p className="text-lg lg:text-[2rem] leading-normal font-medium">DEFENDER</p>
             </div>
           </div>
 
@@ -75,7 +75,7 @@ export const LandingPage = () => {
           </div>
 
           <div className="my-4">
-            <ul className="items-center flex flex-col justify-center text-[#B5B5B5] list-disc">
+            <ul className="text-center flex flex-col justify-center items-center text-[#B5B5B5] ps-4 md:ps-0 list-disc text-sm md:text-base">
               <li>Create unbreakable prompts</li>
               <li>Earn fees for every attempt</li>
               <li>Survive to the end</li>
@@ -92,7 +92,7 @@ export const LandingPage = () => {
           </div>
         </div>
 
-        <div className="border border-[#8F564E] bg-[#12121266] rounded-2xl p-4 robo-card defender group">
+        <div className="border border-[#8F564E] bg-[#12121266] rounded-lg lg:rounded-2xl p-2 lg:p-4 col-span-2 lg:col-span-1 robo-card defender group">
           <div className="relative">
             <Image
               src="/img/robo_to_r.png"
@@ -104,11 +104,11 @@ export const LandingPage = () => {
             <div className="absolute inset-0 pointer-events-auto robo-img-attacker rounded-lg transition-all mt-10"></div>
           </div>
 
-          <div className="flex items-center justify-center gap-2 mt-2">
+          <div className="flex items-center justify-center gap-2 my-2">
             <div>
               <Image src="/icons/swords.png" width={24} height={24} alt="local police icon" />
             </div>
-            <p className="text-[2rem] font-medium">ATTACKER</p>
+            <p className="text-lg lg:text-[2rem] leading-normal font-medium">ATTACKER</p>
           </div>
 
           <div className="flex max-w-[394px] mx-auto">
@@ -117,7 +117,7 @@ export const LandingPage = () => {
           </div>
 
           <div className="my-4">
-            <ul className="items-center flex flex-col justify-center text-[#B5B5B5] list-disc">
+            <ul className="text-center flex flex-col justify-center items-center text-[#B5B5B5] ps-4 md:ps-0 list-disc text-sm md:text-base">
               <li>Create unbreakable prompts</li>
               <li>Earn fees for every attempt</li>
               <li>Survive to the end</li>
