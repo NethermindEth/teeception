@@ -38,8 +38,8 @@ export const ConnectWalletModal = ({ open, onCancel }: ConnectWalletModal) => {
     <Dialog open={open} onClose={onCancel}>
       <div className="p-6 space-y-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Connect Wallet</h2>
-          <p className="text-gray-600 mb-6">Select your preferred wallet to connect</p>
+          <h2 className="text-2xl font-bold mb-2 text-white">Connect Wallet</h2>
+          <p className="text-gray-400 mb-6">Select your preferred wallet to connect</p>
         </div>
 
         <div className="space-y-3">
@@ -51,7 +51,10 @@ export const ConnectWalletModal = ({ open, onCancel }: ConnectWalletModal) => {
                 onClick={() => {
                   handleConnect(connector)
                 }}
-                className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-zinc-800 text-white rounded-lg py-3 font-medium 
+                          hover:bg-zinc-700 transition-colors duration-200
+                          disabled:opacity-50 disabled:cursor-not-allowed 
+                          flex items-center justify-center gap-2"
               >
                 {getConnectorName(connector.id)}
               </button>
@@ -59,7 +62,10 @@ export const ConnectWalletModal = ({ open, onCancel }: ConnectWalletModal) => {
         </div>
 
         <div className="flex justify-end gap-3">
-          <button onClick={onCancel} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+          <button 
+            onClick={onCancel} 
+            className="px-4 py-2 text-gray-400 hover:text-white transition-colors duration-200"
+          >
             Cancel
           </button>
         </div>
