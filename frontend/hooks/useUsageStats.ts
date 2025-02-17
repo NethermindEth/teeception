@@ -109,7 +109,9 @@ export const useUsageStats = () => {
           },
           prizePools: formattedPrizePools,
           averageBounty: {
-            amount: formatBigInt(averageBountyRaw.toString(), baseToken.decimals),
+            amount: Number(formatBigInt(averageBountyRaw.toString(), baseToken.decimals)).toFixed(
+              2
+            ),
             rawAmount: averageBountyRaw.toString(),
           },
         })

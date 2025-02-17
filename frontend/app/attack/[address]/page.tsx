@@ -7,13 +7,14 @@ import { useAccount, useContract, useSendTransaction } from '@starknet-react/cor
 import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { divideFloatStrings, calculateTimeLeft } from '@/lib/utils'
+import { divideFloatStrings } from '@/lib/utils'
 import { X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { TweetPreview } from '@/components/TweetPreview'
+import CountdownTimer from '@/components/CountdownTimer'
 
 interface Challenge {
   id: string
@@ -198,36 +199,11 @@ export default function AgentChallengePage() {
         }
 
   const StatusDisplay = () => {
-    const [timeLeft, setTimeLeft] = useState(() => {
-      if (testAgent.status !== 'active') return null
-      return calculateTimeLeft(parseInt(testAgent.endTime))
-    })
-
-    useEffect(() => {
-      if (testAgent.status === 'active') {
-        const endTime = parseInt(testAgent.endTime)
-
-        // Initial calculation
-        setTimeLeft(calculateTimeLeft(endTime))
-
-        const timer = setInterval(() => {
-          const newTimeLeft = calculateTimeLeft(endTime)
-          setTimeLeft(newTimeLeft)
-
-          if (newTimeLeft === 'Inactive') {
-            clearInterval(timer)
-          }
-        }, 1000)
-
-        return () => clearInterval(timer)
-      }
-    }, [testAgent.endTime, testAgent.status])
-
     switch (testAgent.status) {
       case 'active':
         return (
           <div className="text-3xl font-bold text-white min-w-[240px] text-center">
-            {timeLeft === 'Inactive' ? 'EXPIRED' : timeLeft}
+            <CountdownTimer endTime={Number(agent.endTime)} isFinalized={agent.isFinalized} />
           </div>
         )
 

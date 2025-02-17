@@ -15,6 +15,7 @@ import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_AB
 import { ACTIVE_NETWORK, AGENT_REGISTRY_ADDRESS } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { uint256 } from 'starknet'
+import { AgentLaunchSuccessModal } from '@/components/AgentLaunchSuccessModal'
 
 const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined) => {
   const [formState, setFormState] = useState({
@@ -96,7 +97,6 @@ const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | u
   }
 }
 
-// Custom hook for transaction management
 const useTransactionManager = (
   registry: StarknetTypedContract<typeof TEECEPTION_AGENTREGISTRY_ABI>,
   tokenContract: StarknetTypedContract<typeof TEECEPTION_ERC20_ABI>,
@@ -128,12 +128,6 @@ const useTransactionManager = (
           new Date().getTime() / 1000 + parseInt(formData.duration) * 86400
         )
 
-        const { agentName, systemPrompt } = formData
-        const tokenAddress = selectedToken.address
-        console.log({ agentName, systemPrompt, tokenAddress })
-        console.log('prompt price', initialBalance)
-        console.log('initial balance', initialBalance)
-        console.log('end time seconds', endTimeSeconds)
         const calldata = [
           tokenContract.populate('approve', [AGENT_REGISTRY_ADDRESS, initialBalance]),
           registry.populate('register_agent', [
@@ -147,7 +141,7 @@ const useTransactionManager = (
           ]),
         ]
 
-        console.log('Calldata 1', calldata[1])
+        // console.log('Calldata', calldata[1])
         return calldata
       } catch (error) {
         console.error('Error preparing transaction calls:', error)
@@ -159,7 +153,6 @@ const useTransactionManager = (
   return sendAsync
 }
 
-// Form input component
 const FormInput = ({
   label,
   name,
@@ -181,7 +174,6 @@ const FormInput = ({
   </div>
 )
 
-// Main component
 export default function DefendPage() {
   const { address, account } = useAccount()
   const { balance: tokenBalance } = useTokenBalance('STRK')
@@ -193,8 +185,8 @@ export default function DefendPage() {
     address: ACTIVE_NETWORK.tokens[0].address as `0x${string}`,
     abi: TEECEPTION_ERC20_ABI,
   })
-
   const { formState, setFormState, handleChange, validateForm } = useAgentForm(tokenBalance!)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const sendAsync = useTransactionManager(registry!, tokenContract!, formState.values)
 
@@ -213,6 +205,7 @@ export default function DefendPage() {
         setFormState((prev) => ({ ...prev, transactionHash: response.transaction_hash }))
         await account.waitForTransaction(response.transaction_hash)
         setFormState((prev) => ({ ...prev, transactionStatus: 'completed' }))
+        setShowSuccess(true)
       }
     } catch (error) {
       console.error('Error registering agent:', error)
@@ -344,6 +337,12 @@ export default function DefendPage() {
             <p className="mt-2 text-sm text-red-500 text-center">{formState.errors.submit}</p>
           )}
         </form>
+        <AgentLaunchSuccessModal
+          open={showSuccess}
+          transactionHash={formState.transactionHash!}
+          agentName={formState.values.agentName}
+          onClose={() => setShowSuccess(false)}
+        />
       </div>
     </>
   )
