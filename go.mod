@@ -21,6 +21,7 @@ require (
 	github.com/sethvargo/go-password v0.3.1
 	github.com/spf13/cobra v1.8.1
 	github.com/tebeka/selenium v0.9.9
+	github.com/tiktoken-go/tokenizer v0.4.0
 	github.com/tmc/langchaingo v0.1.12
 	golang.org/x/crypto v0.31.0
 	golang.org/x/sync v0.10.0
@@ -40,6 +41,7 @@ require (
 	github.com/consensys/gnark-crypto v0.13.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
+	github.com/dlclark/regexp2 v1.11.5-0.20240806004527-5bbbed8ea10b // indirect
 	github.com/ethereum/go-ethereum v1.14.8 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect

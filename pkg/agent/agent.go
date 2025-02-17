@@ -54,6 +54,8 @@ type AgentConfigParams struct {
 	TaskConcurrency              int
 	TickRate                     time.Duration
 	SafeBlockDelta               uint64
+	MaxSystemPromptTokens        int
+	MaxPromptTokens              int
 }
 
 type AgentAccountDeploymentState struct {
@@ -114,6 +116,11 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		OpenAIKey: params.OpenAIKey,
 		Model:     openai.GPT4,
 	})
+
+	chatCompletionClient, err := chat.NewTokenLimitChatCompletion(openaiClient, params.MaxSystemPromptTokens, params.MaxPromptTokens)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create token limit chat completion: %v", err)
+	}
 
 	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(params.DstackTappdEndpoint))
 	quoter := quote.NewTappdQuoter(dstackTappdClient)
@@ -191,7 +198,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		IsUnencumbered: false,
 		UnencumberData: params.UnencumberData,
 
-		ChatCompletion: openaiClient,
+		ChatCompletion: chatCompletionClient,
 		StarknetClient: starknetClient,
 		Quoter:         quoter,
 

@@ -78,6 +78,8 @@ github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 h1:rpfIENRNNilwHwZeG5+P150SMrnN
 github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0/go.mod h1:v57UDF4pDQJcEfFUCRop3lJL149eHGSe9Jvczhzjo/0=
 github.com/dghubble/oauth1 v0.7.3 h1:EkEM/zMDMp3zOsX2DC/ZQ2vnEX3ELK0/l9kb+vs4ptE=
 github.com/dghubble/oauth1 v0.7.3/go.mod h1:oxTe+az9NSMIucDPDCCtzJGsPhciJV33xocHfcR2sVY=
+github.com/dlclark/regexp2 v1.11.5-0.20240806004527-5bbbed8ea10b h1:AJKOdc+1fRSJ0/75Jty1npvxUUD0y7hQDg15LMAHhyU=
+github.com/dlclark/regexp2 v1.11.5-0.20240806004527-5bbbed8ea10b/go.mod h1:YvCrhrh/qlds8EhFKPtJprdXn5fWBllSw1qo99dZyiQ=
 github.com/edgelesssys/go-tdx-qpl v0.0.0-20250129202750-607ac61e2377 h1:5JMJiBhvOUUR7EZ0UyeSy7a1WrqB2eM+DX3odLSHAh4=
 github.com/edgelesssys/go-tdx-qpl v0.0.0-20250129202750-607ac61e2377/go.mod h1:IC72qyykUIWl0ZmSk53L4xbLCFDBEGZVaujUmPQOEyw=
 github.com/ethereum/c-kzg-4844 v1.0.0 h1:0X1LBXxaEtYD9xsyj9B9ctQEZIpnvVDeoBx8aHEwTNA=
@@ -225,6 +227,8 @@ github.com/supranational/blst v0.3.11 h1:LyU6FolezeWAhvQk0k6O/d49jqgO52MSDDfYgbe
 github.com/supranational/blst v0.3.11/go.mod h1:jZJtfjgudtNl4en1tzwPIV3KjUnQUvG3/j+w+fVonLw=
 github.com/tebeka/selenium v0.9.9 h1:cNziB+etNgyH/7KlNI7RMC1ua5aH1+5wUlFQyzeMh+w=
 github.com/tebeka/selenium v0.9.9/go.mod h1:5Fr8+pUvU6B1OiPfkdCKdXZyr5znvVkxuPd0NOdZCQc=
+github.com/tiktoken-go/tokenizer v0.4.0 h1:FZemz3hRORSc3tx5ojZ7G9w31rEn1PoICINtz011pg4=
+github.com/tiktoken-go/tokenizer v0.4.0/go.mod h1:1Vieb5gCaJPVKn+lRXaoZSNDaRIqLY0myBftRPHB+GA=
 github.com/tklauser/go-sysconf v0.3.13 h1:GBUpcahXSpR2xN01jhkNAbTLRk2Yzgggk8IM08lq3r4=
 github.com/tklauser/go-sysconf v0.3.13/go.mod h1:zwleP4Q4OehZHGn4CYZDipCgg9usW5IJePewFCGVEa0=
 github.com/tklauser/numcpus v0.7.0 h1:yjuerZP127QG9m5Zh/mSO4wqurYil27tHrqwRoRjpr4=
