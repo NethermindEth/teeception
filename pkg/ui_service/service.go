@@ -472,11 +472,39 @@ func (s *UIService) HandleGetUserLeaderboard(c *gin.Context) {
 
 	leaderboard, err := s.userIndexer.GetUserLeaderboard(uint64(page)*uint64(pageSize), uint64(page+1)*uint64(pageSize))
 	if err != nil {
+		slog.Error("error fetching user leaderboard", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user leaderboard"})
 		return
 	}
 
-	c.JSON(http.StatusOK, leaderboard)
+	users := make([]*UserData, 0, len(leaderboard.Users))
+	for _, userAddr := range leaderboard.Users {
+		info, ok := s.userIndexer.GetUserInfo(new(felt.Felt).SetBytes(userAddr[:]))
+		if !ok {
+			slog.Error("user info not found", "address", userAddr)
+			continue
+		}
+
+		accruedBalances := make(map[string]string)
+		for token, balance := range info.AccruedBalances {
+			accruedBalances[new(felt.Felt).SetBytes(token[:]).String()] = balance.String()
+		}
+
+		users = append(users, &UserData{
+			Address:         new(felt.Felt).SetBytes(userAddr[:]).String(),
+			AccruedBalances: accruedBalances,
+			PromptCount:     int(info.PromptCount),
+			BreakCount:      int(info.BreakCount),
+		})
+	}
+
+	c.JSON(http.StatusOK, &UserPageResponse{
+		Users:     users,
+		Total:     int(leaderboard.UserCount),
+		Page:      page,
+		PageSize:  pageSize,
+		LastBlock: int(leaderboard.LastBlock),
+	})
 }
 
 func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) {
