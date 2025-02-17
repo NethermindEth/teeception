@@ -146,6 +146,10 @@ func (i *UserIndexer) onPromptConsumedEvent(ev *Event) {
 		return
 	}
 
+	if !i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
+		return
+	}
+
 	i.db.StorePromptConsumedData(ev.Raw.FromAddress, promptConsumedEvent)
 }
 
@@ -153,6 +157,10 @@ func (i *UserIndexer) onPromptPaidEvent(ev *Event) {
 	promptPaidEvent, ok := ev.ToPromptPaidEvent()
 	if !ok {
 		slog.Error("failed to parse prompt paid event")
+		return
+	}
+
+	if !i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
 		return
 	}
 

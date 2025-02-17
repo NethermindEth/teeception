@@ -21,6 +21,7 @@ import (
 type UserIndexerDatabaseReader interface {
 	GetUserInfo(addr [32]byte) (*UserInfo, bool)
 	GetUserExists(addr [32]byte) bool
+	GetAgentExists(addr [32]byte) bool
 	GetLastIndexedBlock() uint64
 	GetLeaderboard(start, end uint64, priceCache AgentBalanceIndexerPriceCache) (*UserLeaderboardResponse, error)
 	GetLeaderboardCount() uint64
@@ -244,6 +245,14 @@ func (db *UserIndexerDatabaseInMemory) GetLeaderboard(start, end uint64, priceCa
 	}
 
 	return leaderboard, nil
+}
+
+func (db *UserIndexerDatabaseInMemory) GetAgentExists(addr [32]byte) bool {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	_, ok := db.agentTokens[addr]
+	return ok
 }
 
 func (db *UserIndexerDatabaseInMemory) GetLeaderboardCount() uint64 {
