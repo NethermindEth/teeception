@@ -2,7 +2,8 @@
 import { useRouter } from 'next/navigation'
 import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AgentDetails } from '@/hooks/useAgents'
-import { calculateTimeLeft, divideFloatStrings } from '@/lib/utils'
+import { divideFloatStrings } from '@/lib/utils'
+import CountdownTimer from './CountdownTimer'
 
 export enum TabType {
   AgentRanking = 'AGENT_RANKING',
@@ -54,7 +55,6 @@ export const AgentsList = ({
               </div>
 
               {agents.map((agent, idx) => {
-                const timeLeft = calculateTimeLeft(Number(agent.endTime))
                 const promptPrice = divideFloatStrings(agent.promptPrice, agent.decimal)
                 const prizePool = divideFloatStrings(agent.balance, agent.decimal)
                 return (
@@ -73,12 +73,12 @@ export const AgentsList = ({
                     <div className="col-span-3 ps-4">{`${prizePool} ${agent.symbol}`.trim()}</div>
                     <div className="col-span-2 ps-4">{`${promptPrice} ${agent.symbol}`.trim()}</div>
                     <div className="col-span-2 ps-4">{agent.breakAttempts}</div>
-                    {!agent.isFinalized && timeLeft !== 'Inactive' && (
-                      <div className="rounded-full bg-black px-4 py-2 flex items-center justify-end">
-                        <div className="w-2 h-2 bg-[#00D369] rounded-full flex-shrink-0"></div>
-                        <div className="pl-1">{timeLeft}</div>
-                      </div>
-                    )}
+                    <div className="col-span- ps-4">
+                      <CountdownTimer
+                        endTime={Number(agent.endTime)}
+                        isFinalized={agent.isFinalized}
+                      />
+                    </div>
                   </div>
                 )
               })}
