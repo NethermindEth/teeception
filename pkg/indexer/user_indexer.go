@@ -132,7 +132,7 @@ func (i *UserIndexer) onAgentRegisteredEvent(ev *Event) {
 		return
 	}
 
-	if agentRegisteredEvent.Creator.Cmp(i.registryAddress) != 0 {
+	if ev.Raw.FromAddress.Cmp(i.registryAddress) != 0 {
 		return
 	}
 
