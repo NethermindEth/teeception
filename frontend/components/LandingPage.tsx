@@ -1,49 +1,16 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import { Stats } from './Stats'
+import { useUsageStats } from '@/hooks/useUsageStats'
 
 export const LandingPage = () => {
+  const { loading, data } = useUsageStats()
   return (
     <div className="max-w-[933px] mx-auto mt-20 px-4">
       <div className="text-center">
         <h2 className="text-[#B8B8B8] text-[40px] uppercase">#Teeception</h2>
         <p className="">Compete for real ETH rewards by challenging agents or creating your own</p>
-
-        <div className="flex items-center justify-center gap-2 lg:gap-6 mt-4 lg:mt-6">
-          <div>
-            <p className="text-[#7E7E7E] text-sm lg:text-base">Launched agents</p>
-            <h3 className="text-lg lg:text-[38px]">123</h3>
-          </div>
-
-          <div>
-            <div className="w-[1px] h-full white-gradient-border-vertical-top min-h-[40px]"></div>
-            <div className="w-[1px] h-full white-gradient-border-vertical-bottom min-h-[40px]"></div>
-          </div>
-
-          <div>
-            <p className="text-[#7E7E7E] text-sm lg:text-base">Total break attempts</p>
-            <h3 className="text-lg lg:text-[38px]">3,445</h3>
-          </div>
-
-          <div>
-            <div className="w-[1px] h-full white-gradient-border-vertical-top min-h-[40px]"></div>
-            <div className="w-[1px] h-full white-gradient-border-vertical-bottom min-h-[40px]"></div>
-          </div>
-
-          <div>
-            <p className="text-[#7E7E7E] text-sm lg:text-base">Successful Breaks</p>
-            <h3 className="text-lg lg:text-[38px]">3,445</h3>
-          </div>
-
-          <div>
-            <div className="w-[1px] h-full white-gradient-border-vertical-top min-h-[40px]"></div>
-            <div className="w-[1px] h-full white-gradient-border-vertical-bottom min-h-[40px]"></div>
-          </div>
-
-          <div>
-            <p className="text-[#7E7E7E] text-sm lg:text-base">Average bounty</p>
-            <h3 className="text-lg lg:text-[38px]">$45,345</h3>
-          </div>
-        </div>
+        <Stats isLoading={loading} data={data} />
       </div>
 
       <div className="grid  grid-cols-2 justify-center mt-8 text-center gap-9 ">

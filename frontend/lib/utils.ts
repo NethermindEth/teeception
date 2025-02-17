@@ -36,3 +36,16 @@ export const divideFloatStrings = (a: string, b: number): string => {
   const result = (numA / numB).toFixed(4)
   return result
 }
+
+export const formatBigInt = (value: string, decimals: number): string => {
+  const bigIntValue = BigInt(value)
+  const divisor = BigInt(10 ** decimals)
+  const wholePart = bigIntValue / divisor
+  const fractionalPart = bigIntValue % divisor
+
+  const fractionalStr = fractionalPart.toString().padStart(decimals, '0')
+
+  const formatted = `${wholePart}.${fractionalStr}`.replace(/\.?0+$/, '')
+
+  return formatted
+}

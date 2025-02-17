@@ -8,7 +8,7 @@ export const AGENT_REGISTRY_ADDRESS =
 export const X_BOT_NAME = '@teetestt84759'
 
 export const INDEXER_BASE_URL =
-  process.env.NEXT_PUBLIC_INDEXER_BASE_URL || 'http://34.141.53.65:4000'
+  process.env.NEXT_PUBLIC_INDEXER_BASE_URL || 'http://34.141.53.65:4001'
 interface Token {
   address: string
   name: string
