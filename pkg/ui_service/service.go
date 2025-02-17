@@ -223,7 +223,18 @@ func (s *UIService) HandleGetLeaderboard(c *gin.Context) {
 		}
 	}
 
-	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(pageSize), uint64(page+1)*uint64(pageSize))
+	var isActive *bool
+	activeQueryParam := c.Query("active")
+	if activeQueryParam != "" {
+		active, err := strconv.ParseBool(activeQueryParam)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid \"active\" query parameter"})
+			return
+		}
+		isActive = &active
+	}
+
+	agents, err := s.agentBalanceIndexer.GetAgentLeaderboard(uint64(page)*uint64(pageSize), uint64(page+1)*uint64(pageSize), isActive)
 	if err != nil {
 		slog.Error("error fetching agent leaderboard", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching agent leaderboard"})

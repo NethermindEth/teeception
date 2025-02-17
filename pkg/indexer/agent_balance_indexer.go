@@ -382,8 +382,8 @@ type AgentLeaderboardResponse struct {
 }
 
 // GetAgentLeaderboard returns start:end agents from the agent balance leaderboard provided a callback to get a token's rate.
-func (i *AgentBalanceIndexer) GetAgentLeaderboard(start, end uint64) (*AgentLeaderboardResponse, error) {
-	return i.db.GetLeaderboard(start, end, i.priceCache)
+func (i *AgentBalanceIndexer) GetAgentLeaderboard(start, end uint64, isActive *bool) (*AgentLeaderboardResponse, error) {
+	return i.db.GetLeaderboard(start, end, isActive, i.priceCache)
 }
 
 // GetLastIndexedBlock returns the last indexed block.

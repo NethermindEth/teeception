@@ -14,7 +14,7 @@ import (
 
 // AgentBalanceIndexerDatabaseReader is the reader for an AgentBalanceIndexerDatabase.
 type AgentBalanceIndexerDatabaseReader interface {
-	GetLeaderboard(start, end uint64, priceCache AgentBalanceIndexerPriceCache) (*AgentLeaderboardResponse, error)
+	GetLeaderboard(start, end uint64, isActive *bool, priceCache AgentBalanceIndexerPriceCache) (*AgentLeaderboardResponse, error)
 	GetLeaderboardCount() uint64
 	GetAgentExists(addr [32]byte) bool
 	GetAgentBalance(addr [32]byte) (*AgentBalance, bool)
@@ -42,6 +42,7 @@ type AgentBalanceIndexerDatabaseInMemory struct {
 
 	sortedAgentsMu      sync.RWMutex
 	sortedAgents        *utils.LazySortedList[[32]byte]
+	activeAgentsCount   uint64
 	totalActiveBalances map[[32]byte]*big.Int
 
 	lastIndexedBlock uint64
@@ -55,6 +56,7 @@ func NewAgentBalanceIndexerDatabaseInMemory(initialBlock uint64) *AgentBalanceIn
 		balances:            make(map[[32]byte]*AgentBalance),
 		lastIndexedBlock:    initialBlock,
 		sortedAgents:        utils.NewLazySortedList[[32]byte](),
+		activeAgentsCount:   0,
 		totalActiveBalances: make(map[[32]byte]*big.Int),
 	}
 }
@@ -136,12 +138,13 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 	})
 
 	db.totalActiveBalances = make(map[[32]byte]*big.Int)
-	for _, agent := range db.sortedAgents.Items() {
+	for idx, agent := range db.sortedAgents.Items() {
 		bal := db.balances[agent]
 		isFinalized := bal.EndTime < currentTime || bal.IsDrained
 
 		// since we know the finalized agents are at the end of the list, we can break early
 		if isFinalized {
+			db.activeAgentsCount = uint64(idx + 1)
 			break
 		}
 
@@ -156,7 +159,7 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 }
 
 // GetLeaderboard returns the leaderboard for the given range.
-func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64, _ AgentBalanceIndexerPriceCache) (*AgentLeaderboardResponse, error) {
+func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64, isActive *bool, _ AgentBalanceIndexerPriceCache) (*AgentLeaderboardResponse, error) {
 	db.sortedAgentsMu.RLock()
 	defer db.sortedAgentsMu.RUnlock()
 
@@ -164,16 +167,28 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 		return nil, fmt.Errorf("invalid range: start (%d) > end (%d)", start, end)
 	}
 
-	if start >= uint64(db.sortedAgents.Len()) {
+	effectiveLen := uint64(db.sortedAgents.Len())
+	if isActive != nil {
+		if *isActive {
+			effectiveLen = db.activeAgentsCount
+		} else {
+			effectiveLen = uint64(db.sortedAgents.Len()) - db.activeAgentsCount
+
+			start += db.activeAgentsCount
+			end += db.activeAgentsCount
+		}
+	}
+
+	if start >= effectiveLen {
 		return &AgentLeaderboardResponse{
 			Agents:     make([][32]byte, 0),
-			AgentCount: uint64(db.sortedAgents.Len()),
+			AgentCount: effectiveLen,
 			LastBlock:  db.lastIndexedBlock,
 		}, nil
 	}
 
-	if end > uint64(db.sortedAgents.Len()) {
-		end = uint64(db.sortedAgents.Len())
+	if end > effectiveLen {
+		end = effectiveLen
 	}
 
 	agents, ok := db.sortedAgents.GetRange(int(start), int(end))
@@ -183,7 +198,7 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 
 	leaderboard := &AgentLeaderboardResponse{
 		Agents:     agents,
-		AgentCount: uint64(db.sortedAgents.Len()),
+		AgentCount: effectiveLen,
 		LastBlock:  db.lastIndexedBlock,
 	}
 
