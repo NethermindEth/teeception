@@ -3,6 +3,7 @@ package indexer
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/hex"
 	"log/slog"
 	"sync"
 	"time"
@@ -139,7 +140,7 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptConsumedData(addr [32]by
 	promptCacheKey := db.promptCacheKey(addr, promptConsumedEvent.PromptID)
 	promptCacheData, ok := db.promptCache.Peek(promptCacheKey)
 	if !ok {
-		slog.Error("prompt not found in cache", "agent", addr, "prompt", promptConsumedEvent.PromptID)
+		slog.Error("prompt not found in cache", "agent", "0x"+hex.EncodeToString(addr[:]), "prompt", promptConsumedEvent.PromptID)
 		promptCacheData = AgentUsageIndexerDatabaseInMemoryPromptCacheData{}
 	} else {
 		db.promptCache.Remove(promptCacheKey)
