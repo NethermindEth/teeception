@@ -5,10 +5,10 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const page = searchParams.get('page') ?? '0'
-    const pageSize = searchParams.get('pageSize') ?? '10'
+    const pageSize = searchParams.get('page_size') ?? '10'
 
     const response = await fetch(
-      `${INDEXER_BASE_URL}/leaderboard?page=${page}&pageSize=${pageSize}`,
+      `${INDEXER_BASE_URL}/leaderboard?page=${page}&page_size=${pageSize}`,
       {
         next: {
           revalidate: 30,

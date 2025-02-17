@@ -24,6 +24,7 @@ type AgentBalance struct {
 	AmountUpdatedAt uint64
 	EndTime         uint64
 	IsDrained       bool
+	DrainAmount     *big.Int
 }
 
 type AgentBalanceIndexerPriceCache interface {
@@ -143,11 +144,35 @@ func (i *AgentBalanceIndexer) onTransferEvent(ctx context.Context, ev *Event) {
 	if i.db.GetAgentExists(transferEvent.From.Bytes()) {
 		slog.Debug("enqueueing balance update for from", "address", transferEvent.From.String())
 		i.enqueueBalanceUpdate(transferEvent.From)
+		i.updateDrainAmount(transferEvent.From, transferEvent.Amount)
 	}
 	if i.db.GetAgentExists(transferEvent.To.Bytes()) {
 		slog.Debug("enqueueing balance update for to", "address", transferEvent.To.String())
 		i.enqueueBalanceUpdate(transferEvent.To)
 	}
+}
+
+func (i *AgentBalanceIndexer) updateDrainAmount(addr *felt.Felt, amount *big.Int) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	agentBalance, ok := i.db.GetAgentBalance(addr.Bytes())
+	if !ok {
+		slog.Warn("Agent balance not found while updating drain amount", "address", addr.String())
+		return
+	}
+
+	if !agentBalance.IsDrained {
+		return
+	}
+
+	if agentBalance.DrainAmount == nil {
+		agentBalance.DrainAmount = amount
+	} else if agentBalance.DrainAmount.Cmp(amount) < 0 {
+		agentBalance.DrainAmount = amount
+	}
+
+	i.db.SetAgentBalance(addr.Bytes(), agentBalance)
 }
 
 func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Event) {
@@ -190,6 +215,7 @@ func (i *AgentBalanceIndexer) onPromptConsumedEvent(ctx context.Context, ev *Eve
 	}
 
 	agentBalance.IsDrained = true
+
 	i.db.SetAgentBalance(addrBytes, agentBalance)
 }
 
@@ -205,6 +231,8 @@ func (i *AgentBalanceIndexer) pushAgent(ev *AgentRegisteredEvent) {
 		Amount:          big.NewInt(0),
 		AmountUpdatedAt: 0,
 		EndTime:         ev.EndTime,
+		IsDrained:       false,
+		DrainAmount:     big.NewInt(0),
 	})
 }
 
@@ -286,6 +314,8 @@ func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Fel
 			Amount:          big.NewInt(0),
 			AmountUpdatedAt: 0,
 			EndTime:         0,
+			IsDrained:       false,
+			DrainAmount:     big.NewInt(0),
 		}
 	}
 

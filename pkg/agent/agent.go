@@ -496,7 +496,8 @@ func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) error {
 	slog.Info("generating AI response", "tweet_id", promptPaidEvent.TweetID)
 
-	resp, err := a.chatCompletion.Prompt(ctx, agentInfo.SystemPrompt, promptPaidEvent.Prompt)
+	systemPrompt := a.buildSystemPrompt(agentInfo, promptPaidEvent)
+	resp, err := a.chatCompletion.Prompt(ctx, systemPrompt, promptPaidEvent.Prompt)
 	if err != nil {
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
@@ -558,7 +559,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			}
 
 			slog.Info("replying as drained to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "drain_to", resp.Drain.Address)
-			reply := fmt.Sprintf("Drained %s to %s. Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", agentInfo.Address, resp.Drain.Address, txHash)
+			reply := fmt.Sprintf(":%s: Drained %s to %s. Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", agentInfo.Name, agentInfo.Address, resp.Drain.Address, txHash)
 			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
 			if err != nil {
 				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
@@ -572,10 +573,12 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			reply = resp.Response
 		}
 
-		slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
-		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", agentInfo.Name, reply))
-		if err != nil {
-			slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
+		if strings.TrimSpace(reply) != "" {
+			slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
+			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", agentInfo.Name, reply))
+			if err != nil {
+				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
+			}
 		}
 	}
 
@@ -754,4 +757,18 @@ func (a *Agent) waitForAccountDeployment(ctx context.Context) error {
 	a.accountDeploymentState.Waiting = false
 
 	return nil
+}
+
+func (a *Agent) buildSystemPrompt(agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) string {
+	return fmt.Sprintf(`
+Your address: %s
+Your creator address: %s
+Responding to address: %s
+
+%s`,
+		agentInfo.Address.String(),
+		agentInfo.Creator.String(),
+		promptPaidEvent.User.String(),
+		agentInfo.SystemPrompt,
+	)
 }
