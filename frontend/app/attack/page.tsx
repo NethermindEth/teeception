@@ -21,7 +21,7 @@ enum TabType {
 export default function AttackPage() {
   const { address } = useAccount()
   const [searchQuery, setSearchQuery] = useState('')
-  const { agents = [], loading: isFetchingAgents } = useAgents({ page: 0, pageSize: 1000 })
+  const { agents = [], loading: isFetchingAgents } = useAgents({ page: 0, pageSize: 10 })
   const router = useRouter()
 
   const activeAgents = useMemo(
