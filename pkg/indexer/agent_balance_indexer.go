@@ -144,35 +144,11 @@ func (i *AgentBalanceIndexer) onTransferEvent(ctx context.Context, ev *Event) {
 	if i.db.GetAgentExists(transferEvent.From.Bytes()) {
 		slog.Debug("enqueueing balance update for from", "address", transferEvent.From.String())
 		i.enqueueBalanceUpdate(transferEvent.From)
-		i.updateDrainAmount(transferEvent.From, transferEvent.Amount)
 	}
 	if i.db.GetAgentExists(transferEvent.To.Bytes()) {
 		slog.Debug("enqueueing balance update for to", "address", transferEvent.To.String())
 		i.enqueueBalanceUpdate(transferEvent.To)
 	}
-}
-
-func (i *AgentBalanceIndexer) updateDrainAmount(addr *felt.Felt, amount *big.Int) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-
-	agentBalance, ok := i.db.GetAgentBalance(addr.Bytes())
-	if !ok {
-		slog.Warn("Agent balance not found while updating drain amount", "address", addr.String())
-		return
-	}
-
-	if !agentBalance.IsDrained {
-		return
-	}
-
-	if agentBalance.DrainAmount == nil {
-		agentBalance.DrainAmount = amount
-	} else if agentBalance.DrainAmount.Cmp(amount) < 0 {
-		agentBalance.DrainAmount = amount
-	}
-
-	i.db.SetAgentBalance(addr.Bytes(), agentBalance)
 }
 
 func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Event) {
@@ -198,23 +174,21 @@ func (i *AgentBalanceIndexer) onPromptConsumedEvent(ctx context.Context, ev *Eve
 		return
 	}
 
-	// we're only interested in the drains
-	if promptConsumedEvent.DrainedTo.Cmp(ev.Raw.FromAddress) == 0 {
-		return
-	}
-
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
 	addrBytes := ev.Raw.FromAddress.Bytes()
-
 	agentBalance, ok := i.db.GetAgentBalance(addrBytes)
 	if !ok {
 		slog.Warn("prompt consumed event for non-existent agent", "agent", ev.Raw.FromAddress.String())
 		return
 	}
 
-	agentBalance.IsDrained = true
+	agentBalance.DrainAmount = agentBalance.DrainAmount.Add(agentBalance.DrainAmount, promptConsumedEvent.Amount)
+
+	if promptConsumedEvent.DrainedTo.Cmp(ev.Raw.FromAddress) != 0 {
+		agentBalance.IsDrained = true
+	}
 
 	i.db.SetAgentBalance(addrBytes, agentBalance)
 }
