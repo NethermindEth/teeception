@@ -28,6 +28,7 @@ type UIServiceConfig struct {
 	PriceTickRate        time.Duration
 	EventTickRate        time.Duration
 	EventStartupTickRate time.Duration
+	UserTickRate         time.Duration
 }
 
 type UIService struct {
@@ -35,6 +36,7 @@ type UIService struct {
 	agentIndexer        *indexer.AgentIndexer
 	agentBalanceIndexer *indexer.AgentBalanceIndexer
 	agentUsageIndexer   *indexer.AgentUsageIndexer
+	userIndexer         *indexer.UserIndexer
 	tokenIndexer        *indexer.TokenIndexer
 
 	registryAddress *felt.Felt
@@ -98,12 +100,23 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 			Db: indexer.NewAgentUsageIndexerDatabaseInMemory(lastIndexedBlock, 10),
 		},
 	})
+	userIndexer := indexer.NewUserIndexer(&indexer.UserIndexerConfig{
+		Client:          config.Client,
+		RegistryAddress: config.RegistryAddress,
+		TickRate:        config.UserTickRate,
+		PriceCache:      tokenIndexer,
+		EventWatcher:    eventWatcher,
+		InitialState: &indexer.UserIndexerInitialState{
+			Db: indexer.NewUserIndexerDatabaseInMemory(lastIndexedBlock),
+		},
+	})
 
 	return &UIService{
 		eventWatcher:        eventWatcher,
 		agentIndexer:        agentIndexer,
 		agentBalanceIndexer: agentBalanceIndexer,
 		agentUsageIndexer:   agentUsageIndexer,
+		userIndexer:         userIndexer,
 		tokenIndexer:        tokenIndexer,
 
 		registryAddress: config.RegistryAddress,
@@ -127,6 +140,9 @@ func (s *UIService) Run(ctx context.Context) error {
 	})
 	g.Go(func() error {
 		return s.agentUsageIndexer.Run(ctx)
+	})
+	g.Go(func() error {
+		return s.userIndexer.Run(ctx)
 	})
 	g.Go(func() error {
 		return s.tokenIndexer.Run(ctx)

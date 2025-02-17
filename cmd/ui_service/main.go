@@ -31,6 +31,7 @@ func main() {
 		priceTickRate        time.Duration
 		eventTickRate        time.Duration
 		eventStartupTickRate time.Duration
+		userTickRate         time.Duration
 	)
 
 	rootCmd := &cobra.Command{
@@ -84,6 +85,7 @@ func main() {
 				PriceTickRate:        priceTickRate,
 				EventTickRate:        eventTickRate,
 				EventStartupTickRate: eventStartupTickRate,
+				UserTickRate:         userTickRate,
 			})
 			if err != nil {
 				slog.Error("failed to create UI service", "error", err)
@@ -103,6 +105,7 @@ func main() {
 	rootCmd.Flags().DurationVar(&priceTickRate, "price-tick-rate", 5*time.Second, "Price indexer tick rate")
 	rootCmd.Flags().DurationVar(&eventTickRate, "event-tick-rate", 5*time.Second, "Event watcher tick rate")
 	rootCmd.Flags().DurationVar(&eventStartupTickRate, "event-startup-tick-rate", 1*time.Second, "Event watcher startup tick rate")
+	rootCmd.Flags().DurationVar(&userTickRate, "user-tick-rate", 1*time.Minute, "User indexer sorting tick rate")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
