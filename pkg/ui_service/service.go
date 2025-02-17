@@ -158,6 +158,7 @@ func (s *UIService) startServer(ctx context.Context) error {
 
 	router.GET("/leaderboard", s.HandleGetLeaderboard)
 	router.GET("/agent/:address", s.HandleGetAgent)
+	router.GET("/user/leaderboard", s.HandleGetUserLeaderboard)
 	router.GET("/user/agents", s.HandleGetUserAgents)
 	router.GET("/search", s.HandleSearchAgents)
 	router.GET("/usage", s.HandleGetUsage)
@@ -214,6 +215,21 @@ type AgentPageResponse struct {
 	Page      int          `json:"page"`
 	PageSize  int          `json:"page_size"`
 	LastBlock int          `json:"last_block"`
+}
+
+type UserData struct {
+	Address         string            `json:"address"`
+	AccruedBalances map[string]string `json:"accrued_balances"`
+	PromptCount     int               `json:"prompt_count"`
+	BreakCount      int               `json:"break_count"`
+}
+
+type UserPageResponse struct {
+	Users     []*UserData `json:"users"`
+	Total     int         `json:"total"`
+	Page      int         `json:"page"`
+	PageSize  int         `json:"page_size"`
+	LastBlock int         `json:"last_block"`
 }
 
 func (s *UIService) getPageSize(requestedSize int) int {
@@ -441,6 +457,28 @@ func (s *UIService) HandleGetUsage(c *gin.Context) {
 	})
 }
 
+func (s *UIService) HandleGetUserLeaderboard(c *gin.Context) {
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		page = 0
+	}
+
+	pageSize := s.getPageSize(0)
+	if sizeStr := c.Query("page_size"); sizeStr != "" {
+		if size, err := strconv.Atoi(sizeStr); err == nil {
+			pageSize = s.getPageSize(size)
+		}
+	}
+
+	leaderboard, err := s.userIndexer.GetUserLeaderboard(uint64(page)*uint64(pageSize), uint64(page+1)*uint64(pageSize))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user leaderboard"})
+		return
+	}
+
+	c.JSON(http.StatusOK, leaderboard)
+}
+
 func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) {
 	balance, ok := s.agentBalanceIndexer.GetBalance(info.Address)
 	if !ok {
@@ -493,5 +531,23 @@ func (s *UIService) buildAgentDataPrompt(prompt *indexer.AgentUsagePrompt) *Agen
 		Prompt:    prompt.Prompt,
 		IsSuccess: prompt.IsSuccess,
 		DrainedTo: prompt.DrainedTo.String(),
+	}
+}
+
+func (s *UIService) buildUserData(info *indexer.UserInfo) *UserData {
+	flt := new(felt.Felt)
+	accruedBalances := make(map[string]string)
+	for token, balance := range info.AccruedBalances {
+		flt.SetBytes(token[:])
+		accruedBalances[flt.String()] = balance.String()
+	}
+
+	flt.SetBytes(info.Address[:])
+
+	return &UserData{
+		Address:         flt.String(),
+		AccruedBalances: accruedBalances,
+		PromptCount:     int(info.PromptCount),
+		BreakCount:      int(info.BreakCount),
 	}
 }
