@@ -22,6 +22,8 @@ export interface SingleAgentDetails {
   latestPrompts: AgentPrompt[]
   systemPrompt: string
   creator: string
+  drainAmount: string
+  isDrained: boolean
 }
 
 export type AgentFromIndexer = {
@@ -42,6 +44,7 @@ export type AgentFromIndexer = {
     is_success: boolean
     drained_to: string
   }>
+  drain_amount: string
 }
 interface AgentSearchResponse {
   agents: Array<AgentFromIndexer>
@@ -113,6 +116,8 @@ export const useAgent = (agentName: string) => {
         })),
         systemPrompt: matchingAgent.system_prompt,
         creator: matchingAgent.creator,
+        isDrained: matchingAgent.is_drained,
+        drainAmount: matchingAgent.drain_amount,
       }
 
       setState({
