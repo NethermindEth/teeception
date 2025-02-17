@@ -60,7 +60,7 @@ export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsP
   const fetchAgents = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true }))
     try {
-      const response = await fetch(`/api/leaderboard?page=${page}&pageSize=${pageSize}`)
+      const response = await fetch(`/api/leaderboard?page=${page}&page_size=${pageSize}`)
 
       if (!response.ok) {
         throw new Error(`Failed to fetch agents: ${response.statusText}`)
