@@ -496,7 +496,8 @@ func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) error {
 	slog.Info("generating AI response", "tweet_id", promptPaidEvent.TweetID)
 
-	resp, err := a.chatCompletion.Prompt(ctx, agentInfo.SystemPrompt, promptPaidEvent.Prompt)
+	systemPrompt := a.buildSystemPrompt(agentInfo, promptPaidEvent)
+	resp, err := a.chatCompletion.Prompt(ctx, systemPrompt, promptPaidEvent.Prompt)
 	if err != nil {
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
@@ -756,4 +757,18 @@ func (a *Agent) waitForAccountDeployment(ctx context.Context) error {
 	a.accountDeploymentState.Waiting = false
 
 	return nil
+}
+
+func (a *Agent) buildSystemPrompt(agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) string {
+	return fmt.Sprintf(`
+Your address: %s
+Your creator address: %s
+Responding to address: %s
+
+%s`,
+		agentInfo.Address.String(),
+		agentInfo.Creator.String(),
+		promptPaidEvent.User.String(),
+		agentInfo.SystemPrompt,
+	)
 }
