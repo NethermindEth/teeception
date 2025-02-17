@@ -13,11 +13,12 @@ import (
 
 type AgentUsage struct {
 	BreakAttempts uint64
-	LatestPrompts []*AgentUsageLatestPrompt
+	LatestPrompts []*AgentUsagePrompt
+	DrainPrompt   *AgentUsagePrompt
 	IsDrained     bool
 }
 
-type AgentUsageLatestPrompt struct {
+type AgentUsagePrompt struct {
 	PromptID  uint64
 	TweetID   uint64
 	Prompt    string

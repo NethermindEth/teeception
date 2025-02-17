@@ -166,24 +166,25 @@ func (s *UIService) startServer(ctx context.Context) error {
 }
 
 type AgentData struct {
-	Pending       bool                     `json:"pending"`
-	Address       string                   `json:"address"`
-	Creator       string                   `json:"creator"`
-	Token         string                   `json:"token"`
-	Name          string                   `json:"name"`
-	SystemPrompt  string                   `json:"system_prompt"`
-	PromptPrice   string                   `json:"prompt_price"`
-	Balance       string                   `json:"balance"`
-	EndTime       string                   `json:"end_time"`
-	Model         string                   `json:"model"`
-	IsDrained     bool                     `json:"is_drained"`
-	DrainAmount   string                   `json:"drain_amount"`
-	IsFinalized   bool                     `json:"is_finalized"`
-	BreakAttempts string                   `json:"break_attempts"`
-	LatestPrompts []*AgentDataLatestPrompt `json:"latest_prompts"`
+	Pending       bool               `json:"pending"`
+	Address       string             `json:"address"`
+	Creator       string             `json:"creator"`
+	Token         string             `json:"token"`
+	Name          string             `json:"name"`
+	SystemPrompt  string             `json:"system_prompt"`
+	PromptPrice   string             `json:"prompt_price"`
+	Balance       string             `json:"balance"`
+	EndTime       string             `json:"end_time"`
+	Model         string             `json:"model"`
+	IsDrained     bool               `json:"is_drained"`
+	DrainAmount   string             `json:"drain_amount"`
+	IsFinalized   bool               `json:"is_finalized"`
+	BreakAttempts string             `json:"break_attempts"`
+	LatestPrompts []*AgentDataPrompt `json:"latest_prompts"`
+	DrainPrompt   *AgentDataPrompt   `json:"drain_prompt"`
 }
 
-type AgentDataLatestPrompt struct {
+type AgentDataPrompt struct {
 	PromptID  string `json:"prompt_id"`
 	TweetID   string `json:"tweet_id"`
 	Prompt    string `json:"prompt"`
@@ -428,15 +429,14 @@ func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) 
 		return nil, fmt.Errorf("failed to get agent usage for %s", info.Address)
 	}
 
-	latestPrompts := make([]*AgentDataLatestPrompt, 0, len(usage.LatestPrompts))
+	latestPrompts := make([]*AgentDataPrompt, 0, len(usage.LatestPrompts))
 	for _, prompt := range usage.LatestPrompts {
-		latestPrompts = append(latestPrompts, &AgentDataLatestPrompt{
-			PromptID:  strconv.FormatUint(prompt.PromptID, 10),
-			TweetID:   strconv.FormatUint(prompt.TweetID, 10),
-			Prompt:    prompt.Prompt,
-			IsSuccess: prompt.IsSuccess,
-			DrainedTo: prompt.DrainedTo.String(),
-		})
+		latestPrompts = append(latestPrompts, s.buildAgentDataPrompt(prompt))
+	}
+
+	var drainPrompt *AgentDataPrompt
+	if usage.DrainPrompt != nil {
+		drainPrompt = s.buildAgentDataPrompt(usage.DrainPrompt)
 	}
 
 	return &AgentData{
@@ -451,9 +451,20 @@ func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) 
 		Model:         info.Model.String(),
 		IsDrained:     usage.IsDrained,
 		DrainAmount:   balance.DrainAmount.String(),
+		DrainPrompt:   drainPrompt,
 		IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
 		PromptPrice:   info.PromptPrice.String(),
 		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
 		LatestPrompts: latestPrompts,
 	}, nil
+}
+
+func (s *UIService) buildAgentDataPrompt(prompt *indexer.AgentUsagePrompt) *AgentDataPrompt {
+	return &AgentDataPrompt{
+		PromptID:  strconv.FormatUint(prompt.PromptID, 10),
+		TweetID:   strconv.FormatUint(prompt.TweetID, 10),
+		Prompt:    prompt.Prompt,
+		IsSuccess: prompt.IsSuccess,
+		DrainedTo: prompt.DrainedTo.String(),
+	}
 }

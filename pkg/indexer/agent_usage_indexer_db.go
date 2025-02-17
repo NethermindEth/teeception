@@ -146,18 +146,22 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptConsumedData(addr [32]by
 		db.promptCache.Remove(promptCacheKey)
 	}
 
-	if succeeded {
-		usage.IsDrained = true
-		db.totalUsage.TotalSuccesses++
-	}
-
-	usage.LatestPrompts = append(usage.LatestPrompts, &AgentUsageLatestPrompt{
+	prompt := &AgentUsagePrompt{
 		PromptID:  promptConsumedEvent.PromptID,
 		TweetID:   promptCacheData.TweetID,
 		Prompt:    promptCacheData.Prompt,
 		IsSuccess: succeeded,
 		DrainedTo: drainAddress,
-	})
+	}
+
+	if succeeded {
+		usage.IsDrained = true
+		usage.DrainPrompt = prompt
+
+		db.totalUsage.TotalSuccesses++
+	}
+
+	usage.LatestPrompts = append(usage.LatestPrompts, prompt)
 	if uint64(len(usage.LatestPrompts)) > db.maxPrompts {
 		usage.LatestPrompts = usage.LatestPrompts[1:]
 	}
@@ -188,7 +192,8 @@ func (db *AgentUsageIndexerDatabaseInMemory) getOrCreateAgentUsage(addr [32]byte
 	if !ok {
 		usage = &AgentUsage{
 			BreakAttempts: 0,
-			LatestPrompts: make([]*AgentUsageLatestPrompt, 0, db.maxPrompts+1),
+			LatestPrompts: make([]*AgentUsagePrompt, 0, db.maxPrompts+1),
+			DrainPrompt:   nil,
 			IsDrained:     false,
 		}
 	}
