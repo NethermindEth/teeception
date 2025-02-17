@@ -558,7 +558,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			}
 
 			slog.Info("replying as drained to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "drain_to", resp.Drain.Address)
-			reply := fmt.Sprintf("Drained %s to %s. Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", agentInfo.Address, resp.Drain.Address, txHash)
+			reply := fmt.Sprintf(":%s: Drained %s to %s. Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", agentInfo.Name, agentInfo.Address, resp.Drain.Address, txHash)
 			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
 			if err != nil {
 				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
@@ -572,10 +572,12 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			reply = resp.Response
 		}
 
-		slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
-		err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", agentInfo.Name, reply))
-		if err != nil {
-			slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
+		if strings.TrimSpace(reply) != "" {
+			slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
+			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", agentInfo.Name, reply))
+			if err != nil {
+				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
+			}
 		}
 	}
 
