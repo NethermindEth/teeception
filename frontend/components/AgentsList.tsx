@@ -60,6 +60,7 @@ export const AgentsList = ({
               {agents.map((agent, idx) => {
                 const promptPrice = divideFloatStrings(agent.promptPrice, agent.decimal)
                 const prizePool = divideFloatStrings(agent.balance, agent.decimal)
+                const drainAmount = divideFloatStrings(agent.drainAmount, agent.decimal)
                 return (
                   <div
                     className="bg-[#2E40494D] backdrop-blur-xl p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
@@ -82,7 +83,9 @@ export const AgentsList = ({
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
                           <p className="text-gray-400 text-xs">Reward</p>
-                          <p>{`${prizePool} ${agent.symbol}`.trim()}</p>
+                          <p>
+                            {`${agent.isDrained ? prizePool : drainAmount} ${agent.symbol}`.trim()}
+                          </p>
                         </div>
                         <div>
                           <p className="text-gray-400 text-xs">Message price</p>

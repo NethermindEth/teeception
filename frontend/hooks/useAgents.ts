@@ -21,6 +21,8 @@ export interface AgentDetails {
     drainedTo: string
   }>
   isFinalized: boolean
+  drainAmount: string
+  isDrained: boolean
 }
 
 export interface UseAgentsProps {
@@ -89,6 +91,8 @@ export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsP
             drainedTo: prompt.drained_to,
           })),
           isFinalized: agent.is_finalized,
+          isDrained: agent.is_drained,
+          drainAmount: agent.drain_amount,
         }
       })
 
