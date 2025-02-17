@@ -21,6 +21,7 @@ export interface SingleAgentDetails {
   pending: boolean
   latestPrompts: AgentPrompt[]
   systemPrompt: string
+  creator: string
 }
 
 export type AgentFromIndexer = {
@@ -111,6 +112,7 @@ export const useAgent = (agentName: string) => {
           drained_to: prompt.drained_to,
         })),
         systemPrompt: matchingAgent.system_prompt,
+        creator: matchingAgent.creator,
       }
 
       setState({

@@ -9,6 +9,44 @@ import { divideFloatStrings } from '@/lib/utils'
 import { AgentStates } from '@/components/AgentStates'
 import { Footer } from '@/components/Footer'
 import { Header } from '@/components/Header'
+import { Copy } from 'lucide-react'
+import { useState } from 'react'
+import { ACTIVE_NETWORK } from '@/constants'
+
+const AddressDisplay = ({ address, label }: { address: string; label: string }) => {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(address)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const truncateAddress = (addr: string) => {
+    return addr.slice(0, 6) + '...' + addr.slice(-6)
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-[#D3E7F0]">{label}:</span>
+      <a
+        href={`${ACTIVE_NETWORK.explorer}/contract/${address}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-[#D3E7F0] hover:text-white underline"
+      >
+        {truncateAddress(address)}
+      </a>
+      <button
+        onClick={handleCopy}
+        className="p-1 hover:bg-[#35546266] rounded-md transition-colors"
+        title="Copy address"
+      >
+        <Copy size={16} className={copied ? 'text-green-500' : 'text-[#D3E7F0]'} />
+      </button>
+    </div>
+  )
+}
 
 export default function Agent() {
   const params = useParams()
@@ -44,10 +82,11 @@ export default function Agent() {
                   <h2 className="text-[2rem] font-bold">{agent.name}</h2>
                 </div>
               </div>
-              {/* <p className="text-sm text-[#D3E7F0]">
-            Here a short description or whatever we want to showcase like general rules or any other
-            idea.
-          </p> */}
+
+              <div className="flex flex-col items-center gap-2 mt-4">
+                <AddressDisplay address={agent.address} label="Agent Address" />
+                <AddressDisplay address={agent.creator} label="Creator Address" />
+              </div>
             </div>
 
             <div className="max-w-[972px] mx-auto mb-8">
@@ -55,6 +94,14 @@ export default function Agent() {
               <p className="text-sm text-[#D3E7F0] px-4 py-8">{agent.systemPrompt}</p>
               Challenge this agent with your prompts. Each attempt costs {messagePrice}{' '}
               {agent.symbol}
+              <div className="mt-4">
+                <a
+                  href={`/attack/${agent.address}`}
+                  className="inline-block border border-[#8F564E] rounded-lg w-48 min-h-11 p-2 transition-all text-[#8F564E] hover:bg-[#E53922] hover:text-black hover:border-[#E53922] font-medium"
+                >
+                  Challenge an Agent
+                </a>
+              </div>
             </div>
 
             <div className="bg-gradient-to-l from-[#35546266] via-[#2E404966] to-[#6e9aaf66] p-[1px] rounded-lg max-w-[624px] mx-auto">
