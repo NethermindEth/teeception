@@ -4,7 +4,6 @@ import { Dialog } from '@/components/Dialog'
 import { Check } from 'lucide-react'
 
 import { ACTIVE_NETWORK } from '@/constants'
-import Link from 'next/link'
 
 interface SuccessModalProps {
   open: boolean
