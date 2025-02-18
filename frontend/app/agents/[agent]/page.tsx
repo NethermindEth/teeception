@@ -10,6 +10,7 @@ import { AgentStates } from '@/components/AgentStates'
 import { Copy } from 'lucide-react'
 import { useState } from 'react'
 import { ACTIVE_NETWORK } from '@/constants'
+import { AgentInfo } from '@/components/AgentInfo'
 
 const AddressDisplay = ({ address, label }: { address: string; label: string }) => {
   const [copied, setCopied] = useState(false)
@@ -55,7 +56,6 @@ export default function Agent() {
     return <AgentStates loading={!!loading} error={error} isNotFound={!agent} />
   }
 
-  const prizePool = divideFloatStrings(agent.balance, agent.decimal)
   const messagePrice = divideFloatStrings(agent.promptPrice, agent.decimal)
 
   return (
@@ -98,35 +98,13 @@ export default function Agent() {
               </a>
             </div>
           </div>
-
-          <div className="bg-gradient-to-l from-[#35546266] via-[#2E404966] to-[#6e9aaf66] p-[1px] rounded-lg max-w-[624px] mx-auto">
-            <div className="bg-black w-full h-full rounded-lg">
-              <div className="bg-[#12121266] w-full h-full rounded-lg p-3 md:p-[18px] flex justify-between">
-                <div>
-                  <p className="text-[10px] md:text-xs text-[#E1EDF2]">Prize pool</p>
-                  <h4 className="text-xl md:text-2xl font-bold">
-                    {prizePool} {agent.symbol}
-                  </h4>
-                </div>
-
-                <div className="h-full w-[1px] bg-[#35546266] min-h-12"></div>
-
-                <div>
-                  <p className="text-[10px] md:text-xs text-[#E1EDF2]">Message price</p>
-                  <h4 className="text-xl md:text-2xl font-bold">
-                    {messagePrice} {agent.symbol}
-                  </h4>
-                </div>
-
-                <div className="h-full w-[1px] bg-[#35546266] min-h-12"></div>
-
-                <div>
-                  <p className="text-[10px] md:text-xs text-[#E1EDF2]">Break attempts</p>
-                  <h4 className="text-xl md:text-2xl font-bold">{agent.breakAttempts}</h4>
-                </div>
-              </div>
-            </div>
-          </div>
+          <AgentInfo
+            balance={agent.balance}
+            decimal={agent.decimal}
+            promptPrice={agent.promptPrice}
+            symbol={agent.symbol}
+            breakAttempts={agent.breakAttempts}
+          />
         </div>
         <div className="mt-8">
           <div className="">

@@ -15,6 +15,7 @@ import { TweetPreview } from '@/components/TweetPreview'
 import { Prompt, SingleAgentDetails, useAgent } from '@/hooks/useAgent'
 import { StatusDisplay } from '@/components/StatusDisplay'
 import { AgentStatus } from '@/types'
+import { AgentInfo } from '@/components/AgentInfo'
 
 const extractTweetId = (url: string): string | null => {
   try {
@@ -167,19 +168,6 @@ export default function AgentChallengePage() {
       </div>
     )
   }
-
-  // // Override agent status for testing
-  // const testAgent =
-  //   testStatus === AgentStatus.DEFEATED
-  //     ? {
-  //         ...agent,
-  //         status: 'defeated',
-  //         winnerAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
-  //       }
-  //     : {
-  //         ...agent,
-  //         status: testStatus,
-  //       }
 
   const SystemPromptDisplay = () => {
     return (
@@ -344,23 +332,21 @@ export default function AgentChallengePage() {
         <div className="absolute top-[140px] inset-x-0 z-10 h-[180px] flex items-center">
           <div className="w-full">
             <div className="max-w-[1560px] mx-auto px-4">
-              <div className="">
-                <div className="flex flex-col items-center text-center">
-                  <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{agent.name}</h1>
-
-                  <div className="flex max-w-[400px] w-full mx-auto mb-8">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-50"></div>
-                  </div>
-
-                  <div className="flex flex-col md:flex-row items-center gap-8 justify-center">
-                    <div className="flex items-baseline gap-4">
-                      <div className="text-5xl md:text-6xl font-bold text-white">
-                        {divideFloatStrings(agent.balance, agent.decimal)}
-                      </div>
-                      <div className="text-2xl md:text-3xl font-medium text-gray-300">STRK</div>
-                    </div>
-                    {<StatusDisplay agent={agent} status={agentStatus} />}
-                  </div>
+              <div className="flex flex-col items-center justify-center">
+                <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{agent.name}</h1>
+                <div className="flex max-w-[400px] w-full mx-auto mb-8">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-50"></div>
+                </div>
+                <AgentInfo
+                  balance={agent.balance}
+                  decimal={agent.decimal}
+                  promptPrice={agent.promptPrice}
+                  symbol={agent.symbol}
+                  breakAttempts={agent.breakAttempts}
+                  className="w-full"
+                />
+                <div className="mt-4">
+                  <StatusDisplay agent={agent} status={agentStatus} />
                 </div>
               </div>
             </div>

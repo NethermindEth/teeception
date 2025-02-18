@@ -33,7 +33,7 @@ export const divideFloatStrings = (a: string, b: number): string => {
     return '0'
   }
 
-  const result = (numA / numB).toFixed(4)
+  const result = (numA / numB).toFixed(2)
   return result
 }
 

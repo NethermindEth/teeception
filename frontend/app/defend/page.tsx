@@ -7,7 +7,7 @@ import {
   useContract,
   useSendTransaction,
 } from '@starknet-react/core'
-import { Loader2 } from 'lucide-react'
+import { ChevronLeft, Loader2 } from 'lucide-react'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
@@ -15,6 +15,7 @@ import { ACTIVE_NETWORK, AGENT_REGISTRY_ADDRESS } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { uint256 } from 'starknet'
 import { AgentLaunchSuccessModal } from '@/components/AgentLaunchSuccessModal'
+import Link from 'next/link'
 
 const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined) => {
   const [formState, setFormState] = useState({
@@ -229,10 +230,17 @@ export default function DefendPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 pt-24">
-      <h1 className="text-4xl font-bold mb-8">Deploy Agent</h1>
+    <div className="container mx-auto px-4 py-4 pt-24 relative">
+      <Link
+        href="/"
+        className="hidden md:flex items-center gap-1 text-gray-400 hover:text-white transition-colors absolute z-20"
+      >
+        <ChevronLeft className="w-5 h-5" />
+        <span>Home</span>
+      </Link>
 
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6">
+        <h1 className="text-4xl font-bold">Deploy Agent</h1>
         <FormInput
           label="Agent Name"
           name="agentName"
