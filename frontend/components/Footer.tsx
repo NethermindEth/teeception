@@ -32,7 +32,7 @@ export const Footer = () => {
               target="_blank"
               className="hover:opacity-80 transition-opacity"
             >
-              <Image src="/icons/starknet.svg" width={76} height={17} alt="starknet" />
+              <Image src="/icons/starknet.svg" width={95} height={21} alt="starknet" />
             </Link>
             <span className="text-[#B8B8B8] text-lg hidden md:inline">×</span>
             <Link

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 interface CountdownTimerProps {
   endTime: number
   size?: 'sm' | 'md' | 'lg'
-  isFinalized: boolean
   className?: string
 }
 
@@ -18,7 +17,6 @@ interface TimeLeft {
 const CountdownTimer: React.FC<CountdownTimerProps> = ({
   endTime,
   size = 'md',
-  isFinalized = false,
   className = '',
 }) => {
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(null)
@@ -81,23 +79,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
     return () => clearInterval(timer)
   }, [endTime])
 
-  if (!isActive || isFinalized) {
-    return (
-      <div
-        className={cn(
-          `inline-flex items-centerrounded-full ${sizeClasses[size].container}`,
-          className
-        )}
-      >
-        <div className={`${sizeClasses[size].dot} bg-[#FF4444] rounded-full`} />
-        <span className={`${sizeClasses[size].dotSpacing} text-[#FF4444]`}>
-          {!isActive ? 'Inactive' : 'Finalized'}
-        </span>
-      </div>
-    )
-  }
-
-  if (!timeLeft) {
+  if (!timeLeft || !isActive) {
     return null
   }
 

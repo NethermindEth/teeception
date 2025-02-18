@@ -15,7 +15,6 @@ export const StatusDisplay = ({
         <div className="text-3xl font-bold text-white min-w-[240px] text-center">
           <CountdownTimer
             endTime={Number(agent.endTime)}
-            isFinalized={agent.isFinalized}
             className="bg-transparent"
             size="lg"
           />

@@ -6,13 +6,13 @@ import { useAccount, useContract, useSendTransaction } from '@starknet-react/cor
 import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { divideFloatStrings } from '@/lib/utils'
+import { divideFloatStrings, getAgentStatus } from '@/lib/utils'
 import { X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { TweetPreview } from '@/components/TweetPreview'
-import { Prompt, SingleAgentDetails, useAgent } from '@/hooks/useAgent'
+import { Prompt, useAgent } from '@/hooks/useAgent'
 import { StatusDisplay } from '@/components/StatusDisplay'
 import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
@@ -58,16 +58,6 @@ const extractTweetId = (url: string): string | null => {
   return null
 }
 
-const getAgentStatus = (agent: SingleAgentDetails | null): AgentStatus => {
-  if (agent?.isDrained) {
-    return AgentStatus.DEFEATED
-  }
-  if (agent?.isFinalized) {
-    return AgentStatus.UNDEFEATED
-  }
-  return AgentStatus.ACTIVE
-}
-
 export default function AgentChallengePage() {
   const params = useParams()
 
@@ -90,7 +80,9 @@ export default function AgentChallengePage() {
   } | null>(null)
   const [tweetUrl, setTweetUrl] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [agentStatus, setAgentStatus] = useState<AgentStatus>(() => getAgentStatus(agent))
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>(() =>
+    getAgentStatus({ isDrained: agent?.isDrained, isFinalized: agent?.isFinalized })
+  )
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
@@ -101,7 +93,7 @@ export default function AgentChallengePage() {
   }, [])
 
   useEffect(() => {
-    const status = getAgentStatus(agent)
+    const status = getAgentStatus({ isDrained: agent?.isDrained, isFinalized: agent?.isFinalized })
     setAgentStatus(status)
   }, [agent])
 

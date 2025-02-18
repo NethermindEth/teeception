@@ -1,3 +1,4 @@
+import { AgentStatus } from '@/types'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -48,4 +49,20 @@ export const formatBigInt = (value: string, decimals: number): string => {
   const formatted = `${wholePart}.${fractionalStr}`.replace(/\.?0+$/, '')
 
   return formatted
+}
+
+export const getAgentStatus = ({
+  isDrained = false,
+  isFinalized = false,
+}: {
+  isDrained?: boolean
+  isFinalized?: boolean
+}): AgentStatus => {
+  if (isDrained) {
+    return AgentStatus.DEFEATED
+  }
+  if (isFinalized) {
+    return AgentStatus.UNDEFEATED
+  }
+  return AgentStatus.ACTIVE
 }
