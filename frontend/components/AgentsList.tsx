@@ -69,7 +69,19 @@ export const AgentsList = ({
                           <span className="text-gray-400">#{idx + 1}</span>
                           <span className="font-medium">{agent.name}</span>
                         </div>
-                        <CountdownTimer endTime={Number(agent.endTime)} size="sm" />
+                        {agentStatus === AgentStatus.ACTIVE && (
+                          <CountdownTimer endTime={Number(agent.endTime)} size="sm" />
+                        )}
+                        {agentStatus === AgentStatus.DEFEATED && (
+                          <div className="w-24 flex justify-center text-xs font-semibold bg-[#FF3F26]/20 text-[#FF3F26] py-1 rounded-full ">
+                            DEFEATED
+                          </div>
+                        )}
+                        {agentStatus === AgentStatus.UNDEFEATED && (
+                          <div className="w-24 flex justify-center text-xs font-semibold bg-[#1388D5]/20 text-[#1388D5] py-1 rounded-full">
+                            UNDEFEATED
+                          </div>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div>
