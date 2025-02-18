@@ -196,6 +196,7 @@ type AgentData struct {
 	IsDrained     bool               `json:"is_drained"`
 	DrainAmount   string             `json:"drain_amount"`
 	IsFinalized   bool               `json:"is_finalized"`
+	IsWithdrawn   bool               `json:"is_withdrawn"`
 	BreakAttempts string             `json:"break_attempts"`
 	LatestPrompts []*AgentDataPrompt `json:"latest_prompts"`
 	DrainPrompt   *AgentDataPrompt   `json:"drain_prompt"`
@@ -546,6 +547,7 @@ func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) 
 		DrainAmount:   balance.DrainAmount.String(),
 		DrainPrompt:   drainPrompt,
 		IsFinalized:   time.Now().After(time.Unix(int64(balance.EndTime), 0)) || usage.IsDrained,
+		IsWithdrawn:   usage.IsWithdrawn,
 		PromptPrice:   info.PromptPrice.String(),
 		BreakAttempts: strconv.FormatUint(usage.BreakAttempts, 10),
 		LatestPrompts: latestPrompts,

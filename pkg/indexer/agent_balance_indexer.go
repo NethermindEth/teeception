@@ -80,7 +80,7 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
-	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventTransfer|EventPromptConsumed, eventCh)
+	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventTransfer|EventDrained|EventWithdrawn, eventCh)
 
 	return &AgentBalanceIndexer{
 		client:          config.Client,
@@ -125,8 +125,10 @@ func (i *AgentBalanceIndexer) run(ctx context.Context) error {
 					i.onTransferEvent(ctx, ev)
 				} else if ev.Type == EventAgentRegistered {
 					i.onAgentRegisteredEvent(ctx, ev)
-				} else if ev.Type == EventPromptConsumed {
-					i.onPromptConsumedEvent(ctx, ev)
+				} else if ev.Type == EventDrained {
+					i.onDrainedEvent(ctx, ev)
+				} else if ev.Type == EventWithdrawn {
+					i.onWithdrawnEvent(ctx, ev)
 				}
 			}
 		case <-ctx.Done():
@@ -168,8 +170,8 @@ func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Ev
 	i.enqueueBalanceUpdate(agentRegisteredEvent.Agent)
 }
 
-func (i *AgentBalanceIndexer) onPromptConsumedEvent(ctx context.Context, ev *Event) {
-	promptConsumedEvent, ok := ev.ToPromptConsumedEvent()
+func (i *AgentBalanceIndexer) onDrainedEvent(ctx context.Context, ev *Event) {
+	drainedEvent, ok := ev.ToDrainedEvent()
 	if !ok {
 		return
 	}
@@ -177,18 +179,36 @@ func (i *AgentBalanceIndexer) onPromptConsumedEvent(ctx context.Context, ev *Eve
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	addrBytes := ev.Raw.FromAddress.Bytes()
+	addrBytes := drainedEvent.To.Bytes()
 	agentBalance, ok := i.db.GetAgentBalance(addrBytes)
 	if !ok {
-		slog.Warn("prompt consumed event for non-existent agent", "agent", ev.Raw.FromAddress.String())
+		slog.Warn("drained event for non-existent agent", "agent", drainedEvent.To.String())
 		return
 	}
 
-	agentBalance.DrainAmount = agentBalance.DrainAmount.Add(agentBalance.DrainAmount, promptConsumedEvent.Amount)
+	agentBalance.IsDrained = true
+	agentBalance.DrainAmount = agentBalance.DrainAmount.Add(agentBalance.DrainAmount, drainedEvent.Amount)
 
-	if promptConsumedEvent.DrainedTo.Cmp(ev.Raw.FromAddress) != 0 {
-		agentBalance.IsDrained = true
+	i.db.SetAgentBalance(addrBytes, agentBalance)
+}
+
+func (i *AgentBalanceIndexer) onWithdrawnEvent(ctx context.Context, ev *Event) {
+	withdrawnEvent, ok := ev.ToWithdrawnEvent()
+	if !ok {
+		return
 	}
+
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	addrBytes := withdrawnEvent.To.Bytes()
+	agentBalance, ok := i.db.GetAgentBalance(addrBytes)
+	if !ok {
+		slog.Warn("withdrawn event for non-existent agent", "agent", withdrawnEvent.To.String())
+		return
+	}
+
+	agentBalance.DrainAmount = agentBalance.DrainAmount.Add(agentBalance.DrainAmount, withdrawnEvent.Amount)
 
 	i.db.SetAgentBalance(addrBytes, agentBalance)
 }

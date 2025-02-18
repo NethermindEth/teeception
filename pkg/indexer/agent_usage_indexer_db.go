@@ -23,6 +23,7 @@ type AgentUsageIndexerDatabaseWriter interface {
 	StoreAgent(addr [32]byte)
 	StorePromptPaidData(addr [32]byte, ev *PromptPaidEvent)
 	StorePromptConsumedData(addr [32]byte, ev *PromptConsumedEvent)
+	StoreWithdrawnData(addr [32]byte, ev *WithdrawnEvent)
 	SetLastIndexedBlock(block uint64)
 }
 
@@ -166,6 +167,16 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptConsumedData(addr [32]by
 		usage.LatestPrompts = usage.LatestPrompts[1:]
 	}
 
+	db.usages[addr] = usage
+}
+
+func (db *AgentUsageIndexerDatabaseInMemory) StoreWithdrawnData(addr [32]byte, withdrawnEvent *WithdrawnEvent) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	usage := db.getOrCreateAgentUsage(addr)
+
+	usage.IsWithdrawn = true
 	db.usages[addr] = usage
 }
 

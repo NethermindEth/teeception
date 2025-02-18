@@ -124,7 +124,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 	var twitterPassword string
 	var protonPassword string
 
-	if !debug.IsDebugDisableEncumbering() {
+	if !envGetDisableEncumbering() {
 		return nil, fmt.Errorf("encumbering currently disabled")
 
 		// protonEncumberer := proton.NewProtonEncumberer(proton.ProtonEncumbererCredentials{

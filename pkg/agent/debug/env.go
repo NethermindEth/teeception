@@ -8,7 +8,6 @@ const (
 	DebugShowPasswordKey                = "DEBUG_SHOW_PASSWORD"
 	DebugDisableRepliesKey              = "DEBUG_DISABLE_REPLIES"
 	DebugDisableTweetValidationKey      = "DEBUG_DISABLE_TWEET_VALIDATION"
-	DebugDisableEncumberingKey          = "DEBUG_DISABLE_ENCUMBERING"
 	DebugDisableConsumptionKey          = "DEBUG_DISABLE_CONSUMPTION"
 	DebugDisableWaitingForDeploymentKey = "DEBUG_DISABLE_WAITING_FOR_DEPLOYMENT"
 )
@@ -31,10 +30,6 @@ func isDebugDisableRepliesSet() bool {
 
 func isDebugDisableTweetValidationSet() bool {
 	return os.Getenv(DebugDisableTweetValidationKey) == "true"
-}
-
-func isDebugDisableEncumberingSet() bool {
-	return os.Getenv(DebugDisableEncumberingKey) == "true"
 }
 
 func isDebugDisableConsumptionSet() bool {

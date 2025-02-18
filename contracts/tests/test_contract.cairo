@@ -417,6 +417,8 @@ fn test_authorized_token_transfer() {
         / agent.BPS_DENOMINATOR().into();
     let expected_recipient_amount = initial_agent_balance - creator_fee - protocol_fee;
 
+    let mut spy = spy_events();
+
     // Consume prompt through TEE
     start_cheat_caller_address(setup.registry.contract_address, setup.tee);
     setup.registry.consume_prompt(agent_address, prompt_id, recipient);
@@ -428,6 +430,23 @@ fn test_authorized_token_transfer() {
         setup.token.balance_of(recipient) == initial_recipient_balance + expected_recipient_amount,
         'Recipient wrong balance',
     );
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    agent_address,
+                    Agent::Event::Drained(
+                        Agent::Drained {
+                            prompt_id: prompt_id,
+                            user: user,
+                            to: recipient,
+                            amount: expected_recipient_amount,
+                        },
+                    ),
+                ),
+            ],
+        );
 }
 
 #[test]
@@ -757,6 +776,8 @@ fn test_unauthorized_consumption() {
 fn test_withdraw() {
     let setup = setup();
 
+    let mut spy = spy_events();
+
     start_cheat_caller_address(setup.registry.contract_address, setup.creator);
     let agent_address = setup
         .registry
@@ -809,6 +830,19 @@ fn test_withdraw() {
         'Creator wrong balance',
     );
     assert(agent.get_is_drained(), 'Should be drained');
+
+    // Verify Withdrawn event
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    agent_address,
+                    Agent::Event::Withdrawn(
+                        Agent::Withdrawn { to: setup.creator, amount: pool_prize },
+                    ),
+                ),
+            ],
+        );
 
     stop_cheat_block_timestamp_global();
 }

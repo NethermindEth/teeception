@@ -23,6 +23,8 @@ const (
 	EventAgentRegistered EventType = 1 << iota
 	EventPromptPaid
 	EventPromptConsumed
+	EventDrained
+	EventWithdrawn
 	EventTransfer
 	EventTokenAdded
 	EventTokenRemoved
@@ -45,6 +47,8 @@ var (
 		{agentRegisteredSelectorBytes, EventAgentRegistered},
 		{promptPaidSelectorBytes, EventPromptPaid},
 		{promptConsumedSelectorBytes, EventPromptConsumed},
+		{drainedSelectorBytes, EventDrained},
+		{withdrawnSelectorBytes, EventWithdrawn},
 		{transferSelectorBytes, EventTransfer},
 		{tokenAddedSelectorBytes, EventTokenAdded},
 		{tokenRemovedSelectorBytes, EventTokenRemoved},
@@ -55,6 +59,8 @@ var (
 		agentRegisteredSelector,
 		promptPaidSelector,
 		promptConsumedSelector,
+		drainedSelector,
+		withdrawnSelector,
 		transferSelector,
 		tokenAddedSelector,
 		tokenRemovedSelector,
@@ -257,6 +263,90 @@ func (e *Event) ToPromptConsumedEvent() (*PromptConsumedEvent, bool) {
 		CreatorFee:  creatorFee,
 		ProtocolFee: protocolFee,
 		DrainedTo:   drainedTo,
+	}, true
+}
+
+type DrainedEvent struct {
+	PromptID uint64
+	User     *felt.Felt
+	To       *felt.Felt
+	Amount   *big.Int
+}
+
+const (
+	DrainedEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeUint64 +
+		MinimumSizeFelt252 +
+		MinimumSizeFelt252
+
+	DrainedEventDataMinimumSize = 0 +
+		MinimumSizeUint256
+)
+
+func (e *Event) ToDrainedEvent() (*DrainedEvent, bool) {
+	if e.Type != EventDrained {
+		return nil, false
+	}
+
+	if len(e.Raw.Keys) < DrainedEventKeysMinimumSize {
+		slog.Warn("invalid drained event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
+	if len(e.Raw.Data) < DrainedEventDataMinimumSize {
+		slog.Warn("invalid drained event", "data", e.Raw.Data)
+		return nil, false
+	}
+
+	promptID := e.Raw.Keys[1].Uint64()
+	user := e.Raw.Keys[2]
+	to := e.Raw.Keys[3]
+	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+
+	return &DrainedEvent{
+		PromptID: promptID,
+		User:     user,
+		To:       to,
+		Amount:   amount,
+	}, true
+}
+
+type WithdrawnEvent struct {
+	To     *felt.Felt
+	Amount *big.Int
+}
+
+const (
+	WithdrawnEventKeysMinimumSize = 0 +
+		MinimumSizeSelector +
+		MinimumSizeFelt252
+
+	WithdrawnEventDataMinimumSize = 0 +
+		MinimumSizeUint256
+)
+
+func (e *Event) ToWithdrawnEvent() (*WithdrawnEvent, bool) {
+	if e.Type != EventWithdrawn {
+		return nil, false
+	}
+
+	if len(e.Raw.Keys) < WithdrawnEventKeysMinimumSize {
+		slog.Warn("invalid withdrawn event", "keys", e.Raw.Keys)
+		return nil, false
+	}
+
+	if len(e.Raw.Data) < WithdrawnEventDataMinimumSize {
+		slog.Warn("invalid withdrawn event", "data", e.Raw.Data)
+		return nil, false
+	}
+
+	to := e.Raw.Keys[1]
+	amount := snaccount.Uint256ToBigInt([2]*felt.Felt(e.Raw.Data[0:2]))
+
+	return &WithdrawnEvent{
+		To:     to,
+		Amount: amount,
 	}, true
 }
 

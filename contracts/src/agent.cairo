@@ -223,6 +223,10 @@ pub mod Agent {
         PromptConsumed: PromptConsumed,
         /// @notice Emitted when a prompt is reclaimed
         PromptReclaimed: PromptReclaimed,
+        /// @notice Emitted when agent balance is drained
+        Drained: Drained,
+        /// @notice Emitted when tokens are withdrawn
+        Withdrawn: Withdrawn,
     }
 
     /// @notice Emitted when a prompt is paid for
@@ -255,7 +259,7 @@ pub mod Agent {
         pub creator_fee: u256,
         /// @notice Amount sent to protocol
         pub protocol_fee: u256,
-        /// @notice Address that received agent's share
+        /// @notice Address that consumed the prompt. Set to contract address if not drained.
         pub drained_to: ContractAddress,
     }
 
@@ -270,6 +274,34 @@ pub mod Agent {
         pub amount: u256,
         /// @notice Address that reclaimed
         pub reclaimer: ContractAddress,
+    }
+
+    /// @notice Emitted when agent balance is drained
+    /// @dev Contains details about the drain operation
+    #[derive(Drop, PartialEq, starknet::Event)]
+    pub struct Drained {
+        /// @notice Prompt ID that was consumed
+        #[key]
+        pub prompt_id: u64,
+        /// @notice Address that submttted the prompt
+        #[key]
+        pub user: ContractAddress,
+        /// @notice Address that received the drained funds
+        #[key]
+        pub to: ContractAddress,
+        /// @notice Amount that was drained
+        pub amount: u256,
+    }
+
+    /// @notice Emitted when tokens are withdrawn
+    /// @dev Contains details about the withdrawal
+    #[derive(Drop, PartialEq, starknet::Event)]
+    pub struct Withdrawn {
+        /// @notice Address that received the withdrawn funds
+        #[key]
+        pub to: ContractAddress,
+        /// @notice Amount that was withdrawn
+        pub amount: u256,
     }
 
     /// @notice Contract storage
@@ -466,7 +498,8 @@ pub mod Agent {
 
             self._assert_finalized();
 
-            self._drain(caller);
+            let drained_amount = self._drain(caller);
+            self.emit(Event::Withdrawn(Withdrawn { to: caller, amount: drained_amount }));
         }
 
         /// @inheritdoc IAgent
@@ -530,11 +563,13 @@ pub mod Agent {
             self._assert_caller_is_registry();
             self._assert_not_finalized();
 
-            if let PromptState::Submitted(_) = self
-                .prompt_states
-                .read(prompt_id) {} else {
-                    assert(false, 'Prompt not in SUBMITTED state');
-                }
+            let mut user = contract_address_const::<0>();
+
+            if let PromptState::Submitted((submitter, _)) = self.prompt_states.read(prompt_id) {
+                user = submitter;
+            } else {
+                assert(false, 'Prompt not in SUBMITTED state');
+            }
 
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let amount = self.prompt_price.read();
@@ -565,7 +600,14 @@ pub mod Agent {
             self._decrement_pending_pool(amount);
 
             if drain_to != get_contract_address() {
-                self._drain(drain_to);
+                let drained_amount = self._drain(drain_to);
+
+                self
+                    .emit(
+                        Event::Drained(
+                            Drained { user, prompt_id, to: drain_to, amount: drained_amount },
+                        ),
+                    );
             }
         }
 
@@ -602,13 +644,15 @@ pub mod Agent {
         /// @notice Drains all available tokens to specified address
         /// @param to Address to send tokens to
         /// @dev Updates is_drained flag and transfers prize pool
-        fn _drain(ref self: ContractState, to: ContractAddress) {
+        fn _drain(ref self: ContractState, to: ContractAddress) -> u256 {
             let token = IERC20Dispatcher { contract_address: self.token.read() };
             let prize_pool = self._get_prize_pool(token);
 
             self.is_drained.write(true);
 
             token.transfer(to, prize_pool);
+
+            prize_pool
         }
 
         /// @notice Calculates fee splits for a prompt payment

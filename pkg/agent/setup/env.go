@@ -25,6 +25,7 @@ const (
 	AgentRegistryDeploymentBlockKey = "CONTRACT_DEPLOYMENT_BLOCK"
 	OpenAiKeyKey                    = "OPENAI_API_KEY"
 	UnencumberEncryptionKeyKey      = "UNENCUMBER_ENCRYPTION_KEY"
+	DisableEncumberingKey           = "DISABLE_ENCUMBERING"
 )
 
 func envLookupSecureFile() (string, error) {
@@ -163,4 +164,12 @@ func envGetUnencumberEncryptionKey() [32]byte {
 
 	copy(keyBytes[:], decodedKey)
 	return keyBytes
+}
+
+func envGetDisableEncumbering() bool {
+	disable, ok := os.LookupEnv(DisableEncumberingKey)
+	if !ok {
+		slog.Warn(DisableEncumberingKey + " environment variable not set")
+	}
+	return disable == "true"
 }
