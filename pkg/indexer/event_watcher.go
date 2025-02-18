@@ -232,7 +232,8 @@ const (
 	PromptConsumedEventDataMinimumSize = 0 +
 		MinimumSizeUint256 +
 		MinimumSizeUint256 +
-		MinimumSizeUint256
+		MinimumSizeUint256 +
+		MinimumSizeFelt252
 )
 
 func (e *Event) ToPromptConsumedEvent() (*PromptConsumedEvent, bool) {
