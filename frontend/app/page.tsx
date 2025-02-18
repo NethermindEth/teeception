@@ -1,22 +1,16 @@
 'use client'
 
 import Image from 'next/image'
-import { Footer } from '@/components/Footer'
 import { Leaderboard } from '@/components/Leaderboard'
-// import Link from 'next/link'
-import { Header } from '@/components/Header'
 import { LandingPage } from '@/components/LandingPage'
 
 export default function Home() {
   return (
-    <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
+    <>
       <div className="min-h-screen flex flex-col justify-center">
-        <Header />
         <LandingPage />
       </div>
-
       <Leaderboard />
-
       <div className="md:py-20">
         <div
           className="px-4 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto mb-20 md:mb-0 hidden"
@@ -112,9 +106,7 @@ export default function Home() {
           <p className="text-4xl md:text-[48px] font-bold text-center uppercase mb-1">
             TEE TRUSTED EXECUTION ENVIROMENT
           </p>
-
           <h3 className="text-center mb-5">Unbreakable Security with Phala Network&apos;s TEE</h3>
-
           <div className="flex max-w-[800px] mx-auto">
             <div className="white-gradient-border"></div>
             <div className="white-gradient-border rotate-180"></div>
@@ -135,8 +127,7 @@ export default function Home() {
             <li>On-chain verifiability guarantees transparency for every interaction.</li>
           </ul>
         </div>
-        <Footer />
       </div>
-    </div>
+    </>
   )
 }

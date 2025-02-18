@@ -8,7 +8,6 @@ import {
   useSendTransaction,
 } from '@starknet-react/core'
 import { Loader2 } from 'lucide-react'
-import { Header } from '@/components/Header'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
@@ -221,129 +220,123 @@ export default function DefendPage() {
 
   if (!address) {
     return (
-      <>
-        <Header />
-        <ConnectPrompt
-          title="Welcome Defender"
-          subtitle="One step away from showing your skills"
-          theme="defender"
-        />
-      </>
+      <ConnectPrompt
+        title="Welcome Defender"
+        subtitle="One step away from showing your skills"
+        theme="defender"
+      />
     )
   }
 
   return (
-    <>
-      <Header />
-      <div className="container mx-auto px-4 py-8 pt-24">
-        <h1 className="text-4xl font-bold mb-8">Deploy Agent</h1>
+    <div className="container mx-auto px-4 py-8 pt-24">
+      <h1 className="text-4xl font-bold mb-8">Deploy Agent</h1>
 
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6">
-          <FormInput
-            label="Agent Name"
-            name="agentName"
-            value={formState.values.agentName}
+      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6">
+        <FormInput
+          label="Agent Name"
+          name="agentName"
+          value={formState.values.agentName}
+          onChange={handleChange}
+          error={formState.errors.agentName}
+          placeholder="Enter agent name"
+          required
+        />
+
+        <div>
+          <label className="block text-sm font-medium mb-2">System Prompt</label>
+          <textarea
+            name="systemPrompt"
+            value={formState.values.systemPrompt}
             onChange={handleChange}
-            error={formState.errors.agentName}
-            placeholder="Enter agent name"
+            className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3 min-h-[200px]"
+            placeholder="Enter system prompt..."
             required
           />
+          {formState.errors.systemPrompt && (
+            <p className="mt-1 text-sm text-red-500">{formState.errors.systemPrompt}</p>
+          )}
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">System Prompt</label>
-            <textarea
-              name="systemPrompt"
-              value={formState.values.systemPrompt}
-              onChange={handleChange}
-              className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3 min-h-[200px]"
-              placeholder="Enter system prompt..."
-              required
-            />
-            {formState.errors.systemPrompt && (
-              <p className="mt-1 text-sm text-red-500">{formState.errors.systemPrompt}</p>
+        <FormInput
+          label="Fee per Message (STRK)"
+          name="feePerMessage"
+          type="number"
+          value={formState.values.feePerMessage}
+          onChange={handleChange}
+          error={formState.errors.feePerMessage}
+          placeholder="0.00"
+          step="0.01"
+          min="0"
+          required
+        />
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium">Initial Balance (STRK)</label>
+            {tokenBalance && (
+              <span className="block text-sm text-white/40">
+                (Available Balance: {Number(tokenBalance?.formatted || 0).toFixed(2)} STRK)
+              </span>
             )}
           </div>
-
-          <FormInput
-            label="Fee per Message (STRK)"
-            name="feePerMessage"
+          <input
             type="number"
-            value={formState.values.feePerMessage}
+            name="initialBalance"
+            value={formState.values.initialBalance}
             onChange={handleChange}
-            error={formState.errors.feePerMessage}
+            className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
             placeholder="0.00"
             step="0.01"
             min="0"
             required
           />
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium">Initial Balance (STRK)</label>
-              {tokenBalance && (
-                <span className="block text-sm text-white/40">
-                  (Available Balance: {Number(tokenBalance?.formatted || 0).toFixed(2)} STRK)
-                </span>
-              )}
-            </div>
-            <input
-              type="number"
-              name="initialBalance"
-              value={formState.values.initialBalance}
-              onChange={handleChange}
-              className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              required
-            />
-            {formState.errors.initialBalance && (
-              <p className="mt-1 text-sm text-red-500">{formState.errors.initialBalance}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Duration (days)</label>
-            <select
-              name="duration"
-              value={formState.values.duration}
-              onChange={handleChange}
-              className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
-              required
-            >
-              <option value="1">1 Day</option>
-              <option value="7">1 Week</option>
-              <option value="14">2 Weeks</option>
-              <option value="30">1 Month</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            disabled={formState.isSubmitting}
-            className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {formState.isSubmitting ? (
-              <div className="flex items-center justify-center">
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Deploying...
-              </div>
-            ) : (
-              'Deploy Agent'
-            )}
-          </button>
-
-          {formState.errors.submit && (
-            <p className="mt-2 text-sm text-red-500 text-center">{formState.errors.submit}</p>
+          {formState.errors.initialBalance && (
+            <p className="mt-1 text-sm text-red-500">{formState.errors.initialBalance}</p>
           )}
-        </form>
-        <AgentLaunchSuccessModal
-          open={showSuccess}
-          transactionHash={formState.transactionHash!}
-          agentName={formState.values.agentName}
-          onClose={() => setShowSuccess(false)}
-        />
-      </div>
-    </>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-2">Duration (days)</label>
+          <select
+            name="duration"
+            value={formState.values.duration}
+            onChange={handleChange}
+            className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
+            required
+          >
+            <option value="1">1 Day</option>
+            <option value="7">1 Week</option>
+            <option value="14">2 Weeks</option>
+            <option value="30">1 Month</option>
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          disabled={formState.isSubmitting}
+          className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {formState.isSubmitting ? (
+            <div className="flex items-center justify-center">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              Deploying...
+            </div>
+          ) : (
+            'Deploy Agent'
+          )}
+        </button>
+
+        {formState.errors.submit && (
+          <p className="mt-2 text-sm text-red-500 text-center">{formState.errors.submit}</p>
+        )}
+      </form>
+      <AgentLaunchSuccessModal
+        open={showSuccess}
+        transactionHash={formState.transactionHash!}
+        agentName={formState.values.agentName}
+        onClose={() => setShowSuccess(false)}
+      />
+    </div>
   )
 }

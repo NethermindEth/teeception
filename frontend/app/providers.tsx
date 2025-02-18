@@ -9,6 +9,8 @@ import { AddFundsProvider } from '@/contexts/AddFundsContext'
 import { InjectedConnector } from 'starknetkit/injected'
 import { WebWalletConnector } from 'starknetkit/webwallet'
 import { ConnectWalletProvider } from '@/contexts/ConnectWalletContext'
+import { Header } from '@/components/Header'
+import { Footer } from '@/components/Footer'
 
 const policies = {
   contracts: {
@@ -53,7 +55,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
       explorer={voyager}
     >
       <AddFundsProvider>
-        <ConnectWalletProvider>{children}</ConnectWalletProvider>
+        <ConnectWalletProvider>
+          <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
+            <Header />
+            {children}
+            <Footer />
+          </div>
+        </ConnectWalletProvider>
       </AddFundsProvider>
     </StarknetConfig>
   )
