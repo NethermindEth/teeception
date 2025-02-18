@@ -28,10 +28,6 @@ func IsDebugDisableTweetValidation() bool {
 	return Debug && isDebugDisableTweetValidationSet()
 }
 
-func IsDebugDisableEncumbering() bool {
-	return Debug && isDebugDisableEncumberingSet()
-}
-
 func IsDebugDisableConsumption() bool {
 	return Debug && isDebugDisableConsumptionSet()
 }
