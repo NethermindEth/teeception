@@ -49,7 +49,7 @@ const AddressDisplay = ({ address, label }: { address: string; label: string }) 
 export default function Agent() {
   const params = useParams()
   const agentName = decodeURIComponent(params.agent as string)
-  const { agent, loading, error } = useAgent(agentName)
+  const { agent, loading, error } = useAgent({ fetchBy: 'name', value: agentName })
 
   if (loading || error || !agent) {
     return <AgentStates loading={!!loading} error={error} isNotFound={!agent} />

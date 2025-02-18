@@ -2,12 +2,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { debug } from '@/lib/debug'
 import { ACTIVE_NETWORK, DEFAULT_TOKEN_DECIMALS } from '@/constants'
 
-export interface AgentPrompt {
+export type Prompt = {
   prompt: string
   is_success: boolean
   drained_to: string
+  prompt_id: string
+  tweet_id: string
 }
-
 export interface SingleAgentDetails {
   address: string
   name: string
@@ -19,11 +20,13 @@ export interface SingleAgentDetails {
   symbol: string
   decimal: number
   pending: boolean
-  latestPrompts: AgentPrompt[]
+  latestPrompts: Prompt[]
   systemPrompt: string
   creator: string
   drainAmount: string
   isDrained: boolean
+  isFinalized: boolean
+  drainPrompt: Prompt | null
 }
 
 export type AgentFromIndexer = {
@@ -39,20 +42,17 @@ export type AgentFromIndexer = {
   is_finalized: boolean
   prompt_price: string
   break_attempts: string
-  latest_prompts: Array<{
-    prompt: string
-    is_success: boolean
-    drained_to: string
-  }>
+  latest_prompts: Array<Prompt>
   drain_amount: string
+  drain_prompt: Prompt | null
 }
-interface AgentSearchResponse {
-  agents: Array<AgentFromIndexer>
-  total: number
-  page: number
-  page_size: number
-  last_block: number
-}
+// interface AgentSearchResponse {
+//   agents: Array<AgentFromIndexer>
+//   total: number
+//   page: number
+//   page_size: number
+//   last_block: number
+// }
 
 export interface UseAgentState {
   agent: SingleAgentDetails | null
@@ -60,7 +60,7 @@ export interface UseAgentState {
   error: string | null
 }
 
-export const useAgent = (agentName: string) => {
+export const useAgent = ({ fetchBy, value }: { fetchBy: 'name' | 'address'; value: string }) => {
   const [state, setState] = useState<UseAgentState>({
     agent: null,
     loading: true,
@@ -68,29 +68,36 @@ export const useAgent = (agentName: string) => {
   })
 
   const fetchAgent = useCallback(async () => {
-    if (!agentName) {
+    if (!value) {
       setState((prev) => ({
         ...prev,
         loading: false,
-        error: 'Agent name is required',
+        error: 'Agent name or address is required',
       }))
       return
     }
 
     setState((prev) => ({ ...prev, loading: true }))
+    let response: Response | null = null
 
     try {
-      const encodedName = encodeURIComponent(agentName)
-      const response = await fetch(`/api/agent?name=${encodedName}`)
+      if (fetchBy === 'name') {
+        const encodedName = encodeURIComponent(value)
+        response = await fetch(`/api/agent?name=${encodedName}`)
+      } else {
+        response = await fetch(`/api/agent?address=${value}`)
+      }
 
       if (!response.ok) {
         throw new Error(`Failed to fetch agent: ${response.statusText}`)
       }
 
-      const data: AgentSearchResponse = await response.json()
+      const data = await response.json()
 
-      // Find the agent with matching name
-      const matchingAgent = data.agents.find((agent) => agent.name === agentName)
+      const matchingAgent: AgentFromIndexer | undefined =
+        fetchBy === 'name'
+          ? data.agents.find((agent: AgentFromIndexer) => agent.name === value)
+          : data
 
       if (!matchingAgent) {
         throw new Error('Agent not found')
@@ -109,15 +116,13 @@ export const useAgent = (agentName: string) => {
         symbol: token?.symbol || '',
         decimal: token?.decimals || DEFAULT_TOKEN_DECIMALS,
         pending: matchingAgent.pending,
-        latestPrompts: matchingAgent.latest_prompts.map((prompt) => ({
-          prompt: prompt.prompt,
-          is_success: prompt.is_success,
-          drained_to: prompt.drained_to,
-        })),
+        latestPrompts: matchingAgent.latest_prompts,
         systemPrompt: matchingAgent.system_prompt,
         creator: matchingAgent.creator,
         isDrained: matchingAgent.is_drained,
         drainAmount: matchingAgent.drain_amount,
+        isFinalized: matchingAgent.is_finalized,
+        drainPrompt: matchingAgent.drain_prompt,
       }
 
       setState({
@@ -133,7 +138,7 @@ export const useAgent = (agentName: string) => {
         error: err instanceof Error ? err.message : 'Failed to fetch agent details',
       }))
     }
-  }, [agentName])
+  }, [fetchBy, value])
 
   useEffect(() => {
     fetchAgent()

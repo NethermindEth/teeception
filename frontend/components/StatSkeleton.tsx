@@ -1,7 +1,7 @@
 import React from 'react'
 
 const StatSkeleton = () => {
-  const stats = ['Launched agents', 'Total break attempts', 'Successful Breaks', 'Average bounty']
+  const stats = ['Launched agents', 'Total break attempts', 'Successful Breaks', 'Total bounty']
 
   return (
     <div className="flex items-center justify-center gap-2 lg:gap-6 mt-4 lg:mt-6">

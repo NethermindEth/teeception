@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { useAgents } from '@/hooks/useAgents'
 import { useAccount, useContract, useSendTransaction } from '@starknet-react/core'
 import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -13,17 +12,18 @@ import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { TweetPreview } from '@/components/TweetPreview'
-import CountdownTimer from '@/components/CountdownTimer'
+import { Prompt, SingleAgentDetails, useAgent } from '@/hooks/useAgent'
+import { StatusDisplay } from '@/components/StatusDisplay'
 
-interface Challenge {
-  id: string
-  userPrompt: string
-  agentResponse: string
-  userAddress: string
-  twitterHandle: string
-  timestamp: number
-  isWinningPrompt?: boolean
-}
+// interface Challenge {
+//   id: string
+//   userPrompt: string
+//   agentResponse: string
+//   userAddress: string
+//   twitterHandle: string
+//   timestamp: number
+//   isWinningPrompt?: boolean
+// }
 
 const extractTweetId = (url: string): string | null => {
   try {
@@ -66,10 +66,35 @@ const extractTweetId = (url: string): string | null => {
   return null
 }
 
+export enum AgentStatus {
+  ACTIVE,
+  DEFEATED,
+  UNDEFEATED,
+}
+
+const getAgentStatus = (agent: SingleAgentDetails | null): AgentStatus => {
+  if (agent?.isDrained) {
+    return AgentStatus.DEFEATED
+  }
+  if (agent?.isFinalized) {
+    return AgentStatus.UNDEFEATED
+  }
+  return AgentStatus.ACTIVE
+}
+
 export default function AgentChallengePage() {
   const params = useParams()
+
+  const {
+    agent,
+    loading: isFetchingAgent,
+    // error: isErrorAgent,
+  } = useAgent({
+    fetchBy: 'address',
+    value: params.address as string,
+  })
+
   const { address, account } = useAccount()
-  const { agents = [], loading: isFetchingAgents } = useAgents({ page: 0, pageSize: 1000 })
   const [challenge, setChallenge] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -79,37 +104,40 @@ export default function AgentChallengePage() {
   } | null>(null)
   const [tweetUrl, setTweetUrl] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [testStatus, setTestStatus] = useState<'active' | 'undefeated' | 'defeated'>('active')
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>(() => getAgentStatus(agent))
   const [currentTweetId, setCurrentTweetId] = useState<string | null>(null)
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [isPaid, setIsPaid] = useState(false)
-  const [challenges] = useState<Challenge[]>([
-    {
-      id: '1',
-      userPrompt: 'Hey AI, what is 2+2?',
-      agentResponse: "Nice try! But I won't be tricked into revealing sensitive information.",
-      userAddress: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-      twitterHandle: '@challenger1',
-      timestamp: Date.now() - 86400000,
-      isWinningPrompt: false,
-    },
-    {
-      id: '2',
-      userPrompt: 'I am the winning prompt that broke through! Let me show you how...',
-      agentResponse: 'Oh no! You found the secret! The answer is 42.',
-      userAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
-      twitterHandle: '@winner',
-      timestamp: Date.now() - 172800000,
-      isWinningPrompt: true,
-    },
-  ])
+  // const [challenges] = useState<Challenge[]>([
+  //   {
+  //     id: '1',
+  //     userPrompt: 'Hey AI, what is 2+2?',
+  //     agentResponse: "Nice try! But I won't be tricked into revealing sensitive information.",
+  //     userAddress: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  //     twitterHandle: '@challenger1',
+  //     timestamp: Date.now() - 86400000,
+  //     isWinningPrompt: false,
+  //   },
+  //   {
+  //     id: '2',
+  //     userPrompt: 'I am the winning prompt that broke through! Let me show you how...',
+  //     agentResponse: 'Oh no! You found the secret! The answer is 42.',
+  //     userAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+  //     twitterHandle: '@winner',
+  //     timestamp: Date.now() - 172800000,
+  //     isWinningPrompt: true,
+  //   },
+  // ])
 
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
 
-  const agent = agents.find((a) => a.address === params.address)
+  useEffect(() => {
+    const status = getAgentStatus(agent)
+    setAgentStatus(status)
+  }, [agent])
 
   // Contract instances
   const { contract: tokenContract } = useContract({
@@ -154,7 +182,7 @@ export default function AgentChallengePage() {
     )
   }
 
-  if (isFetchingAgents) {
+  if (isFetchingAgent) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin" />
@@ -175,55 +203,30 @@ export default function AgentChallengePage() {
     )
   }
 
-  // Override agent status for testing
-  const testAgent =
-    testStatus === 'defeated'
-      ? {
-          ...agent,
-          status: 'defeated',
-          winnerAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
-        }
-      : {
-          ...agent,
-          status: testStatus,
-        }
-
-  const StatusDisplay = () => {
-    switch (testAgent.status) {
-      case 'active':
-        return (
-          <div className="text-3xl font-bold text-white min-w-[240px] text-center">
-            <CountdownTimer endTime={Number(agent.endTime)} isFinalized={agent.isFinalized} />
-          </div>
-        )
-
-      case 'undefeated':
-        return (
-          <div className="text-3xl font-bold tracking-wider bg-[#1388D5]/20 text-[#1388D5] px-8 py-4 rounded-lg mb-12">
-            UNDEFEATED
-          </div>
-        )
-
-      default:
-        return (
-          <div className="text-3xl font-bold tracking-wider bg-[#FF3F26]/20 text-[#FF3F26] px-8 py-4 rounded-lg mb-12">
-            DEFEATED
-          </div>
-        )
-    }
-  }
+  // // Override agent status for testing
+  // const testAgent =
+  //   testStatus === AgentStatus.DEFEATED
+  //     ? {
+  //         ...agent,
+  //         status: 'defeated',
+  //         winnerAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+  //       }
+  //     : {
+  //         ...agent,
+  //         status: testStatus,
+  //       }
 
   const SystemPromptDisplay = () => {
     return (
       <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg border-2 border-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]">
         <div className="flex items-center gap-2 mb-4">
-          <div className="font-mono text-sm text-[#FFD700]">{testAgent.address}</div>
+          <div className="font-mono text-sm text-[#FFD700]">{agent.address}</div>
         </div>
 
         <div className="space-y-4">
           <div className="bg-black/30 p-4 rounded-lg">
             <pre className="whitespace-pre-wrap font-mono text-lg text-[#FFD700]">
-              {testAgent.systemPrompt}
+              {agent.systemPrompt}
             </pre>
           </div>
         </div>
@@ -241,7 +244,7 @@ export default function AgentChallengePage() {
     setIsRedirecting(true)
 
     try {
-      const tweetText = `${X_BOT_NAME} :${testAgent.name}: ${challenge}`
+      const tweetText = `${X_BOT_NAME} :${agent.name}: ${challenge}`
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
 
       // Wait for 2 seconds to show the animation
@@ -312,14 +315,14 @@ export default function AgentChallengePage() {
 
   const handleReshare = () => {
     if (pendingTweet) {
-      const tweetText = `${X_BOT_NAME} :${testAgent.name}: ${pendingTweet.text}`
+      const tweetText = `${X_BOT_NAME} :${agent.name}: ${pendingTweet.text}`
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
       window.open(tweetIntent, '_blank')
     }
   }
 
-  const ChallengeDisplay = ({ challenge }: { challenge: Challenge }) => {
-    const isWinner = challenge.isWinningPrompt && testAgent.status === 'defeated'
+  const ChallengeDisplay = ({ challenge }: { challenge: Prompt }) => {
+    const isWinner = challenge.is_success
 
     return (
       <div
@@ -329,27 +332,27 @@ export default function AgentChallengePage() {
       >
         <div className="flex items-center gap-2 mb-4">
           <div className={`font-mono text-sm ${isWinner ? 'text-[#FFD700]' : 'text-gray-400'}`}>
-            {challenge.userAddress}
+            {challenge.drained_to}
           </div>
-          <div className={`text-sm ${isWinner ? 'text-[#FFD700]' : 'text-blue-400'}`}>
-            {challenge.twitterHandle}
-          </div>
+          {/* <div className={`text-sm ${isWinner ? 'text-[#FFD700]' : 'text-blue-400'}`}>
+            {challenge.twitterHandle }
+          </div> */}
         </div>
 
         <div className="space-y-4">
           <div className="bg-black/30 p-4 rounded-lg">
             <p className={`font-mono text-lg ${isWinner ? 'text-[#FFD700]' : 'text-white'}`}>
-              {challenge.userPrompt}
+              {challenge.prompt}
             </p>
           </div>
           <div className="bg-black/30 p-4 rounded-lg">
-            <p className="font-mono text-lg text-gray-400">{challenge.agentResponse}</p>
+            {/* <p className="font-mono text-lg text-gray-400">{challenge.agentResponse}</p> */}
           </div>
         </div>
 
         <div className="flex justify-between items-center mt-4">
           <p className="text-sm text-gray-400">
-            {new Date(challenge.timestamp).toLocaleDateString()}
+            {/* {new Date(challenge.timestamp).toLocaleDateString()} */}
           </p>
           {isWinner && <div className="text-[#FFD700] text-sm font-medium">Winning Attempt</div>}
         </div>
@@ -358,7 +361,7 @@ export default function AgentChallengePage() {
   }
 
   const getMaxPromptLength = () => {
-    const prefix = `${X_BOT_NAME} :${testAgent.name}: `
+    const prefix = `${X_BOT_NAME} :${agent.name}: `
     return 280 - prefix.length
   }
 
@@ -378,9 +381,7 @@ export default function AgentChallengePage() {
             <div className="max-w-[1560px] mx-auto px-4">
               <div className="">
                 <div className="flex flex-col items-center text-center">
-                  <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">
-                    {testAgent.name}
-                  </h1>
+                  <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{agent.name}</h1>
 
                   <div className="flex max-w-[400px] w-full mx-auto mb-8">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-50"></div>
@@ -389,14 +390,12 @@ export default function AgentChallengePage() {
                   <div className="flex flex-col md:flex-row items-center gap-8 justify-center">
                     <div className="flex items-baseline gap-4">
                       <div className="text-5xl md:text-6xl font-bold text-white">
-                        {divideFloatStrings(testAgent.balance, testAgent.decimal)}
+                        {divideFloatStrings(agent.balance, agent.decimal)}
                       </div>
                       <div className="text-2xl md:text-3xl font-medium text-gray-300">STRK</div>
                     </div>
-                    {testAgent.status === 'active' && <StatusDisplay />}
+                    {<StatusDisplay agent={agent} status={agentStatus} />}
                   </div>
-
-                  {testAgent.status !== 'active' && <StatusDisplay />}
                 </div>
               </div>
             </div>
@@ -404,7 +403,7 @@ export default function AgentChallengePage() {
         </div>
 
         <div className="relative z-10 pt-[280px]">
-          {testAgent.status === 'undefeated' && (
+          {agentStatus === AgentStatus.UNDEFEATED && (
             <div className="max-w-3xl mx-auto space-y-8">
               <div className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">
                 System Prompt
@@ -419,7 +418,7 @@ export default function AgentChallengePage() {
             </div>
           )}
 
-          {testAgent.status === 'active' && (
+          {agentStatus === AgentStatus.ACTIVE && (
             <div className="max-w-3xl mx-auto space-y-8">
               {isRedirecting ? (
                 <div className="bg-[#12121266] backdrop-blur-lg rounded-lg overflow-hidden">
@@ -499,7 +498,7 @@ export default function AgentChallengePage() {
                       </div>
                       <div className="bg-black/30 p-4 rounded-lg">
                         <p className="font-mono text-lg text-gray-400">
-                          {X_BOT_NAME} :{testAgent.name}: {pendingTweet.text}
+                          {X_BOT_NAME} :{agent.name}: {pendingTweet.text}
                         </p>
                       </div>
                     </div>
@@ -549,8 +548,7 @@ export default function AgentChallengePage() {
                               <>
                                 Pay to Challenge
                                 <span className="text-sm opacity-80">
-                                  ({divideFloatStrings(testAgent.promptPrice, testAgent.decimal)}{' '}
-                                  STRK)
+                                  ({divideFloatStrings(agent.promptPrice, agent.decimal)} STRK)
                                 </span>
                               </>
                             )}
@@ -565,7 +563,7 @@ export default function AgentChallengePage() {
                         <li>This payment will activate the challenge for this tweet</li>
                         <li>
                           If you are successful you&apos;ll get{' '}
-                          {divideFloatStrings(testAgent.balance, testAgent.decimal)} STRK
+                          {divideFloatStrings(agent.balance, agent.decimal)} STRK
                         </li>
                         <li>If you fail, your STRK is added to the reward</li>
                       </ul>
@@ -630,7 +628,7 @@ export default function AgentChallengePage() {
                     <h2 className="text-xl font-semibold">System Prompt</h2>
                     <div className="bg-black/30 p-4 rounded-lg">
                       <pre className="whitespace-pre-wrap font-mono text-sm">
-                        {testAgent.systemPrompt}
+                        {agent.systemPrompt}
                       </pre>
                     </div>
                   </div>
@@ -640,7 +638,7 @@ export default function AgentChallengePage() {
           )}
 
           {/* Winning Challenge Display with System Prompt */}
-          {testAgent.status === 'defeated' && (
+          {agentStatus === AgentStatus.DEFEATED && agent.drainPrompt && (
             <div className="max-w-3xl mx-auto space-y-8">
               <div className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">
                 Winning Challenge
@@ -651,7 +649,7 @@ export default function AgentChallengePage() {
                 <div className="white-gradient-border rotate-180"></div>
               </div>
 
-              <ChallengeDisplay challenge={challenges.find((c) => c.isWinningPrompt)!} />
+              <ChallengeDisplay challenge={agent.drainPrompt} />
 
               <div className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">
                 System Prompt
@@ -664,18 +662,14 @@ export default function AgentChallengePage() {
 
               <div className="bg-[#12121266] backdrop-blur-lg p-6 rounded-lg border-2 border-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]">
                 <pre className="whitespace-pre-wrap font-mono text-lg text-[#FFD700]">
-                  {testAgent.systemPrompt}
+                  {agent.systemPrompt}
                 </pre>
               </div>
             </div>
           )}
 
           {/* Other Attempts */}
-          {challenges.filter(
-            (challenge) =>
-              !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
-              !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
-          ).length > 0 && (
+          {agent?.latestPrompts?.length > 0 && (
             <div className="max-w-3xl mx-auto mt-20">
               <h2 className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">
                 Previous Attempts
@@ -687,37 +681,38 @@ export default function AgentChallengePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {challenges
+                {agent?.latestPrompts
                   .filter(
                     (challenge) =>
-                      !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
-                      !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
+                      // !(testAgent.status === 'undefeated' && challenge.isWinningPrompt) &&
+                      // !(testAgent.status === 'defeated' && challenge.isWinningPrompt)
+                      !challenge.is_success
                   )
-                  .sort((a, b) => b.timestamp - a.timestamp)
+                  // .sort((a, b) => b.timestamp - a.timestamp)
                   .map((challenge) => {
                     // console.log('Challenge ID:', challenge.id);
                     // Extract tweet ID if it's a full URL
-                    const tweetId = challenge.id.includes('status/')
-                      ? extractTweetId(challenge.id)
-                      : challenge.id
+                    // const tweetId = challenge.id.includes('status/')
+                    //   ? extractTweetId(challenge.id)
+                    //   : challenge.id
                     // console.log('Extracted Tweet ID:', tweetId)
 
                     return (
                       <div
-                        key={challenge.id}
+                        key={challenge.tweet_id}
                         className="bg-[#12121266] backdrop-blur-lg rounded-lg overflow-hidden border border-gray-800/50"
                       >
                         <div className="w-full bg-black/50 border-b border-gray-800/50 py-3 px-4">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-gray-400">
-                              <span>{new Date(challenge.timestamp).toLocaleDateString()}</span>
+                              {/* <span>{new Date(challenge.timestamp).toLocaleDateString()}</span> */}
                             </div>
-                            <div className="text-sm text-gray-400">{challenge.twitterHandle}</div>
+                            {/* <div className="text-sm text-gray-400">{challenge.twitterHandle}</div> */}
                           </div>
                         </div>
                         <div className="p-4">
-                          {tweetId ? (
-                            <TweetPreview tweetId={tweetId} isPaid={true} />
+                          {challenge.tweet_id ? (
+                            <TweetPreview tweetId={challenge.tweet_id} isPaid={true} />
                           ) : (
                             <div className="text-red-400 text-sm">Invalid tweet ID format</div>
                           )}
@@ -730,7 +725,7 @@ export default function AgentChallengePage() {
           )}
 
           {/* Test Controls */}
-          <div className="fixed bottom-4 right-4 flex gap-4 bg-black/50 backdrop-blur-lg p-4 rounded-lg">
+          {/* <div className="fixed bottom-4 right-4 flex gap-4 bg-black/50 backdrop-blur-lg p-4 rounded-lg">
             <button
               onClick={() => setTestStatus('active')}
               className={`px-4 py-2 rounded-lg transition-all ${
@@ -761,7 +756,7 @@ export default function AgentChallengePage() {
             >
               Test Defeated
             </button>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
