@@ -32,7 +32,7 @@ export const LandingPage = () => {
               <Image src="/icons/local_police.png" width={24} height={24} alt="local police icon" />
             </div>
             <div>
-              <p className="text-lg lg:text-[2rem] leading-normal font-medium">DEFENDER</p>
+              <p className="text-lg lg:text-[2rem] leading-normal font-medium">DEFEND</p>
             </div>
           </div>
 
@@ -75,7 +75,7 @@ export const LandingPage = () => {
             <div>
               <Image src="/icons/swords.png" width={24} height={24} alt="local police icon" />
             </div>
-            <p className="text-lg lg:text-[2rem] leading-normal font-medium">ATTACKER</p>
+            <p className="text-lg lg:text-[2rem] leading-normal font-medium">ATTACK</p>
           </div>
 
           <div className="flex max-w-[394px] mx-auto">
