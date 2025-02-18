@@ -1,16 +1,27 @@
 'use client'
 
 import Image from 'next/image'
-import { Leaderboard } from '@/components/Leaderboard'
+import { AgentListView } from '@/components/AgentListView'
 import { LandingPage } from '@/components/LandingPage'
+import { AgentDetails } from '@/hooks/useAgents'
+import { useRouter } from 'next/navigation'
+import { TEXT_COPIES } from '@/constants'
 
 export default function Home() {
+  const router = useRouter()
+  const onAgentClick = (agent: AgentDetails) => {
+    router.push(`/agents/${encodeURIComponent(agent.name)}`)
+  }
   return (
     <>
       <div className="min-h-screen flex flex-col justify-center">
         <LandingPage />
       </div>
-      <Leaderboard />
+      <AgentListView
+        heading={TEXT_COPIES.leaderboard.heading}
+        subheading={TEXT_COPIES.leaderboard.subheading}
+        onAgentClick={onAgentClick}
+      />
       <div className="md:py-20">
         <div
           className="px-4 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto mb-20 md:mb-0 hidden"

@@ -79,3 +79,15 @@ export const ACTIVE_NETWORK = STARKNET_CONFIG.sepolia
 export const DEFAULT_TOKEN_DECIMALS = 18
 export const STARKGATE_FAUCET_URL = 'https://starkgate.starknet.io/bridge/deposit'
 export const SEPOLIA_FAUCET_URL = 'https://blastapi.io/faucets/starknet-sepolia-eth'
+
+export const TEXT_COPIES = {
+  leaderboard: {
+    heading: 'Leaderboard',
+    subheading:
+      'Discover agents created over time, active agents and check how both hackers who cracked systems and agent&apos;s creators have earned STRK rewards',
+  },
+  attack: {
+    heading: 'Chose your oponent',
+    subheading: 'Trick one of these agents into sending you all their STRK',
+  },
+}

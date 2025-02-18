@@ -1,5 +1,4 @@
 'use client'
-import { useRouter } from 'next/navigation'
 import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AgentDetails } from '@/hooks/useAgents'
 import { divideFloatStrings } from '@/lib/utils'
@@ -20,17 +19,8 @@ export const AgentsList = ({
   agents: AgentDetails[]
   isFetchingAgents: boolean
   searchQuery: string
-  onAgentClick?: (agent: AgentDetails) => void
+  onAgentClick: (agent: AgentDetails) => void
 }) => {
-  const router = useRouter()
-  const handleAgentClick = (agent: AgentDetails) => {
-    if (onAgentClick) {
-      onAgentClick(agent)
-    } else {
-      router.push(`/agents/${encodeURIComponent(agent.name)}`)
-    }
-  }
-
   return (
     <>
       {isFetchingAgents ? (
@@ -65,7 +55,7 @@ export const AgentsList = ({
                   <div
                     className="bg-[#2E40494D] backdrop-blur-xl p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
                     key={agent.address}
-                    onClick={() => handleAgentClick(agent)}
+                    onClick={() => onAgentClick(agent)}
                   >
                     {/* Mobile Layout */}
                     <div className="md:hidden space-y-2">
