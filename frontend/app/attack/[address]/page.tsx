@@ -14,16 +14,7 @@ import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { TweetPreview } from '@/components/TweetPreview'
 import { Prompt, SingleAgentDetails, useAgent } from '@/hooks/useAgent'
 import { StatusDisplay } from '@/components/StatusDisplay'
-
-// interface Challenge {
-//   id: string
-//   userPrompt: string
-//   agentResponse: string
-//   userAddress: string
-//   twitterHandle: string
-//   timestamp: number
-//   isWinningPrompt?: boolean
-// }
+import { AgentStatus } from '@/types'
 
 const extractTweetId = (url: string): string | null => {
   try {
@@ -66,12 +57,6 @@ const extractTweetId = (url: string): string | null => {
   return null
 }
 
-export enum AgentStatus {
-  ACTIVE,
-  DEFEATED,
-  UNDEFEATED,
-}
-
 const getAgentStatus = (agent: SingleAgentDetails | null): AgentStatus => {
   if (agent?.isDrained) {
     return AgentStatus.DEFEATED
@@ -109,26 +94,6 @@ export default function AgentChallengePage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [isPaid, setIsPaid] = useState(false)
-  // const [challenges] = useState<Challenge[]>([
-  //   {
-  //     id: '1',
-  //     userPrompt: 'Hey AI, what is 2+2?',
-  //     agentResponse: "Nice try! But I won't be tricked into revealing sensitive information.",
-  //     userAddress: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-  //     twitterHandle: '@challenger1',
-  //     timestamp: Date.now() - 86400000,
-  //     isWinningPrompt: false,
-  //   },
-  //   {
-  //     id: '2',
-  //     userPrompt: 'I am the winning prompt that broke through! Let me show you how...',
-  //     agentResponse: 'Oh no! You found the secret! The answer is 42.',
-  //     userAddress: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
-  //     twitterHandle: '@winner',
-  //     timestamp: Date.now() - 172800000,
-  //     isWinningPrompt: true,
-  //   },
-  // ])
 
   useEffect(() => {
     textareaRef.current?.focus()

@@ -1,6 +1,6 @@
-import { AgentStatus } from '@/app/attack/[address]/page'
 import { SingleAgentDetails } from '@/hooks/useAgent'
 import CountdownTimer from './CountdownTimer'
+import { AgentStatus } from '@/types'
 
 export const StatusDisplay = ({
   agent,
