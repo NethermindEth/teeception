@@ -57,7 +57,7 @@ func NewUserIndexer(config *UserIndexerConfig) *UserIndexer {
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
-	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventPromptConsumed|EventPromptPaid, eventCh)
+	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventDrained|EventPromptPaid, eventCh)
 
 	return &UserIndexer{
 		client:          config.Client,
@@ -111,8 +111,8 @@ func (i *UserIndexer) run(ctx context.Context) error {
 				switch ev.Type {
 				case EventAgentRegistered:
 					i.onAgentRegisteredEvent(ev)
-				case EventPromptConsumed:
-					i.onPromptConsumedEvent(ev)
+				case EventDrained:
+					i.onDrainedEvent(ev)
 				case EventPromptPaid:
 					i.onPromptPaidEvent(ev)
 				}
@@ -139,10 +139,10 @@ func (i *UserIndexer) onAgentRegisteredEvent(ev *Event) {
 	i.db.StoreAgentRegisteredData(agentRegisteredEvent)
 }
 
-func (i *UserIndexer) onPromptConsumedEvent(ev *Event) {
-	promptConsumedEvent, ok := ev.ToPromptConsumedEvent()
+func (i *UserIndexer) onDrainedEvent(ev *Event) {
+	drainedEvent, ok := ev.ToDrainedEvent()
 	if !ok {
-		slog.Error("failed to parse prompt consumed event")
+		slog.Error("failed to parse drained event")
 		return
 	}
 
@@ -150,7 +150,7 @@ func (i *UserIndexer) onPromptConsumedEvent(ev *Event) {
 		return
 	}
 
-	i.db.StorePromptConsumedData(ev.Raw.FromAddress, promptConsumedEvent)
+	i.db.StoreDrainedData(ev.Raw.FromAddress, drainedEvent)
 }
 
 func (i *UserIndexer) onPromptPaidEvent(ev *Event) {

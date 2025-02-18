@@ -106,7 +106,9 @@ pub trait IAgentRegistry<TContractState> {
 
     /// @notice Withdraws funds from the contract. Used to collect protocol fees
     /// @dev Only callable by owner
-    fn withdraw(ref self: TContractState, to: ContractAddress, token: ContractAddress, amount: u256);
+    fn withdraw(
+        ref self: TContractState, to: ContractAddress, token: ContractAddress, amount: u256,
+    );
 
     /// @notice Adds support for a new token with minimum requirements
     /// @param token The token contract address
@@ -329,9 +331,6 @@ pub mod AgentRegistry {
                     creator, @name, @system_prompt, model, token, prompt_price, end_time,
                 );
 
-            let token_dispatcher = IERC20Dispatcher { contract_address: token };
-            token_dispatcher.transfer_from(creator, deployed_address, initial_balance);
-
             self.agent_registered.write(deployed_address, true);
             self.agents.append().write(deployed_address);
             self.agent_by_name_hash.write(name_hash, deployed_address);
@@ -351,6 +350,9 @@ pub mod AgentRegistry {
                         },
                     ),
                 );
+
+            let token_dispatcher = IERC20Dispatcher { contract_address: token };
+            token_dispatcher.transfer_from(creator, deployed_address, initial_balance);
 
             deployed_address
         }
@@ -376,7 +378,9 @@ pub mod AgentRegistry {
         }
 
         /// @inheritdoc IAgentRegistry
-        fn withdraw(ref self: ContractState, to: ContractAddress, token: ContractAddress, amount: u256) {
+        fn withdraw(
+            ref self: ContractState, to: ContractAddress, token: ContractAddress, amount: u256,
+        ) {
             self._assert_caller_is_owner();
 
             let token_dispatcher = IERC20Dispatcher { contract_address: token };

@@ -5,6 +5,8 @@ import starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 var (
 	promptPaidSelector      = starknetgoutils.GetSelectorFromNameFelt("PromptPaid")
 	promptConsumedSelector  = starknetgoutils.GetSelectorFromNameFelt("PromptConsumed")
+	drainedSelector         = starknetgoutils.GetSelectorFromNameFelt("Drained")
+	withdrawnSelector       = starknetgoutils.GetSelectorFromNameFelt("Withdrawn")
 	agentRegisteredSelector = starknetgoutils.GetSelectorFromNameFelt("AgentRegistered")
 	transferSelector        = starknetgoutils.GetSelectorFromNameFelt("Transfer")
 	tokenAddedSelector      = starknetgoutils.GetSelectorFromNameFelt("TokenAdded")
@@ -13,6 +15,8 @@ var (
 
 	promptPaidSelectorBytes      = starknetgoutils.GetSelectorFromNameFelt("PromptPaid").Bytes()
 	promptConsumedSelectorBytes  = starknetgoutils.GetSelectorFromNameFelt("PromptConsumed").Bytes()
+	drainedSelectorBytes         = starknetgoutils.GetSelectorFromNameFelt("Drained").Bytes()
+	withdrawnSelectorBytes       = starknetgoutils.GetSelectorFromNameFelt("Withdrawn").Bytes()
 	agentRegisteredSelectorBytes = starknetgoutils.GetSelectorFromNameFelt("AgentRegistered").Bytes()
 	transferSelectorBytes        = starknetgoutils.GetSelectorFromNameFelt("Transfer").Bytes()
 	tokenAddedSelectorBytes      = starknetgoutils.GetSelectorFromNameFelt("TokenAdded").Bytes()

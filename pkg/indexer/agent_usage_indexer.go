@@ -16,6 +16,7 @@ type AgentUsage struct {
 	LatestPrompts []*AgentUsagePrompt
 	DrainPrompt   *AgentUsagePrompt
 	IsDrained     bool
+	IsWithdrawn   bool
 }
 
 type AgentUsagePrompt struct {
@@ -66,7 +67,7 @@ func NewAgentUsageIndexer(config *AgentUsageIndexerConfig) *AgentUsageIndexer {
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
-	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventPromptConsumed|EventPromptPaid, eventCh)
+	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventPromptConsumed|EventPromptPaid|EventWithdrawn, eventCh)
 
 	return &AgentUsageIndexer{
 		client:          config.Client,
@@ -103,6 +104,8 @@ func (i *AgentUsageIndexer) run(ctx context.Context) error {
 					i.onPromptConsumedEvent(ev)
 				} else if ev.Type == EventPromptPaid {
 					i.onPromptPaidEvent(ev)
+				} else if ev.Type == EventWithdrawn {
+					i.onWithdrawnEvent(ev)
 				}
 			}
 			i.db.SetLastIndexedBlock(data.ToBlock)
@@ -153,6 +156,20 @@ func (i *AgentUsageIndexer) onPromptPaidEvent(ev *Event) {
 	}
 
 	i.db.StorePromptPaidData(ev.Raw.FromAddress.Bytes(), promptPaidEvent)
+}
+
+func (i *AgentUsageIndexer) onWithdrawnEvent(ev *Event) {
+	withdrawnEvent, ok := ev.ToWithdrawnEvent()
+	if !ok {
+		return
+	}
+
+	if !i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
+		slog.Debug("ignoring withdrawn event for unregistered agent", "agent", ev.Raw.FromAddress)
+		return
+	}
+
+	i.db.StoreWithdrawnData(ev.Raw.FromAddress.Bytes(), withdrawnEvent)
 }
 
 func (i *AgentUsageIndexer) GetAgentUsage(addr *felt.Felt) (*AgentUsage, bool) {

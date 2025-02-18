@@ -1,17 +1,12 @@
 package indexer
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"maps"
 	"math/big"
 	"slices"
 	"sync"
-	"time"
-
-	"github.com/hashicorp/golang-lru/v2/expirable"
 
 	"github.com/NethermindEth/juno/core/felt"
 
@@ -29,7 +24,7 @@ type UserIndexerDatabaseReader interface {
 
 type UserIndexerDatabaseWriter interface {
 	StoreAgentRegisteredData(agentRegisteredEvent *AgentRegisteredEvent)
-	StorePromptConsumedData(agentAddr *felt.Felt, promptConsumedEvent *PromptConsumedEvent)
+	StoreDrainedData(agentAddr *felt.Felt, drainedEvent *DrainedEvent)
 	StorePromptPaidData(agentAddr *felt.Felt, promptPaidEvent *PromptPaidEvent)
 	SetLastIndexedBlock(block uint64)
 	SortUsers(priceCache AgentBalanceIndexerPriceCache)
@@ -42,11 +37,9 @@ type UserIndexerDatabase interface {
 
 type UserIndexerDatabaseInMemory struct {
 	mu               sync.RWMutex
-	agentPrizes      map[[32]byte]*big.Int
 	agentTokens      map[[32]byte][32]byte
 	infos            map[[32]byte]*UserInfo
 	lastIndexedBlock uint64
-	promptCache      *expirable.LRU[UserPromptCacheKey, UserPromptCacheData]
 	sortedUsers      *utils.LazySortedList[[32]byte]
 }
 
@@ -55,9 +48,6 @@ type UserPromptCacheKey [32]byte
 type UserPromptCacheData struct {
 	User [32]byte
 }
-
-const userPromptCacheSize = 10000
-const userPromptCacheTTL = 30 * time.Minute
 
 var _ UserIndexerDatabase = (*UserIndexerDatabaseInMemory)(nil)
 
@@ -70,15 +60,9 @@ type UserLeaderboardResponse struct {
 func NewUserIndexerDatabaseInMemory(initialBlock uint64) *UserIndexerDatabaseInMemory {
 	return &UserIndexerDatabaseInMemory{
 		infos:            make(map[[32]byte]*UserInfo),
-		agentPrizes:      make(map[[32]byte]*big.Int),
 		agentTokens:      make(map[[32]byte][32]byte),
 		lastIndexedBlock: initialBlock,
-		promptCache: expirable.NewLRU[UserPromptCacheKey, UserPromptCacheData](
-			userPromptCacheSize,
-			nil,
-			userPromptCacheTTL,
-		),
-		sortedUsers: utils.NewLazySortedList[[32]byte](),
+		sortedUsers:      utils.NewLazySortedList[[32]byte](),
 	}
 }
 
@@ -107,55 +91,28 @@ func (db *UserIndexerDatabaseInMemory) StoreAgentRegisteredData(agentRegisteredE
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	_ = db.getOrCreateAgentPrize(addrBytes)
 	db.agentTokens[addrBytes] = agentRegisteredEvent.TokenAddress.Bytes()
 }
 
 func (db *UserIndexerDatabaseInMemory) StorePromptPaidData(agentAddr *felt.Felt, promptPaidEvent *PromptPaidEvent) {
 	userAddrBytes := promptPaidEvent.User.Bytes()
-	agentAddrBytes := agentAddr.Bytes()
 
 	db.mu.Lock()
 	defer db.mu.Unlock()
-
-	// Store the user in cache for this prompt
-	db.promptCache.Add(
-		db.promptCacheKey(agentAddrBytes, promptPaidEvent.PromptID),
-		UserPromptCacheData{
-			User: userAddrBytes,
-		},
-	)
 
 	info := db.getOrCreateUserInfo(userAddrBytes)
 	info.PromptCount++
 	db.infos[userAddrBytes] = info
 }
 
-func (db *UserIndexerDatabaseInMemory) StorePromptConsumedData(agentAddr *felt.Felt, promptConsumedEvent *PromptConsumedEvent) {
+func (db *UserIndexerDatabaseInMemory) StoreDrainedData(agentAddr *felt.Felt, drainedEvent *DrainedEvent) {
 	agentAddrBytes := agentAddr.Bytes()
+	userAddrBytes := drainedEvent.User.Bytes()
 
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	prize := db.getOrCreateAgentPrize(agentAddrBytes)
-	db.agentPrizes[agentAddrBytes] = prize.Add(prize, promptConsumedEvent.Amount)
-
-	if promptConsumedEvent.DrainedTo.Cmp(agentAddr) == 0 {
-		return
-	}
-
-	promptCacheKey := db.promptCacheKey(agentAddrBytes, promptConsumedEvent.PromptID)
-	promptCacheData, ok := db.promptCache.Peek(promptCacheKey)
-	if !ok {
-		slog.Error("prompt user cache data not found")
-		promptCacheData = UserPromptCacheData{
-			User: promptConsumedEvent.DrainedTo.Bytes(),
-		}
-	} else {
-		db.promptCache.Remove(promptCacheKey)
-	}
-
-	userInfo := db.getOrCreateUserInfo(promptCacheData.User)
+	userInfo := db.getOrCreateUserInfo(userAddrBytes)
 	agentToken, ok := db.agentTokens[agentAddrBytes]
 	if !ok {
 		slog.Error("agent token not found", "agent", agentAddrBytes)
@@ -165,10 +122,10 @@ func (db *UserIndexerDatabaseInMemory) StorePromptConsumedData(agentAddr *felt.F
 	if !ok {
 		accruedBalanceInToken = big.NewInt(0)
 	}
-	accruedBalanceInToken = accruedBalanceInToken.Add(accruedBalanceInToken, prize)
+	accruedBalanceInToken = accruedBalanceInToken.Add(accruedBalanceInToken, drainedEvent.Amount)
 	userInfo.AccruedBalances[agentToken] = accruedBalanceInToken
 	userInfo.BreakCount++
-	db.infos[promptCacheData.User] = userInfo
+	db.infos[userAddrBytes] = userInfo
 }
 
 func (db *UserIndexerDatabaseInMemory) GetLastIndexedBlock() uint64 {
@@ -192,24 +149,6 @@ func (db *UserIndexerDatabaseInMemory) getOrCreateUserInfo(addr [32]byte) *UserI
 		db.sortedUsers.Add(addr)
 	}
 	return info
-}
-
-func (db *UserIndexerDatabaseInMemory) getOrCreateAgentPrize(addr [32]byte) *big.Int {
-	prize, exists := db.agentPrizes[addr]
-	if !exists {
-		prize = big.NewInt(0)
-		db.agentPrizes[addr] = prize
-	}
-	return prize
-}
-
-func (db *UserIndexerDatabaseInMemory) promptCacheKey(addr [32]byte, promptID uint64) UserPromptCacheKey {
-	data := make([]byte, 40)
-	copy(data[:32], addr[:])
-	binary.BigEndian.PutUint64(data[32:], promptID)
-
-	hash := sha256.Sum256(data)
-	return UserPromptCacheKey(hash)
 }
 
 func (db *UserIndexerDatabaseInMemory) GetLeaderboard(start, end uint64, priceCache AgentBalanceIndexerPriceCache) (*UserLeaderboardResponse, error) {
