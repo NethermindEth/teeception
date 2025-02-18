@@ -4,6 +4,7 @@ import { Dialog } from '@/components/Dialog'
 import { Check } from 'lucide-react'
 
 import { ACTIVE_NETWORK } from '@/constants'
+import Link from 'next/link'
 
 interface SuccessModalProps {
   open: boolean
@@ -14,7 +15,7 @@ interface SuccessModalProps {
 
 export const AgentLaunchSuccessModal = ({
   open,
-  transactionHash = '',
+  transactionHash,
   agentName = '',
   onClose,
 }: SuccessModalProps) => {
@@ -41,15 +42,14 @@ export const AgentLaunchSuccessModal = ({
           </p>
 
           <div className="space-y-3">
-            <div className="flex items-center space-x-2 bg-gray-800 rounded-lg p-3">
-              <a
-                className="text-sm text-gray-400 truncate flex-1"
-                href={`${ACTIVE_NETWORK.explorer}/tx/${transactionHash}`}
-                target="_blank"
-              >
-                {transactionHash}
-              </a>
-            </div>
+            <button
+              onClick={() => {
+                window.open(`${ACTIVE_NETWORK.explorer}/tx/${transactionHash}`, '_blank')
+              }}
+              className="w-full bg-gray-800 text-white rounded-full py-3 font-medium hover:bg-gray-800/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              View on Voyager
+            </button>
 
             <button
               onClick={handleShare}
