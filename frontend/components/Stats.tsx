@@ -44,8 +44,8 @@ export const Stats = ({
       </div>
 
       <div>
-        <p className="text-[#7E7E7E] text-sm lg:text-base mb-1">Average bounty</p>
-        <h3 className="text-lg lg:text-[38px]">{data.averageBounty.amount} STRK</h3>
+        <p className="text-[#7E7E7E] text-sm lg:text-base mb-1">Total bounty</p>
+        <h3 className="text-lg lg:text-[38px]">{data.totalBounty} STRK</h3>
       </div>
     </div>
   )

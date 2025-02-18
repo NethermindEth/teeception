@@ -27,13 +27,9 @@ export interface FormattedUsageStats {
   attempts: {
     total: number
     successes: number
-    successRate: number
   }
   prizePools: FormattedPrizePool[]
-  averageBounty: {
-    amount: string
-    rawAmount: string
-  }
+  totalBounty: string
 }
 
 export const useUsageStats = () => {
@@ -80,40 +76,19 @@ export const useUsageStats = () => {
         let totalValueInBaseToken = BigInt(0)
 
         formattedPrizePools.forEach((pool) => {
-          if (pool.token.address.toLowerCase() === baseToken.address.toLowerCase()) {
-            totalValueInBaseToken += BigInt(pool.rawAmount)
-          } else {
-            // Here you would implement price conversion logic if needed
-            // For now, we'll just add the raw amounts
-            totalValueInBaseToken += BigInt(pool.rawAmount)
-          }
+          totalValueInBaseToken += BigInt(pool.rawAmount)
         })
-
-        // Calculate average bounty
-        const averageBountyRaw =
-          rawData.registered_agents > 0
-            ? totalValueInBaseToken / BigInt(rawData.registered_agents)
-            : BigInt(0)
-
-        const successRate =
-          rawData.attempts.total > 0
-            ? (rawData.attempts.successes / rawData.attempts.total) * 100
-            : 0
 
         setData({
           registeredAgents: rawData.registered_agents,
           attempts: {
             total: rawData.attempts.total,
             successes: rawData.attempts.successes,
-            successRate,
           },
           prizePools: formattedPrizePools,
-          averageBounty: {
-            amount: Number(formatBigInt(averageBountyRaw.toString(), baseToken.decimals)).toFixed(
-              2
-            ),
-            rawAmount: averageBountyRaw.toString(),
-          },
+          totalBounty: Number(
+            formatBigInt(totalValueInBaseToken.toString(), baseToken.decimals)
+          ).toFixed(0),
         })
       } catch (err) {
         setError(
