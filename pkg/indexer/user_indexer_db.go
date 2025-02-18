@@ -141,7 +141,7 @@ func (db *UserIndexerDatabaseInMemory) getOrCreateUserInfo(addr [32]byte) *UserI
 	if !exists {
 		info = &UserInfo{
 			Address:         addr,
-			AccruedBalances: make(map[[32]byte]*big.Int),
+			AccruedBalances: make(map[[32]byte]*big.Int, 5),
 			PromptCount:     0,
 			BreakCount:      0,
 		}
