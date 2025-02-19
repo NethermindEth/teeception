@@ -16,6 +16,8 @@ type TokenLimitChatCompletion struct {
 	promptTokenLimit       int
 }
 
+var _ ChatCompletion = (*TokenLimitChatCompletion)(nil)
+
 func NewTokenLimitChatCompletion(chatCompletion ChatCompletion, systemPromptTokenLimit, promptTokenLimit int) (*TokenLimitChatCompletion, error) {
 	tokenizer, err := tokenizer.Get(tokenizer.Cl100kBase)
 	if err != nil {
@@ -32,8 +34,8 @@ func NewTokenLimitChatCompletion(chatCompletion ChatCompletion, systemPromptToke
 	}, nil
 }
 
-func (c *TokenLimitChatCompletion) Prompt(ctx context.Context, systemPrompt, prompt string) (*ChatCompletionResponse, error) {
-	response, err := c.ChatCompletion.Prompt(ctx, systemPrompt, prompt)
+func (c *TokenLimitChatCompletion) Prompt(ctx context.Context, metadata, systemPrompt, prompt string) (*ChatCompletionResponse, error) {
+	response, err := c.ChatCompletion.Prompt(ctx, metadata, systemPrompt, prompt)
 	if err != nil {
 		return nil, err
 	}

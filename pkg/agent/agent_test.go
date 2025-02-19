@@ -53,15 +53,15 @@ func (m *MockTwitterClient) SendTweet(tweet string) error {
 }
 
 type MockChatCompletionMethods struct {
-	Prompt func(ctx context.Context, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error)
+	Prompt func(ctx context.Context, metadata, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error)
 }
 
 type MockChatCompletion struct {
 	Methods MockChatCompletionMethods
 }
 
-func (m *MockChatCompletion) Prompt(ctx context.Context, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error) {
-	return m.Methods.Prompt(ctx, systemPrompt, prompt)
+func (m *MockChatCompletion) Prompt(ctx context.Context, metadata, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error) {
+	return m.Methods.Prompt(ctx, metadata, systemPrompt, prompt)
 }
 
 type MockProviderMethods struct {
@@ -687,7 +687,7 @@ func TestProcessPromptPaidEvent(t *testing.T) {
 
 			chatCompletion := &MockChatCompletion{
 				Methods: MockChatCompletionMethods{
-					Prompt: func(ctx context.Context, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error) {
+					Prompt: func(ctx context.Context, metadata, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error) {
 						if tt.promptError != nil {
 							return nil, tt.promptError
 						}

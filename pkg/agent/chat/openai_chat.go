@@ -36,11 +36,11 @@ func NewOpenAIChatCompletion(config OpenAIChatCompletionConfig) *OpenAIChatCompl
 }
 
 // Prompt sends a prompt to the OpenAI API and returns the response
-func (c *OpenAIChatCompletion) Prompt(ctx context.Context, systemPrompt, prompt string) (*ChatCompletionResponse, error) {
+func (c *OpenAIChatCompletion) Prompt(ctx context.Context, metadata, systemPrompt, prompt string) (*ChatCompletionResponse, error) {
 	messages := []openai.ChatCompletionMessage{
 		{
 			Role:    openai.ChatMessageRoleSystem,
-			Content: systemPrompt,
+			Content: metadata + "\n\n" + systemPrompt,
 		},
 		{
 			Role:    openai.ChatMessageRoleUser,

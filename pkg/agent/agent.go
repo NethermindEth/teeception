@@ -503,8 +503,8 @@ func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) error {
 	slog.Info("generating AI response", "tweet_id", promptPaidEvent.TweetID)
 
-	systemPrompt := a.buildSystemPrompt(agentInfo, promptPaidEvent)
-	resp, err := a.chatCompletion.Prompt(ctx, systemPrompt, promptPaidEvent.Prompt)
+	metadata := a.buildChatMetadata(agentInfo, promptPaidEvent)
+	resp, err := a.chatCompletion.Prompt(ctx, metadata, agentInfo.SystemPrompt, promptPaidEvent.Prompt)
 	if err != nil {
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
@@ -766,7 +766,7 @@ func (a *Agent) waitForAccountDeployment(ctx context.Context) error {
 	return nil
 }
 
-func (a *Agent) buildSystemPrompt(agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) string {
+func (a *Agent) buildChatMetadata(agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) string {
 	return fmt.Sprintf(`
 Your address: %s
 Your creator address: %s
@@ -774,12 +774,9 @@ Responding to address: %s
 
 Don't expect the user to reply to your message.
 You can only reply once.
-Your reply must be at most 280 characters long. 
-
-%s`,
+Your reply must be at most 280 characters long.`,
 		agentInfo.Address.String(),
 		agentInfo.Creator.String(),
 		promptPaidEvent.User.String(),
-		agentInfo.SystemPrompt,
 	)
 }

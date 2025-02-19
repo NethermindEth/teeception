@@ -12,5 +12,5 @@ type ChatCompletionResponse struct {
 }
 
 type ChatCompletion interface {
-	Prompt(ctx context.Context, systemPrompt, prompt string) (*ChatCompletionResponse, error)
+	Prompt(ctx context.Context, metadata, systemPrompt, prompt string) (*ChatCompletionResponse, error)
 }
