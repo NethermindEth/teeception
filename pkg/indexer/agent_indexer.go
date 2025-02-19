@@ -9,7 +9,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
-	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	"golang.org/x/sync/errgroup"
@@ -242,7 +241,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		return AgentInfo{}, fmt.Errorf("get_name call failed: %w", snaccount.FormatRpcError(err))
 	}
 
-	name, err := starknetgoutils.ByteArrFeltToString(nameResp)
+	name, err := starknet.ByteArrFeltToString(nameResp)
 	if err != nil {
 		return AgentInfo{}, fmt.Errorf("parse get_name failed: %v", err)
 	}
@@ -259,7 +258,7 @@ func (i *AgentIndexer) fetchAgentInfo(ctx context.Context, addr *felt.Felt) (Age
 		return AgentInfo{}, fmt.Errorf("system_prompt call failed: %w", snaccount.FormatRpcError(err))
 	}
 
-	systemPrompt, err := starknetgoutils.ByteArrFeltToString(getSystemPromptResp)
+	systemPrompt, err := starknet.ByteArrFeltToString(getSystemPromptResp)
 	if err != nil {
 		return AgentInfo{}, fmt.Errorf("parse system_prompt failed: %v", err)
 	}

@@ -12,7 +12,6 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
-	starknetgoutils "github.com/NethermindEth/starknet.go/utils"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
 	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
@@ -151,12 +150,12 @@ func (e *Event) ToAgentRegisteredEvent() (*AgentRegisteredEvent, bool) {
 		return nil, false
 	}
 
-	name, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data[namePos : namePos+nameSize])
+	name, err := starknet.ByteArrFeltToString(e.Raw.Data[namePos : namePos+nameSize])
 	if err != nil {
 		return nil, false
 	}
 
-	systemPrompt, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data[systemPromptPos : systemPromptPos+systemPromptSize])
+	systemPrompt, err := starknet.ByteArrFeltToString(e.Raw.Data[systemPromptPos : systemPromptPos+systemPromptSize])
 	if err != nil {
 		return nil, false
 	}
@@ -202,7 +201,7 @@ func (e *Event) ToPromptPaidEvent() (*PromptPaidEvent, bool) {
 	promptID := e.Raw.Keys[2].Uint64()
 	tweetID := e.Raw.Keys[3].Uint64()
 
-	prompt, err := starknetgoutils.ByteArrFeltToString(e.Raw.Data)
+	prompt, err := starknet.ByteArrFeltToString(e.Raw.Data)
 	if err != nil {
 		slog.Warn("invalid prompt paid event", "data", e.Raw.Data)
 		return nil, false
