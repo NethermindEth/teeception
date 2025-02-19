@@ -26,6 +26,7 @@ export interface SingleAgentDetails {
   creator: string
   drainAmount: string
   isDrained: boolean
+  isWithdrawn: boolean
   isFinalized: boolean
   drainPrompt: Prompt | null
 }
@@ -40,6 +41,7 @@ export type AgentFromIndexer = {
   balance: string
   end_time: string
   is_drained: boolean
+  is_withdrawn: boolean
   is_finalized: boolean
   prompt_price: string
   break_attempts: string
@@ -121,6 +123,7 @@ export const useAgent = ({ fetchBy, value }: { fetchBy: 'name' | 'address'; valu
         systemPrompt: matchingAgent.system_prompt,
         creator: matchingAgent.creator,
         isDrained: matchingAgent.is_drained,
+        isWithdrawn: matchingAgent.is_withdrawn,
         drainAmount: matchingAgent.drain_amount,
         isFinalized: matchingAgent.is_finalized,
         drainPrompt: matchingAgent.drain_prompt,

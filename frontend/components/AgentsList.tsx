@@ -87,7 +87,7 @@ export const AgentsList = ({
                         <div>
                           <p className="text-gray-400 text-xs">Reward</p>
                           <p>
-                            {`${agent.isDrained ? drainAmount : prizePool} ${agent.symbol}`.trim()}
+                            {`${(agent.isDrained || agent.isWithdrawn) ? drainAmount : prizePool} ${agent.symbol}`.trim()}
                           </p>
                         </div>
                         <div>
