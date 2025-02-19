@@ -5,6 +5,8 @@ import { useMemo, useState } from 'react'
 import { AgentDetails, useAgents } from '@/hooks/useAgents'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { DOTS, usePagination } from '@/hooks/usePagination'
+import { AttackerDetails, useAttackers } from '@/hooks/useAttackers'
+import { AttackersList } from './AttackersList'
 
 const PAGE_SIZE = 10
 const SIBLING_COUNT = 1
@@ -13,11 +15,13 @@ type AgentListViewProps = {
   heading: string
   subheading: string
   onAgentClick: (agent: AgentDetails) => void
+  onAttackerClick: (attacker: AttackerDetails) => void
 }
 
-export const AgentListView = ({ heading, subheading, onAgentClick }: AgentListViewProps) => {
+export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerClick }: AgentListViewProps) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(0)
+  const [selectedTab, setSelectedTab] = useState(TabType.ActiveAgents)
   //TODO: show toast for failed to load agents
   const {
     agents = [],
@@ -25,18 +29,23 @@ export const AgentListView = ({ heading, subheading, onAgentClick }: AgentListVi
     totalAgents,
   } = useAgents({ page: currentPage, pageSize: PAGE_SIZE })
 
-  const totalPages = Math.ceil(totalAgents / PAGE_SIZE)
+  const {
+    attackers = [],
+    loading: isFetchingAttackers,
+    totalAttackers,
+  } = useAttackers({ page: currentPage, pageSize: PAGE_SIZE })
+
+  const totalPages = selectedTab === TabType.TopAttackers 
+    ? Math.ceil(totalAttackers / PAGE_SIZE)
+    : Math.ceil(totalAgents / PAGE_SIZE)
+
   const paginationRange = usePagination({
     currentPage,
-    totalCount: totalAgents,
+    totalCount: selectedTab === TabType.TopAttackers ? totalAttackers : totalAgents,
     pageSize: PAGE_SIZE,
     siblingCount: SIBLING_COUNT,
   })
   const activeAgents = useMemo(() => agents.filter((agent) => !agent.isFinalized), [agents])
-  const topAttackers = useMemo(
-    () => agents.sort((agent1, agent2) => +agent2.balance - +agent1.balance),
-    [agents]
-  )
 
   const filterAgents = (agents: AgentDetails[], query: string) => {
     if (!query.trim()) return agents
@@ -53,10 +62,6 @@ export const AgentListView = ({ heading, subheading, onAgentClick }: AgentListVi
     () => filterAgents(activeAgents, searchQuery),
     [activeAgents, searchQuery]
   )
-  const filteredTopAttackers = useMemo(
-    () => filterAgents(topAttackers, searchQuery),
-    [topAttackers, searchQuery]
-  )
 
   const handlePreviousPage = () => {
     if (currentPage > 0) {
@@ -67,6 +72,14 @@ export const AgentListView = ({ heading, subheading, onAgentClick }: AgentListVi
   const handleNextPage = () => {
     if (currentPage < totalPages - 1) {
       setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const handleTabChange = (tab: string) => {
+    setSelectedTab(tab as TabType)
+    setCurrentPage(0)
+    if (tab === TabType.TopAttackers) {
+      setSearchQuery('')
     }
   }
 
@@ -84,7 +97,7 @@ export const AgentListView = ({ heading, subheading, onAgentClick }: AgentListVi
         <p className="text-[#B4B4B4] text-center max-w-[594px] mx-auto">{subheading}</p>
       </div>
       <div>
-        <Tabs defaultValue={TabType.ActiveAgents} className="w-full">
+        <Tabs defaultValue={TabType.ActiveAgents} className="w-full" onValueChange={handleTabChange}>
           <div className="flex flex-col md:flex-row items-center justify-between mb-6">
             <TabsList className="flex w-full">
               <TabsTrigger value={TabType.AgentRanking}>
@@ -94,23 +107,25 @@ export const AgentListView = ({ heading, subheading, onAgentClick }: AgentListVi
                 Active agents ({activeAgents.length})
               </TabsTrigger>
               <TabsTrigger value={TabType.TopAttackers}>
-                Top attackers ({topAttackers.length})
+                Top attackers ({attackers.length})
               </TabsTrigger>
             </TabsList>
 
-            <div className="relative w-full md:w-auto mt-4 md:mt-0">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by agent"
-                className="placeholder:text-[#6F6F6F] border border-[#6F6F6F] rounded-[28px] bg-transparent px-5 py-1 min-h-[2rem] text-sm outline-none focus:border-white w-full md:w-auto"
-              />
-              <Search
-                className="text-[#6F6F6F] absolute top-1/2 -translate-y-1/2 right-5"
-                width={14}
-              />
-            </div>
+            {selectedTab !== TabType.TopAttackers && (
+              <div className="relative w-full md:w-auto mt-4 md:mt-0">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by agent"
+                  className="placeholder:text-[#6F6F6F] border border-[#6F6F6F] rounded-[28px] bg-transparent px-5 py-1 min-h-[2rem] text-sm outline-none focus:border-white w-full md:w-auto"
+                />
+                <Search
+                  className="text-[#6F6F6F] absolute top-1/2 -translate-y-1/2 right-5"
+                  width={14}
+                />
+              </div>
+            )}
           </div>
 
           <TabsContent value={TabType.AgentRanking}>
@@ -130,11 +145,11 @@ export const AgentListView = ({ heading, subheading, onAgentClick }: AgentListVi
             />
           </TabsContent>
           <TabsContent value={TabType.TopAttackers}>
-            <AgentsList
-              agents={filteredTopAttackers}
-              isFetchingAgents={isFetchingAgents}
-              searchQuery={searchQuery}
-              onAgentClick={onAgentClick}
+            <AttackersList
+              attackers={attackers}
+              isFetchingAttackers={isFetchingAttackers}
+              searchQuery=""
+              onAttackerClick={onAttackerClick}
             />
           </TabsContent>
         </Tabs>

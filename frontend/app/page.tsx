@@ -6,12 +6,18 @@ import { LandingPage } from '@/components/LandingPage'
 import { AgentDetails } from '@/hooks/useAgents'
 import { useRouter } from 'next/navigation'
 import { TEXT_COPIES } from '@/constants'
+import { AttackerDetails } from '@/hooks/useAttackers'
 
 export default function Home() {
   const router = useRouter()
   const onAgentClick = (agent: AgentDetails) => {
     router.push(`/agents/${encodeURIComponent(agent.name)}`)
   }
+
+  const onAttackerClick = (attacker: AttackerDetails) => {
+    // no-op
+  }
+
   return (
     <>
       <div className="min-h-screen flex flex-col justify-center">
@@ -21,6 +27,7 @@ export default function Home() {
         heading={TEXT_COPIES.leaderboard.heading}
         subheading={TEXT_COPIES.leaderboard.subheading}
         onAgentClick={onAgentClick}
+        onAttackerClick={onAttackerClick}
       />
       <div className="md:py-20">
         <div
