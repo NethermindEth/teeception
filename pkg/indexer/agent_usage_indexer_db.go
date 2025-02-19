@@ -49,6 +49,7 @@ type AgentUsageIndexerDatabaseInMemoryPromptCacheKey [32]byte
 type AgentUsageIndexerDatabaseInMemoryPromptCacheData struct {
 	TweetID uint64
 	Prompt  string
+	User    *felt.Felt
 }
 
 var _ AgentUsageIndexerDatabase = (*AgentUsageIndexerDatabaseInMemory)(nil)
@@ -117,6 +118,7 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptPaidData(addr [32]byte, 
 		AgentUsageIndexerDatabaseInMemoryPromptCacheData{
 			TweetID: promptPaidEvent.TweetID,
 			Prompt:  promptPaidEvent.Prompt,
+			User:    promptPaidEvent.User,
 		},
 	)
 }
@@ -151,6 +153,7 @@ func (db *AgentUsageIndexerDatabaseInMemory) StorePromptConsumedData(addr [32]by
 		PromptID:  promptConsumedEvent.PromptID,
 		TweetID:   promptCacheData.TweetID,
 		Prompt:    promptCacheData.Prompt,
+		User:      promptCacheData.User,
 		IsSuccess: succeeded,
 		DrainedTo: drainAddress,
 	}

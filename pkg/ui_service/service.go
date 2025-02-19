@@ -206,6 +206,7 @@ type AgentDataPrompt struct {
 	PromptID  string `json:"prompt_id"`
 	TweetID   string `json:"tweet_id"`
 	Prompt    string `json:"prompt"`
+	User      string `json:"user"`
 	IsSuccess bool   `json:"is_success"`
 	DrainedTo string `json:"drained_to"`
 }
@@ -559,6 +560,7 @@ func (s *UIService) buildAgentDataPrompt(prompt *indexer.AgentUsagePrompt) *Agen
 		PromptID:  strconv.FormatUint(prompt.PromptID, 10),
 		TweetID:   strconv.FormatUint(prompt.TweetID, 10),
 		Prompt:    prompt.Prompt,
+		User:      prompt.User.String(),
 		IsSuccess: prompt.IsSuccess,
 		DrainedTo: prompt.DrainedTo.String(),
 	}

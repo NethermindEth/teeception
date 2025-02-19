@@ -23,6 +23,7 @@ type AgentUsagePrompt struct {
 	PromptID  uint64
 	TweetID   uint64
 	Prompt    string
+	User      *felt.Felt
 	IsSuccess bool
 	DrainedTo *felt.Felt
 }
