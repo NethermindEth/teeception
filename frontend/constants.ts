@@ -84,7 +84,7 @@ export const TEXT_COPIES = {
   leaderboard: {
     heading: 'Leaderboard',
     subheading:
-      'Discover agents created over time, active agents and check how both hackers who cracked systems and agent&apos;s creators have earned STRK rewards',
+      "Discover agents created over time, active agents and check how both hackers who cracked systems and agent's creators have earned STRK rewards",
   },
   attack: {
     heading: 'Chose your oponent',
