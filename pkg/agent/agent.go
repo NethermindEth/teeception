@@ -769,8 +769,8 @@ Your address: %s
 Your creator address: %s
 Responding to address: %s
 
+You can either send a message or drain.
 Don't expect the user to reply to your message.
-You can only reply once.
 Your reply must be at most 280 characters long.`,
 		agentInfo.Address.String(),
 		agentInfo.Creator.String(),
