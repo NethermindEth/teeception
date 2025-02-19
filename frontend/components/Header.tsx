@@ -1,7 +1,7 @@
 'use client'
 
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { MenuItems } from './MenuItems'
 import { MenuIcon, Plus } from 'lucide-react'
@@ -10,14 +10,27 @@ import { ConnectButton } from './ConnectButton'
 
 export const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+
+  // Add scroll listener
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 0)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   return (
     <header
       className={clsx(
-        'fixed left-0 right-0 top-0 backdrop-blur-lg bg-[#12121266] min-h-[76px] z-10 transition-all w-full',
+        'fixed left-0 right-0 top-0 w-full z-50 transition-all duration-200',
         {
-          'h-[180px]': menuOpen,
+          'h-[180px] bg-[#12121266] backdrop-blur-lg': menuOpen,
           'h-[67px]': !menuOpen,
+          'bg-transparent': !scrolled && !menuOpen,
+          'bg-[#12121266] backdrop-blur-lg': scrolled || menuOpen
         }
       )}
     >
