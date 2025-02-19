@@ -112,10 +112,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		return nil, fmt.Errorf("invalid twitter client mode: %s", params.TwitterClientMode)
 	}
 
-	openaiClient := chat.NewOpenAIChatCompletion(chat.OpenAIChatCompletionConfig{
-		OpenAIKey: params.OpenAIKey,
-		Model:     openai.GPT4,
-	})
+	openaiClient := chat.NewOpenAIChatCompletionOpenAI(openai.GPT4, params.OpenAIKey)
 
 	chatCompletionClient, err := chat.NewTokenLimitChatCompletion(openaiClient, params.MaxSystemPromptTokens, params.MaxPromptTokens)
 	if err != nil {

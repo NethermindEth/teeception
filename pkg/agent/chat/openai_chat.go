@@ -11,8 +11,8 @@ import (
 
 // OpenAIChatCompletionConfig is the configuration for the OpenAIChatCompletion
 type OpenAIChatCompletionConfig struct {
-	OpenAIKey string
-	Model     string
+	Client *openai.Client
+	Model  string
 }
 
 // OpenAIChatCompletion is the implementation of the ChatCompletion interface
@@ -30,8 +30,17 @@ func NewOpenAIChatCompletion(config OpenAIChatCompletionConfig) *OpenAIChatCompl
 	}
 
 	return &OpenAIChatCompletion{
-		client: openai.NewClient(config.OpenAIKey),
+		client: config.Client,
 		model:  config.Model,
+	}
+}
+
+// NewOpenAIChatCompletionOpenAI creates a new OpenAIChatCompletion for usage
+// in the OpenAI API
+func NewOpenAIChatCompletionOpenAI(model, openaiKey string) *OpenAIChatCompletion {
+	return &OpenAIChatCompletion{
+		client: openai.NewClient(openaiKey),
+		model:  model,
 	}
 }
 
