@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 export const Footer = () => {
   return (
-    <div className="lg:fixed bottom-0 left-0 right-0 w-full backdrop-blur-md">
+    <div className="w-full backdrop-blur-md">
       <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 justify-between max-w-[1560px] mx-auto px-4 py-2">
         {/* Powered by section */}
         <ul className="text-[#B8B8B8] flex flex-col gap-0 w-full md:w-auto">
