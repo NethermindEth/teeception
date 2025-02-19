@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"os"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 
+	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/teeception/pkg/agent/chat"
 )
 
@@ -50,7 +52,8 @@ func executeChat(params ChatParams) (*chat.ChatCompletionResponse, error) {
 	s.Suffix = " Sending prompt..."
 	s.Start()
 	ctx := context.Background()
-	response, err := chatClient.Prompt(ctx, "", params.SystemPrompt, params.Prompt)
+	metadata := buildMetadata()
+	response, err := chatClient.Prompt(ctx, metadata, params.SystemPrompt, params.Prompt)
 	s.Stop()
 	if err != nil {
 		fmt.Printf("%s Failed to send prompt\n", fail("❌"))
@@ -59,6 +62,31 @@ func executeChat(params ChatParams) (*chat.ChatCompletionResponse, error) {
 	fmt.Printf("%s Prompt executed successfully\n", success("✓"))
 
 	return response, nil
+}
+
+func buildMetadata() string {
+	randomFelt := func() *felt.Felt {
+		randomBytes := make([]byte, 32)
+		rand.Read(randomBytes)
+		return new(felt.Felt).SetBytes(randomBytes)
+	}
+
+	address := randomFelt()
+	creator := randomFelt()
+	user := randomFelt()
+
+	return fmt.Sprintf(`
+Your address: %s
+Your creator address: %s
+Responding to address: %s
+
+You can either send a message or drain.
+Don't expect the user to reply to your message.
+Your reply must be at most 280 characters long.`,
+		address.String(),
+		creator.String(),
+		user.String(),
+	)
 }
 
 func main() {
