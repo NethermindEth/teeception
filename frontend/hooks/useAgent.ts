@@ -4,6 +4,7 @@ import { ACTIVE_NETWORK, DEFAULT_TOKEN_DECIMALS } from '@/constants'
 
 export type Prompt = {
   prompt: string
+  user: string
   is_success: boolean
   drained_to: string
   prompt_id: string

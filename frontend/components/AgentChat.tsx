@@ -2,7 +2,7 @@
 import React from 'react'
 
 import Image from 'next/image'
-import { Prompt } from '@/types'
+import { Prompt } from '@/hooks/useAgent'
 
 export const AgentChat = ({ prompts }: { prompts: Prompt[] }) => {
   return (
@@ -16,7 +16,7 @@ export const AgentChat = ({ prompts }: { prompts: Prompt[] }) => {
             >
               <div className="text-sm w-full min-w-[300px]">
                 <p className="font-medium mb-1 flex items-center gap-2">
-                  Attacker user{' '}
+                  Attacker {`${prompt.user.slice(0, 6)}...${prompt.user.slice(-4)}`}
                   {prompt.is_success && (
                     <Image src={'/icons/crown.png'} width={16} height={16} alt="crown" />
                   )}
