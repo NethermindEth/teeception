@@ -13,6 +13,7 @@ import (
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/indexer/price"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/sync/errgroup"
 )
@@ -156,6 +157,7 @@ func (s *UIService) Run(ctx context.Context) error {
 func (s *UIService) startServer(ctx context.Context) error {
 	router := gin.Default()
 
+	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.GET("/leaderboard", s.HandleGetLeaderboard)
 	router.GET("/agent/:address", s.HandleGetAgent)
 	router.GET("/user/leaderboard", s.HandleGetUserLeaderboard)
