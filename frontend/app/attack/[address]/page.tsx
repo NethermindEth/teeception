@@ -17,6 +17,8 @@ import { StatusDisplay } from '@/components/StatusDisplay'
 import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 
+const tweetUrlRegex = /^(?:https?:\/\/)?(?:www\.)?(twitter\.com|x\.com)\/\w+\/status\/([1-9]\d*)$/
+
 const extractTweetId = (url: string): string | null => {
   try {
     // Handle direct tweet ID input (numeric string) first
@@ -32,25 +34,11 @@ const extractTweetId = (url: string): string | null => {
     // Clean the URL
     const cleanUrl = url.trim()
 
-    // Handle URLs without protocol
-    const urlWithProtocol = cleanUrl.startsWith('http') ? cleanUrl : `https://${cleanUrl}`
+    // Match tweet URL pattern and extract ID
+    const match = cleanUrl.match(tweetUrlRegex)
 
-    // Basic URL format validation before construction
-    if (!urlWithProtocol.includes('.')) {
-      return null
-    }
-
-    const urlObj = new URL(urlWithProtocol)
-
-    // Handle both twitter.com and x.com domains
-    if (!urlObj.hostname.includes('twitter.com') && !urlObj.hostname.includes('x.com')) {
-      return null
-    }
-
-    const pathParts = urlObj.pathname.split('/')
-    const statusIndex = pathParts.indexOf('status')
-    if (statusIndex !== -1 && pathParts[statusIndex + 1]) {
-      return pathParts[statusIndex + 1]
+    if (match) {
+      return match[2] // Return the tweet ID (second capture group)
     }
   } catch (error) {
     console.error('Failed to parse tweet URL:', error)
