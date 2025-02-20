@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AttackerDetails } from '@/hooks/useAttackers'
 import { divideFloatStrings } from '@/lib/utils'
-import { ACTIVE_NETWORK, DEFAULT_TOKEN_DECIMALS } from '@/constants'
+import { ACTIVE_NETWORK } from '@/constants'
 
 export const AttackersList = ({
   attackers,

@@ -6,8 +6,6 @@ import { StarknetConfig, publicProvider, voyager } from '@starknet-react/core'
 import { ControllerConnector } from '@cartridge/connector'
 import { ACTIVE_NETWORK, STARKNET_CONFIG } from '@/constants'
 import { AddFundsProvider } from '@/contexts/AddFundsContext'
-import { InjectedConnector } from 'starknetkit/injected'
-import { WebWalletConnector } from 'starknetkit/webwallet'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { argent, braavos } from "@starknet-react/core";

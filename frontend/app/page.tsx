@@ -14,7 +14,7 @@ export default function Home() {
     router.push(`/attack/${encodeURIComponent(agent.address)}`)
   }
 
-  const onAttackerClick = (attacker: AttackerDetails) => {
+  const onAttackerClick = (_: AttackerDetails) => {
     // no-op
   }
 

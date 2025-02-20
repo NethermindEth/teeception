@@ -15,7 +15,7 @@ interface ConnectButtonProps {
 }
 
 export const ConnectButton = ({ className = '', showAddress = true }: ConnectButtonProps) => {
-  const { address, status } = useAccount()
+  const { address } = useAccount()
   const [copied, setCopied] = useState(false)
   const { balance: tokenBalance, isLoading: loading } = useTokenBalance('STRK')
   const { chain } = useNetwork()
