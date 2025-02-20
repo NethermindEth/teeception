@@ -45,7 +45,7 @@ export const AgentsList = ({
                 {/* Table Header - Hidden on mobile */}
                 <div className="hidden md:grid md:grid-cols-12 bg-[#2E40494D] backdrop-blur-xl p-3 rounded-lg mb-2">
                   <div className="col-span-3 grid grid-cols-12 items-center">
-                    <p className="pr-1 col-span-1">Rank</p>
+                    <p className="pr-1 col-span-1">#</p>
                     <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                     <p className="col-span-10 pl-4">Agent name</p>
                   </div>
