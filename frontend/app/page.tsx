@@ -11,7 +11,7 @@ import { AttackerDetails } from '@/hooks/useAttackers'
 export default function Home() {
   const router = useRouter()
   const onAgentClick = (agent: AgentDetails) => {
-    router.push(`/agents/${encodeURIComponent(agent.name)}`)
+    router.push(`/attack/${encodeURIComponent(agent.address)}`)
   }
 
   const onAttackerClick = (attacker: AttackerDetails) => {
