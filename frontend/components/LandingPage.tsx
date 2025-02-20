@@ -9,7 +9,7 @@ export const LandingPage = () => {
     <div className="max-w-[933px] mx-auto mt-20 px-4">
       <div className="text-center">
         <h2 className="text-[#B8B8B8] text-[40px] uppercase">#Teeception</h2>
-        <p className="">Compete for real ETH rewards by challenging agents or creating your own</p>
+        <p className="">Compete for real STRK rewards by challenging agents or creating your own</p>
         <Stats isLoading={loading} data={data} />
       </div>
 
