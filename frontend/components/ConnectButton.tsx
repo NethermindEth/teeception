@@ -1,13 +1,13 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useAccount, useDisconnect, useNetwork } from '@starknet-react/core'
+import { useEffect, useMemo, useState } from 'react'
+import { useAccount, useConnect, useDisconnect, useNetwork } from '@starknet-react/core'
 import { Copy } from 'lucide-react'
 import clsx from 'clsx'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './Tooltip'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { useAddFunds } from '@/hooks/useAddFunds'
-import { useConnectWallet } from '@/hooks/useConnetWallet'
+import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
 
 interface ConnectButtonProps {
   className?: string
@@ -15,16 +15,41 @@ interface ConnectButtonProps {
 }
 
 export const ConnectButton = ({ className = '', showAddress = true }: ConnectButtonProps) => {
-  const { address } = useAccount()
+  const { address, status } = useAccount()
   const [copied, setCopied] = useState(false)
   const { balance: tokenBalance, isLoading: loading } = useTokenBalance('STRK')
   const { chain } = useNetwork()
   const addFunds = useAddFunds()
-  const connectWallet = useConnectWallet()
-  const { disconnect } = useDisconnect()
 
-  const handleConnect = async () => {
-    connectWallet.showWalletModal()
+  const { connectAsync, connectors } = useConnect()
+  const { disconnect } = useDisconnect()
+  const { starknetkitConnectModal } = useStarknetkitConnectModal({
+    connectors: connectors as StarknetkitConnector[],
+  })
+
+  // Auto-connect on load
+  useEffect(() => {
+    const autoConnect = async () => {
+      if (status === 'disconnected') {
+        try {
+          // Try to connect with the first available connector
+          const connector = connectors[0]
+          if (connector) {
+            await connectAsync({ connector })
+          }
+        } catch (err) {
+          console.error('Header', 'Auto-connect failed', err)
+        }
+      }
+    }
+
+    autoConnect()
+  }, [status, connectAsync, connectors])
+
+  async function connectWalletWithModal() {
+    const { connector } = await starknetkitConnectModal()
+    if (!connector) return
+    await connectAsync({ connector })
   }
 
   const formatAddress = (addr: string) => {
@@ -104,7 +129,7 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
 
   return (
     <div>
-      <button onClick={handleConnect} className={className}>
+      <button onClick={connectWalletWithModal} className={className}>
         Connect Wallet
       </button>
     </div>

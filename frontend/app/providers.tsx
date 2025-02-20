@@ -8,9 +8,9 @@ import { ACTIVE_NETWORK, STARKNET_CONFIG } from '@/constants'
 import { AddFundsProvider } from '@/contexts/AddFundsContext'
 import { InjectedConnector } from 'starknetkit/injected'
 import { WebWalletConnector } from 'starknetkit/webwallet'
-import { ConnectWalletProvider } from '@/contexts/ConnectWalletContext'
 import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
+import { argent, braavos } from "@starknet-react/core";
 
 const policies = {
   contracts: {
@@ -40,9 +40,8 @@ const cartridgeConnector = new ControllerConnector({
 })
 
 const connectors = [
-  new InjectedConnector({ options: { id: 'argentX', name: 'Argent X' } }),
-  new InjectedConnector({ options: { id: 'braavos', name: 'Braavos' } }),
-  new WebWalletConnector({ url: 'https://web.argent.xyz' }),
+  argent(),
+  braavos(),
   cartridgeConnector,
 ]
 
@@ -55,13 +54,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       explorer={voyager}
     >
       <AddFundsProvider>
-        <ConnectWalletProvider>
-          <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
-            <Header />
-            {children}
-            <Footer />
-          </div>
-        </ConnectWalletProvider>
+        <div className="bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
+          <Header />
+          {children}
+          <Footer />
+        </div>
       </AddFundsProvider>
     </StarknetConfig>
   )
