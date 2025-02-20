@@ -41,9 +41,9 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
     lg: {
       container: 'text-base grow',
       dot: 'w-2 h-2',
-      gap: 'space-x-2',
-      numberSpacing: '',
-      dotSpacing: '',
+      gap: 'justify-evenly lg:justify-evenly lg:ml-1.5',
+      numberSpacing: 'lg:ml-1.5',
+      dotSpacing: 'lg:ml-1.5',
     },
   }
 
