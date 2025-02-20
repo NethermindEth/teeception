@@ -50,7 +50,7 @@ export const Dialog = ({ open, onClose, children }: DialogProps) => {
         className={cn(
           'relative',
           'bg-black text-white',
-          'rounded-lg border shadow-lg',
+          'rounded-lg shadow-lg',
           'w-[90vw] max-w-[440px]',
           'p-6',
           'animate-in zoom-in-95 duration-200'
