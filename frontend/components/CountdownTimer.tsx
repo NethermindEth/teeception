@@ -25,25 +25,25 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
   // Size configurations
   const sizeClasses = {
     sm: {
-      container: 'px-2 py-1 text-xs',
+      container: 'text-xs grow',
       dot: 'w-1 h-1',
-      numberWidth: 'min-w-[14px]',
-      gap: 'space-x-1.5',
+      gap: 'ml-2',
+      numberSpacing: 'ml-1.5',
       dotSpacing: 'ml-1.5',
     },
     md: {
-      container: 'px-3 py-1.5 text-sm',
+      container: 'lg:text-sm grow',
       dot: 'w-1.5 h-1.5',
-      numberWidth: 'min-w-[18px]',
-      gap: 'space-x-2',
-      dotSpacing: 'ml-2',
+      gap: 'justify-evenly lg:justify-evenly lg:ml-1.5',
+      numberSpacing: 'lg:ml-1.5',
+      dotSpacing: 'lg:ml-1.5',
     },
     lg: {
-      container: 'px-4 py-2 text-base',
+      container: 'text-base grow',
       dot: 'w-2 h-2',
-      numberWidth: 'min-w-[22px]',
-      gap: 'space-x-2.5',
-      dotSpacing: 'ml-2.5',
+      gap: 'space-x-2',
+      numberSpacing: '',
+      dotSpacing: '',
     },
   }
 
@@ -83,9 +83,9 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
     return null
   }
 
-  const TimeUnit = ({ value, unit }: { value: number; unit: string }) => (
-    <div className="flex items-center">
-      <span className={`text-white ${sizeClasses[size].numberWidth} text-right tabular-nums`}>
+  const TimeUnit = ({ value, unit, className }: { value: number; unit: string, className?: string }) => (
+    <div className={cn(`flex items-center`, className)}>
+      <span className="text-white text-right tabular-nums">
         {value}
       </span>
       <span className="text-gray-400 ml-0.5">{unit}</span>
@@ -95,16 +95,16 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
   return (
     <div
       className={cn(
-        `inline-flex items-center bg-black rounded-full ${sizeClasses[size].container}`,
+        `flex bg-black rounded-full p-1 items-center`,
         className
       )}
     >
-      <div className={`${sizeClasses[size].dot} bg-[#00D369] rounded-full`} />
-      <div className={`${sizeClasses[size].dotSpacing} flex ${sizeClasses[size].gap}`}>
-        {timeLeft.days > 0 && <TimeUnit value={timeLeft.days} unit="d" />}
-        {(timeLeft.days > 0 || timeLeft.hours > 0) && <TimeUnit value={timeLeft.hours} unit="h" />}
-        <TimeUnit value={timeLeft.minutes} unit="m" />
-        <TimeUnit value={timeLeft.seconds} unit="s" />
+      <div className={`${sizeClasses[size].dot} ${sizeClasses[size].dotSpacing} bg-[#00D369] rounded-full`} />
+      <div className={`flex ${sizeClasses[size].gap} ${sizeClasses[size].container}`}>
+        {timeLeft.days > 0 && <TimeUnit className={sizeClasses[size].numberSpacing} value={timeLeft.days} unit="d" />}
+        {(timeLeft.days > 0 || timeLeft.hours > 0) && <TimeUnit className={sizeClasses[size].numberSpacing} value={timeLeft.hours} unit="h" />}
+        <TimeUnit className={sizeClasses[size].numberSpacing} value={timeLeft.minutes} unit="m" />
+        <TimeUnit className={sizeClasses[size].numberSpacing} value={timeLeft.seconds} unit="s" />
       </div>
     </div>
   )
