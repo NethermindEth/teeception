@@ -44,7 +44,7 @@ export const Header = () => {
           </div>
           <div
             className={clsx(
-              'absolute right-6 top-16 flex items-center justify-end lg:top-auto lg:block left-0 lg:left-auto',
+              'absolute right-6 top-16 flex items-center justify-end md:top-auto md:block left-0 md:left-auto',
               {
                 hidden: !menuOpen,
               }
@@ -53,7 +53,7 @@ export const Header = () => {
             <ConnectButton
               showAddress
               className={clsx(
-                'bg-white text-black px-6 py-2 rounded-full hover:bg-white/90 lg:block col-span-11',
+                'bg-white text-black px-6 py-2 rounded-full hover:bg-white/90 md:block col-span-11',
                 {
                   block: menuOpen,
                   hidden: !menuOpen,
