@@ -377,7 +377,6 @@ export default function DefendPage() {
         open={showSuccess}
         transactionHash={formState.transactionHash!}
         agentName={formState.values.agentName}
-        agentAddress={formState.agentAddress!}
         onClose={handleLaunchSuccessModalClose}
       />
     </div>
