@@ -387,7 +387,7 @@ export default function DefendPage() {
 
         <button
           type="submit"
-          disabled={formState.isSubmitting}
+          disabled={formState.isSubmitting || Object.values(formState.errors).some(error => error)}
           className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
         >
           {formState.isSubmitting ? (
