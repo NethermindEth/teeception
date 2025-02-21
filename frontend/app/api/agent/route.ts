@@ -14,13 +14,13 @@ export async function GET(request: Request) {
     if (name) {
       response = await fetch(`${INDEXER_BASE_URL}/search?name=${encodeURIComponent(name)}`, {
         next: {
-          revalidate: 30,
+          revalidate: 1,
         },
       })
     } else {
       response = await fetch(`${INDEXER_BASE_URL}/agent/${address}`, {
         next: {
-          revalidate: 30,
+          revalidate: 1,
         },
       })
     }

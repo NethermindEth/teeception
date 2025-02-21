@@ -11,7 +11,7 @@ export async function GET(request: Request) {
       `${INDEXER_BASE_URL}/leaderboard?page=${page}&page_size=${pageSize}`,
       {
         next: {
-          revalidate: 30,
+          revalidate: 1,
         },
       }
     )

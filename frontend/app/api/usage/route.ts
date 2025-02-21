@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const response = await fetch(`${INDEXER_BASE_URL}/usage`, {
       next: {
-        revalidate: 30,
+        revalidate: 1,
       },
     })
 
