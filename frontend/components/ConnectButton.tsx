@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useAccount, useConnect, useDisconnect, useNetwork } from '@starknet-react/core'
-import { Copy } from 'lucide-react'
+import { Copy, X, Check } from 'lucide-react'
 import clsx from 'clsx'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './Tooltip'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { useAddFunds } from '@/hooks/useAddFunds'
 import { StarknetkitConnector, useStarknetkitConnectModal } from 'starknetkit'
+import { AnimatePresence, motion } from 'framer-motion'
 
 interface ConnectButtonProps {
   className?: string
@@ -32,7 +33,6 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
   useEffect(() => {
     const autoConnect = async () => {
       try {
-        // Try to connect with the first available connector
         const connector = connectors[0]
         if (connector) {
           setIsConnecting(true)
@@ -47,7 +47,7 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
 
     autoConnect()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Empty dependency array ensures this only runs once on mount
+  }, [])
 
   async function connectWalletWithModal() {
     try {
@@ -63,6 +63,7 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`
   }
+  
   const handleCopyAddress = async () => {
     if (address) {
       await navigator.clipboard.writeText(address)
@@ -70,80 +71,136 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
       setTimeout(() => setCopied(false), 2000)
     }
   }
-  const strkBalance = useMemo(() => Number(tokenBalance?.formatted || 0), [tokenBalance])
-
-  if (address) {
-    return showAddress ? (
-      <div
-        className={clsx(
-          'lg:flex items-center gap-3 grid grid-cols-12 w-full p-3 justify-items-end'
-        )}
-      >
-        {/* {strkBalance < 0.01 && <button>Add funds</button>} */}
-        {
-          <button className="text-xs underline col-span-5" onClick={addFunds.showAddFundsModal}>
-            Add funds to your wallet
-          </button>
-        }
-        {chain?.network && (
-          <div className="flex border px-2 py-2 text-xs justify-center items-center gap-2 border-white/30 rounded-md col-span-4">
-            <div className="w-[6px] h-[6px] bg-[#58F083] rounded-full"></div>
-            <div className="uppercase"> {chain?.network}</div>
-          </div>
-        )}
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <p className="text-[#A4A4A4] text-xs col-span-3">
-                {loading ? '...' : `${strkBalance.toFixed(2)} STRK`}
-              </p>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Your balance</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button onClick={() => disconnect()} className={className}>
-                {formatAddress(address)}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Click to disconnect</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="flex items-center gap-1.5 -ml-[6px] col-span-1"
-                onClick={handleCopyAddress}
-              >
-                <Copy
-                  width={12}
-                  height={12}
-                  className={copied ? 'text-[#58F083]' : 'text-[#A4A4A4]'}
-                />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Click to copy address</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-    ) : null
-  }
+  
+  const strkBalance = useMemo(() => Number(tokenBalance?.formatted) || null, [tokenBalance])
 
   return (
-    <div>
-      <button 
-        onClick={connectWalletWithModal} 
-        className={className}
-        disabled={isConnecting}
-      >
-        {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-      </button>
-    </div>
+    <AnimatePresence mode="wait">
+      {address ? (
+        showAddress ? (
+          <motion.div 
+            key="connected"
+            className="flex items-center gap-2"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* Network Pill */}
+            <AnimatePresence>
+              {chain?.network && (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center px-3 py-1.5 bg-[#1A1B1F] rounded-full border border-[#383838] hover:border-[#4c4c4c] transition-colors"
+                >
+                  <div className="w-2 h-2 bg-[#58F083] rounded-full mr-2" />
+                  <span className="text-sm text-[#FAFAFA] font-medium uppercase">{chain.network}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Balance + Address Pill */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <motion.div 
+                    onClick={handleCopyAddress}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: 0.1 }}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#1A1B1F] rounded-full border border-[#383838] hover:border-[#4c4c4c] transition-colors cursor-pointer"
+                  >
+                    {/* Balance */}
+                    <div className="flex items-center border-r border-[#383838] pr-3">
+                      <span className="text-sm font-medium text-[#FAFAFA]">
+                        {loading || strkBalance === null ? '...' : `${strkBalance.toFixed(2)} STRK`}
+                      </span>
+                    </div>
+
+                    {/* Address */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-[#FAFAFA]">
+                        {formatAddress(address)}
+                      </span>
+                      {copied ? (
+                        <Check size={14} className="text-[#58F083]" />
+                      ) : (
+                        <Copy size={14} />
+                      )}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                disconnect()
+                              }}
+                              className="hover:text-red-500 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Disconnect</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  </motion.div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{copied ? 'Address copied!' : 'Copy address'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Add Funds Button */}
+            <AnimatePresence>
+              {strkBalance !== null && strkBalance < 0.01 && (
+                <motion.button 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -10 }}
+                  transition={{ duration: 0.2, delay: 0.2 }}
+                  onClick={addFunds.showAddFundsModal}
+                  className="text-sm font-medium text-[#58F083] hover:text-[#3da85c] transition-colors"
+                >
+                  Add funds
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        ) : null
+      ) : (
+        <motion.button 
+          key="connect"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          onClick={connectWalletWithModal}
+          disabled={isConnecting}
+          className={clsx(
+            "px-4 py-2 bg-[#1A1B1F] rounded-full border border-[#383838] hover:border-[#424242] transition-colors text-[#FAFAFA] font-medium",
+            className,
+            isConnecting && "relative overflow-hidden"
+          )}
+        >
+          {isConnecting ? (
+            <>
+              <span>Connecting...</span>
+              <div className="absolute bottom-0 left-0 h-[2px] w-full bg-[#383838]">
+                <div className="h-full w-1/3 bg-[#58F083] animate-loading-progress" />
+              </div>
+            </>
+          ) : (
+            'Connect Wallet'
+          )}
+        </motion.button>
+      )}
+    </AnimatePresence>
   )
 }
