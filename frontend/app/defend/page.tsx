@@ -18,8 +18,9 @@ import { AgentLaunchSuccessModal } from '@/components/AgentLaunchSuccessModal'
 import Link from 'next/link'
 import { useRouter } from 'nextjs-toploader/app'
 import { useTokenCount } from '@/hooks/useTokenCount'
+import { useTokenParams } from '@/hooks/useTokenParams'
 
-const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined) => {
+const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined, tokenParams: { params: { minPromptPrice?: bigint; minInitialBalance?: bigint } }) => {
   const [formState, setFormState] = useState({
     values: {
       agentName: '',
@@ -45,17 +46,20 @@ const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | u
         case 'feePerMessage':
           const fee = parseFloat(value)
           if (isNaN(fee) || fee < 0) return 'Fee must be a positive number'
+          const feeInSmallestUnit = BigInt(Math.floor(fee * Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)))
+          if (tokenParams.params.minPromptPrice && feeInSmallestUnit < tokenParams.params.minPromptPrice) {
+            return `Fee must be at least ${Number(tokenParams.params.minPromptPrice) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)} ${ACTIVE_NETWORK.tokens[0].symbol}`
+          }
           break
         case 'initialBalance':
           const balance = parseFloat(value)
           if (isNaN(balance) || balance < 0) return 'Initial balance must be a positive number'
-          if (tokenBalance?.balance) {
-            const balanceInSmallestUnit = BigInt(
-              balance * Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)
-            )
-            if (balanceInSmallestUnit > tokenBalance.balance) {
-              return `Insufficient balance. You have ${tokenBalance.formatted} ${ACTIVE_NETWORK.tokens[0].symbol}`
-            }
+          const balanceInSmallestUnit = BigInt(Math.floor(balance * Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)))
+          if (tokenParams.params.minInitialBalance && balanceInSmallestUnit < tokenParams.params.minInitialBalance) {
+            return `Initial balance must be at least ${Number(tokenParams.params.minInitialBalance) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)} ${ACTIVE_NETWORK.tokens[0].symbol}`
+          }
+          if (tokenBalance?.balance && balanceInSmallestUnit > tokenBalance.balance) {
+            return `Insufficient balance. You have ${tokenBalance.formatted} ${ACTIVE_NETWORK.tokens[0].symbol}`
           }
           break
         case 'systemPrompt':
@@ -64,7 +68,7 @@ const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | u
       }
       return ''
     },
-    [tokenBalance]
+    [tokenBalance, tokenParams]
   )
 
   const handleChange = useCallback(
@@ -181,6 +185,7 @@ export default function DefendPage() {
   const router = useRouter()
   const { address, account } = useAccount()
   const { balance: tokenBalance } = useTokenBalance('STRK')
+  const { params: tokenParams } = useTokenParams(ACTIVE_NETWORK.tokens.find(token => token.symbol === 'STRK')?.address || '')
   const { contract: registry } = useContract({
     address: AGENT_REGISTRY_ADDRESS as `0x${string}`,
     abi: TEECEPTION_AGENTREGISTRY_ABI,
@@ -189,7 +194,7 @@ export default function DefendPage() {
     address: ACTIVE_NETWORK.tokens[0].address as `0x${string}`,
     abi: TEECEPTION_ERC20_ABI,
   })
-  const { formState, setFormState, handleChange, validateForm } = useAgentForm(tokenBalance!)
+  const { formState, setFormState, handleChange, validateForm } = useAgentForm(tokenBalance!, { params: tokenParams })
   const [showSuccess, setShowSuccess] = useState(false)
   const { tokenCount, countTokens, isDebouncing: isTokenCountDebouncing } = useTokenCount()
 
@@ -258,6 +263,14 @@ export default function DefendPage() {
     )
   }
 
+  const minPromptPrice = tokenParams?.minPromptPrice ? 
+    Number(tokenParams.minPromptPrice) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals) : 
+    0
+
+  const minInitialBalance = tokenParams?.minInitialBalance ?
+    Number(tokenParams.minInitialBalance) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals) :
+    0
+
   return (
     <div className="container mx-auto px-4 py-4 pt-24 relative">
       <Link
@@ -300,27 +313,42 @@ export default function DefendPage() {
           )}
         </div>
 
-        <FormInput
-          label="Fee per Message (STRK)"
-          name="feePerMessage"
-          type="number"
-          value={formState.values.feePerMessage}
-          onChange={handleChange}
-          error={formState.errors.feePerMessage}
-          placeholder="0.00"
-          step="0.01"
-          min="0"
-          required
-        />
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium">Fee per Message (STRK)</label>
+            <span className="block text-sm text-white/40">
+              (Minimum: {minPromptPrice} STRK)
+            </span>
+          </div>
+          <input
+            type="number"
+            name="feePerMessage"
+            value={formState.values.feePerMessage}
+            onChange={handleChange}
+            className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
+            placeholder="0.00"
+            step="0.01"
+            min={minPromptPrice}
+            required
+          />
+          {formState.errors.feePerMessage && (
+            <p className="mt-1 text-sm text-red-500">{formState.errors.feePerMessage}</p>
+          )}
+        </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium">Initial Balance (STRK)</label>
-            {tokenBalance && (
+            <div className="text-right">
               <span className="block text-sm text-white/40">
-                (Available Balance: {Number(tokenBalance?.formatted || 0).toFixed(2)} STRK)
+                (Minimum: {minInitialBalance} STRK)
               </span>
-            )}
+              {tokenBalance && (
+                <span className="block text-sm text-white/40">
+                  (Available Balance: {Number(tokenBalance?.formatted || 0).toFixed(2)} STRK)
+                </span>
+              )}
+            </div>
           </div>
           <input
             type="number"
@@ -330,7 +358,7 @@ export default function DefendPage() {
             className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
             placeholder="0.00"
             step="0.01"
-            min="0"
+            min={minInitialBalance}
             required
           />
           {formState.errors.initialBalance && (
