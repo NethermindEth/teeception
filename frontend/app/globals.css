@@ -17,7 +17,8 @@
 @layer base {
   body,
   p,
-  button {
+  button,
+  .header-menu-items {
     font-family: var(--font-dm-sans);
   }
 
