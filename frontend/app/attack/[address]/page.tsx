@@ -6,7 +6,7 @@ import { useAccount, useContract, useSendTransaction } from '@starknet-react/cor
 import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { divideFloatStrings, getAgentStatus } from '@/lib/utils'
+import { formatBalance, getAgentStatus } from '@/lib/utils'
 import { X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
@@ -479,7 +479,7 @@ export default function AgentChallengePage() {
                               <>
                                 Pay to Challenge
                                 <span className="text-sm opacity-80">
-                                  ({divideFloatStrings(agent.promptPrice, agent.decimal)} STRK)
+                                  ({formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)} STRK)
                                 </span>
                               </>
                             )}
@@ -494,7 +494,7 @@ export default function AgentChallengePage() {
                         <li>This payment will activate the challenge for this tweet</li>
                         <li>
                           If you are successful you&apos;ll get{' '}
-                          {divideFloatStrings(agent.balance, agent.decimal)} STRK
+                          {formatBalance(BigInt(agent.balance), agent.decimal)} STRK
                         </li>
                         <li>If you fail, your STRK is added to the reward</li>
                       </ul>

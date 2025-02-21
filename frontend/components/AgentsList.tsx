@@ -2,7 +2,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AgentDetails } from '@/hooks/useAgents'
-import { divideFloatStrings, getAgentStatus } from '@/lib/utils'
+import { formatBalance, getAgentStatus } from '@/lib/utils'
 import CountdownTimer from './CountdownTimer'
 import { AgentStatus } from '@/types'
 
@@ -58,9 +58,9 @@ export const AgentsList = ({
                 {/* Agent Cards */}
                 <AnimatePresence>
                   {agents.map((agent, idx) => {
-                    const promptPrice = divideFloatStrings(agent.promptPrice, agent.decimal)
-                    const prizePool = divideFloatStrings(agent.balance, agent.decimal)
-                    const drainAmount = divideFloatStrings(agent.drainAmount, agent.decimal)
+                    const promptPrice = formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)
+                    const prizePool = formatBalance(BigInt(agent.balance), agent.decimal)
+                    const drainAmount = formatBalance(BigInt(agent.drainAmount), agent.decimal)
                     const agentStatus = getAgentStatus({
                       isDrained: agent.isDrained,
                       isFinalized: agent.isFinalized,

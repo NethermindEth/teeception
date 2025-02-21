@@ -2,7 +2,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AttackerDetails } from '@/hooks/useAttackers'
-import { divideFloatStrings } from '@/lib/utils'
+import { formatBalance } from '@/lib/utils'
 import { ACTIVE_NETWORK } from '@/constants'
 
 export const AttackersList = ({
@@ -53,7 +53,7 @@ export const AttackersList = ({
                     const accruedBalances = ACTIVE_NETWORK.tokens
                       .map((token) => {
                         const balance = attacker.accruedBalances[token.address] || '0'
-                        const formattedBalance = divideFloatStrings(balance, token.decimals)
+                        const formattedBalance = formatBalance(BigInt(balance), token.decimals)
                         return `${formattedBalance} ${token.symbol}`
                       })
                       .join(', ')

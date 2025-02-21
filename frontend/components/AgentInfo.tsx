@@ -1,4 +1,4 @@
-import { divideFloatStrings } from '@/lib/utils'
+import { formatBalance } from '@/lib/utils'
 import clsx from 'clsx'
 
 export type AgentInfoProps = {
@@ -17,8 +17,8 @@ export const AgentInfo = ({
   breakAttempts,
   className,
 }: AgentInfoProps) => {
-  const prizePool = divideFloatStrings(balance, decimal)
-  const messagePrice = divideFloatStrings(promptPrice, decimal)
+  const prizePool = formatBalance(BigInt(balance), decimal)
+  const messagePrice = formatBalance(BigInt(promptPrice), decimal, 2, true)
   return (
     <div
       className={clsx(

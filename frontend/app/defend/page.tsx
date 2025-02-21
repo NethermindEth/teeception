@@ -19,8 +19,10 @@ import Link from 'next/link'
 import { useRouter } from 'nextjs-toploader/app'
 import { useTokenCount } from '@/hooks/useTokenCount'
 import { useTokenParams } from '@/hooks/useTokenParams'
+import { formatBalance, stringToBigInt } from '@/lib/utils'
+import { Token } from '@/types'
 
-const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined, tokenParams: { params: { minPromptPrice?: bigint; minInitialBalance?: bigint } }) => {
+const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined, token: Token, tokenParams: { minPromptPrice?: bigint; minInitialBalance?: bigint }) => {
   const [formState, setFormState] = useState({
     values: {
       agentName: '',
@@ -46,20 +48,20 @@ const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | u
         case 'feePerMessage':
           const fee = parseFloat(value)
           if (isNaN(fee) || fee < 0) return 'Fee must be a positive number'
-          const feeInSmallestUnit = BigInt(Math.floor(fee * Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)))
-          if (tokenParams.params.minPromptPrice && feeInSmallestUnit < tokenParams.params.minPromptPrice) {
-            return `Fee must be at least ${Number(tokenParams.params.minPromptPrice) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)} ${ACTIVE_NETWORK.tokens[0].symbol}`
+          const feeInSmallestUnit = stringToBigInt(value, token.decimals)
+          if (tokenParams.minPromptPrice && feeInSmallestUnit < tokenParams.minPromptPrice) {
+            return `Fee must be at least ${formatBalance(tokenParams.minPromptPrice, token.decimals, 2, true)} ${token.symbol}`
           }
           break
         case 'initialBalance':
           const balance = parseFloat(value)
           if (isNaN(balance) || balance < 0) return 'Initial balance must be a positive number'
-          const balanceInSmallestUnit = BigInt(Math.floor(balance * Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)))
-          if (tokenParams.params.minInitialBalance && balanceInSmallestUnit < tokenParams.params.minInitialBalance) {
-            return `Initial balance must be at least ${Number(tokenParams.params.minInitialBalance) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals)} ${ACTIVE_NETWORK.tokens[0].symbol}`
+          const balanceInSmallestUnit = stringToBigInt(value, token.decimals)
+          if (tokenParams.minInitialBalance && balanceInSmallestUnit < tokenParams.minInitialBalance) {
+            return `Initial balance must be at least ${formatBalance(tokenParams.minInitialBalance, token.decimals, 0, true)} ${token.symbol}`
           }
           if (tokenBalance?.balance && balanceInSmallestUnit > tokenBalance.balance) {
-            return `Insufficient balance. You have ${tokenBalance.formatted} ${ACTIVE_NETWORK.tokens[0].symbol}`
+            return `Insufficient balance. You have ${tokenBalance.formatted} ${token.symbol}`
           }
           break
         case 'systemPrompt':
@@ -126,10 +128,10 @@ const useTransactionManager = (
       try {
         const selectedToken = ACTIVE_NETWORK.tokens[0]
         const promptPrice = uint256.bnToUint256(
-          BigInt(Math.floor(feeNumber * Math.pow(10, selectedToken.decimals)))
+          stringToBigInt(formData.feePerMessage, selectedToken.decimals)
         )
         const initialBalance = uint256.bnToUint256(
-          BigInt(Math.floor(balanceNumber * Math.pow(10, selectedToken.decimals)))
+          stringToBigInt(formData.initialBalance, selectedToken.decimals)
         )
         const endTimeSeconds = Math.floor(
           new Date().getTime() / 1000 + parseInt(formData.duration) * 86400
@@ -182,6 +184,8 @@ const FormInput = ({
 )
 
 export default function DefendPage() {
+  const token = ACTIVE_NETWORK.tokens[0]
+
   const router = useRouter()
   const { address, account } = useAccount()
   const { balance: tokenBalance } = useTokenBalance('STRK')
@@ -194,12 +198,11 @@ export default function DefendPage() {
     address: ACTIVE_NETWORK.tokens[0].address as `0x${string}`,
     abi: TEECEPTION_ERC20_ABI,
   })
-  const { formState, setFormState, handleChange, validateForm } = useAgentForm(tokenBalance!, { params: tokenParams })
+  const { formState, setFormState, handleChange, validateForm } = useAgentForm(tokenBalance!, token, tokenParams)
   const [showSuccess, setShowSuccess] = useState(false)
   const { tokenCount, countTokens, isDebouncing: isTokenCountDebouncing } = useTokenCount()
 
   const sendAsync = useTransactionManager(registry!, tokenContract!, formState.values)
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateForm() || !address || !account || !registry || !tokenContract) return
@@ -264,12 +267,12 @@ export default function DefendPage() {
   }
 
   const minPromptPrice = tokenParams?.minPromptPrice ? 
-    Number(tokenParams.minPromptPrice) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals) : 
-    0
+    formatBalance(tokenParams.minPromptPrice, token.decimals, 2, true) : 
+    '0'
 
   const minInitialBalance = tokenParams?.minInitialBalance ?
-    Number(tokenParams.minInitialBalance) / Math.pow(10, ACTIVE_NETWORK.tokens[0].decimals) :
-    0
+    formatBalance(tokenParams.minInitialBalance, token.decimals, 0, true) :
+    '0'
 
   return (
     <div className="container mx-auto px-4 py-4 pt-24 relative">

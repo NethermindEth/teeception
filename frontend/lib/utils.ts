@@ -25,30 +25,64 @@ export const calculateTimeLeft = (endTime: number) => {
   }
 }
 
-export const divideFloatStrings = (a: string, b: number): string => {
-  const numA = parseFloat(a)
-  const numB = Number(10 ** b)
+export const stringToBigInt = (value: string, decimals: number = 0) => {
+  if (!value) return BigInt(0)
+  
+  if (value.includes('.')) {
+    const [integerPart, decimalPart] = value.split('.')
+    const paddedDecimals = decimalPart.padEnd(decimals, '0').slice(0, decimals)
+    return BigInt(integerPart + paddedDecimals)
+  }
 
-  if (numB === 0) {
-    console.error('Division by zero is not allowed.')
+  if (decimals === 0) {
+    return BigInt(value)
+  }
+
+  const multiplier = BigInt(10) ** BigInt(decimals)
+  return BigInt(value) * multiplier
+}
+
+export const bigIntToString = (value: bigint, decimals: number, precision: number = 2, ceil: boolean = false) => {
+  const divisor = BigInt(10) ** BigInt(decimals)
+  let quotient = value / divisor
+  let remainder = value % divisor
+  
+  if (ceil && remainder > BigInt(0)) {
+    const precisionDivisor = BigInt(10) ** BigInt(decimals - precision)
+    const remainderMod = remainder % precisionDivisor
+    if (remainderMod > BigInt(0)) {
+      remainder += precisionDivisor - remainderMod
+    }
+    if (remainder == divisor) {
+      quotient += BigInt(1)
+      remainder = BigInt(0)
+    }
+  }
+
+  const paddedRemainder = remainder.toString().padStart(decimals, '0')
+  if (precision === 0) {
+    return quotient.toString()
+  }
+  const remainderStr = paddedRemainder.slice(0, precision).padEnd(precision, '0')
+  return `${quotient}.${remainderStr}`
+}
+
+export const formatBalance = (balance: bigint, decimals: number, precision: number = 0, ceil: boolean = false) => {
+  if (balance === BigInt(0)) {
     return '0'
   }
 
-  const result = (numA / numB).toFixed(2)
-  return result
-}
+  const decimalsDivisor = BigInt(10) ** BigInt(decimals)
+  const precisionDivisor = BigInt(10) ** BigInt(precision)
 
-export const formatBigInt = (value: string, decimals: number): string => {
-  const bigIntValue = BigInt(value)
-  const divisor = BigInt(10 ** decimals)
-  const wholePart = bigIntValue / divisor
-  const fractionalPart = bigIntValue % divisor
+  if (balance < decimalsDivisor / precisionDivisor) {
+    if (precision === 0) {
+      return '< 1'
+    }
+    return '< 0.' + '0'.repeat(precision - 1) + '1'
+  }
 
-  const fractionalStr = fractionalPart.toString().padStart(decimals, '0')
-
-  const formatted = `${wholePart}.${fractionalStr}`.replace(/\.?0+$/, '')
-
-  return formatted
+  return bigIntToString(balance, decimals, precision, ceil)
 }
 
 export const getAgentStatus = ({

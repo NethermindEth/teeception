@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ACTIVE_NETWORK } from '@/constants'
-import { formatBigInt } from '@/lib/utils'
+import { formatBalance } from '@/lib/utils'
 
 interface RawUsageResponse {
   registered_agents: number
@@ -66,7 +66,7 @@ export const useUsageStats = () => {
                 address: token.address,
                 symbol: token.symbol,
               },
-              amount: formatBigInt(amount, token.decimals),
+              amount: formatBalance(BigInt(amount), token.decimals),
               rawAmount: amount,
             }
           })
@@ -86,9 +86,7 @@ export const useUsageStats = () => {
             successes: rawData.attempts.successes,
           },
           prizePools: formattedPrizePools,
-          totalBounty: Number(
-            formatBigInt(totalValueInBaseToken.toString(), baseToken.decimals)
-          ).toFixed(0),
+          totalBounty: formatBalance(totalValueInBaseToken, baseToken.decimals),
         })
       } catch (err) {
         setError(

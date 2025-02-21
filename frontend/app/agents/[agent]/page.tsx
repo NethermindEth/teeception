@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentChat } from '@/components/AgentChat'
 import { useAgent } from '@/hooks/useAgent'
 import { useParams } from 'next/navigation'
-import { divideFloatStrings } from '@/lib/utils'
+import { formatBalance } from '@/lib/utils'
 import { AgentStates } from '@/components/AgentStates'
 import { Copy } from 'lucide-react'
 import { useState } from 'react'
@@ -56,7 +56,7 @@ export default function Agent() {
     return <AgentStates loading={!!loading} error={error} isNotFound={!agent} />
   }
 
-  const messagePrice = divideFloatStrings(agent.promptPrice, agent.decimal)
+  const messagePrice = formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)
 
   return (
     <div className="bg-cover bg-center bg-no-repeat text-white flex-col items-end md:items-center justify-center">
