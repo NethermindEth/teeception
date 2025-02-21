@@ -193,7 +193,7 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
             <>
               <span>Connecting...</span>
               <div className="absolute bottom-0 left-0 h-[2px] w-full bg-[#383838]">
-                <div className="h-full w-1/3 bg-[#58F083] animate-loading-progress" />
+                <div className="h-full w-full bg-[#58F083] animate-loading-progress" />
               </div>
             </>
           ) : (
