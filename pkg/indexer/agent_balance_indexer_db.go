@@ -119,8 +119,18 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 			return -1
 		}
 
+		amountA := balA.Amount
+		if aFinalized {
+			amountA = balA.DrainAmount
+		}
+
+		amountB := balB.Amount
+		if bFinalized {
+			amountB = balB.DrainAmount
+		}
+
 		if balA.Token == balB.Token {
-			return -balA.DrainAmount.Cmp(balB.DrainAmount)
+			return -amountA.Cmp(amountB)
 		}
 
 		rateA, ok := priceCache.GetTokenRate(balA.Token)
@@ -135,7 +145,7 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 			return 0
 		}
 
-		return -balA.DrainAmount.Mul(balA.DrainAmount, rateA).Cmp(balB.DrainAmount.Mul(balB.DrainAmount, rateB))
+		return -amountA.Mul(amountA, rateA).Cmp(amountB.Mul(amountB, rateB))
 	})
 
 	db.totalActiveBalances = make(map[[32]byte]*big.Int)
