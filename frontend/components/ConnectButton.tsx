@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAccount, useConnect, useDisconnect, useNetwork } from '@starknet-react/core'
 import { Copy, X, Check } from 'lucide-react'
 import clsx from 'clsx'
