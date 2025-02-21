@@ -6,6 +6,7 @@ import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { useRouter } from 'next/navigation'
 import { AgentListView } from '@/components/AgentListView'
 import { TEXT_COPIES } from '@/constants'
+import { AttackerDetails } from '@/hooks/useAttackers'
 
 export default function AttackPage() {
   const { address } = useAccount()
@@ -13,6 +14,10 @@ export default function AttackPage() {
 
   const onAgentClick = (agent: AgentDetails) => {
     router.push(`/attack/${agent.address}`)
+  }
+
+  const onAttackerClick = (attacker: AttackerDetails) => {
+    console.log(attacker)
   }
 
   if (!address) {
@@ -31,6 +36,7 @@ export default function AttackPage() {
         heading={TEXT_COPIES.attack.heading}
         subheading={TEXT_COPIES.attack.subheading}
         onAgentClick={onAgentClick}
+        onAttackerClick={onAttackerClick}
       />
     </div>
   )
