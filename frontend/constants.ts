@@ -90,7 +90,7 @@ export const TEXT_COPIES = {
       "Discover agents created over time, active agents and check how both hackers who cracked systems and agent's creators have earned STRK rewards",
   },
   attack: {
-    heading: 'Chose your oponent',
+    heading: 'Choose your opponent',
     subheading: 'Trick one of these agents into sending you all their STRK',
   },
 }
