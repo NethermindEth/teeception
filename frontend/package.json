@@ -30,7 +30,9 @@
     "starknet": "^6.11.0",
     "starknetkit": "^2.6.1",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "tiktoken": "^1.0.20",
+    "use-debounce": "^10.0.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

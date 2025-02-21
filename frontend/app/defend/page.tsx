@@ -11,11 +11,12 @@ import { ChevronLeft, Loader2 } from 'lucide-react'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
-import { ACTIVE_NETWORK, AGENT_REGISTRY_ADDRESS } from '@/constants'
+import { ACTIVE_NETWORK, AGENT_REGISTRY_ADDRESS, SYSTEM_PROMPT_MAX_TOKENS } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { uint256 } from 'starknet'
 import { AgentLaunchSuccessModal } from '@/components/AgentLaunchSuccessModal'
 import Link from 'next/link'
+import { useTokenCount } from '@/hooks/useTokenCount'
 
 const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined) => {
   const [formState, setFormState] = useState({
@@ -187,6 +188,7 @@ export default function DefendPage() {
   })
   const { formState, setFormState, handleChange, validateForm } = useAgentForm(tokenBalance!)
   const [showSuccess, setShowSuccess] = useState(false)
+  const { tokenCount, countTokens, isDebouncing: isTokenCountDebouncing } = useTokenCount()
 
   const sendAsync = useTransactionManager(registry!, tokenContract!, formState.values)
 
@@ -217,6 +219,15 @@ export default function DefendPage() {
     } finally {
       setFormState((prev) => ({ ...prev, isSubmitting: false }))
     }
+  }
+
+  const handleSystemPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value
+    countTokens(value) // Update token count
+    setFormState((prev) => ({
+      ...prev,
+      values: { ...prev.values, systemPrompt: value },
+    }))
   }
 
   if (!address) {
@@ -256,13 +267,18 @@ export default function DefendPage() {
           <textarea
             name="systemPrompt"
             value={formState.values.systemPrompt}
-            onChange={handleChange}
+            onChange={handleSystemPromptChange}
             className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3 min-h-[200px]"
             placeholder="Enter system prompt..."
             required
           />
-          {formState.errors.systemPrompt && (
-            <p className="mt-1 text-sm text-red-500">{formState.errors.systemPrompt}</p>
+          <p className={`mt-1 text-sm text-gray-400 ${isTokenCountDebouncing ? 'animate-pulse' : ''}`}>
+            Tokens: {tokenCount} / {SYSTEM_PROMPT_MAX_TOKENS}
+          </p>
+          {tokenCount > SYSTEM_PROMPT_MAX_TOKENS && (
+            <p className="mt-1 text-sm text-red-500">
+              System prompt exceeds token limit
+            </p>
           )}
         </div>
 

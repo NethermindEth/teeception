@@ -4,11 +4,14 @@ export const DEFAULT_RPC_URL = 'https://api.cartridge.gg/x/starknet/sepolia'
 export const RPC_NODE_URL = process.env.NEXT_PUBLIC_RPC_NODE_URL || DEFAULT_RPC_URL
 export const AGENT_REGISTRY_ADDRESS =
   process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS ||
-  '0x0136e0484d5e9733ff105019318c0e10431ac21bccb582d8584cd285caf080f5'
+  '0x025c07cf597604045cc41b08283cf4826dab598163c9317d129ead8956021a4a'
 export const X_BOT_NAME = '@teetestt84759'
 
 export const INDEXER_BASE_URL =
   process.env.NEXT_PUBLIC_INDEXER_BASE_URL || 'http://localhost:4000'
+
+export const SYSTEM_PROMPT_MAX_TOKENS = 800
+
 interface Token {
   address: string
   name: string
