@@ -95,9 +95,34 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
                   >
                     {/* Balance */}
                     <div className="flex items-center border-r border-[#383838] pr-3">
-                      <span className="text-sm font-medium text-[#FAFAFA]">
-                        {loading || strkBalance === null ? '...' : `${strkBalance.toFixed(2)} STRK`}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-[#FAFAFA]">
+                          {loading || strkBalance === null ? '...' : `${strkBalance.toFixed(2)} STRK`}
+                        </span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  addFunds.showAddFundsModal()
+                                }}
+                                className="hover:text-[#FFFFFF] transition-colors"
+                              >
+                                <div className="w-4 h-4 bg-[#FFFFFF] rounded-full flex items-center justify-center hover:bg-[#D0D0D0] transition-colors">
+                                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M5 2V8" stroke="#1A1B1F" strokeWidth="2" strokeLinecap="round"/>
+                                    <path d="M2 5H8" stroke="#1A1B1F" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                </div>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Add funds</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </div>
 
                     {/* Address */}
@@ -136,22 +161,6 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-
-            {/* Add Funds Button */}
-            <AnimatePresence>
-              {strkBalance !== null && strkBalance < 0.01 && (
-                <motion.button 
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2, delay: 0.2 }}
-                  onClick={addFunds.showAddFundsModal}
-                  className="text-sm font-medium text-[#58F083] hover:text-[#3da85c] transition-colors"
-                >
-                  Add funds
-                </motion.button>
-              )}
-            </AnimatePresence>
           </motion.div>
         ) : null
       ) : (
