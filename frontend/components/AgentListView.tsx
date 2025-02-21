@@ -101,13 +101,13 @@ export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerCli
           <div className="flex flex-col md:flex-row items-center justify-between mb-6">
             <TabsList className="flex w-full">
               <TabsTrigger value={TabType.AgentRanking}>
-                Agents ranking ({agents.length})
+                Agents ranking
               </TabsTrigger>
               <TabsTrigger value={TabType.ActiveAgents}>
-                Active agents ({activeAgents.length})
+                Active agents
               </TabsTrigger>
               <TabsTrigger value={TabType.TopAttackers}>
-                Top attackers ({attackers.length})
+                Top attackers
               </TabsTrigger>
             </TabsList>
 
