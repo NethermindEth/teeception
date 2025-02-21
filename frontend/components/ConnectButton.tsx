@@ -52,7 +52,7 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
     }
   }
   
-  const strkBalance = useMemo(() => Number(tokenBalance?.formatted) || null, [tokenBalance])
+  const strkBalance = useMemo(() => (tokenBalance?.formatted ? Number(tokenBalance?.formatted) : null), [tokenBalance])
 
   return (
     <AnimatePresence mode="wait">
