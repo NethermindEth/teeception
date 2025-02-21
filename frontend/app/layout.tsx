@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${ibmPlexMono.variable} ${dmSans.variable} font-sans antialiased`}>
         <Providers>
-          <NextTopLoader color="#FFFFFF" />
+          <NextTopLoader color="#FFFFFF" showSpinner={false} />
           {children}
         </Providers>
       </body>
