@@ -72,7 +72,7 @@ export const Stats = ({
         </div>
 
         <motion.div layout>
-          <motion.p layout className="text-[#7E7E7E] text-sm lg:text-base mb-1">Successful Breaks</motion.p>
+          <motion.p layout className="text-[#7E7E7E] text-sm lg:text-base mb-1">Successful breaks</motion.p>
           <motion.h3
             layout
             className="text-lg lg:text-[38px]"
