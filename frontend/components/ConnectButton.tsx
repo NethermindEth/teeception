@@ -29,26 +29,6 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
     connectors: connectors as StarknetkitConnector[],
   })
 
-  // Auto-connect on initial page load only
-  useEffect(() => {
-    const autoConnect = async () => {
-      try {
-        const connector = connectors[0]
-        if (connector) {
-          setIsConnecting(true)
-          await connectAsync({ connector })
-        }
-      } catch (err) {
-        console.error('Header', 'Auto-connect failed', err)
-      } finally {
-        setIsConnecting(false)
-      }
-    }
-
-    autoConnect()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   async function connectWalletWithModal() {
     try {
       setIsConnecting(true)
