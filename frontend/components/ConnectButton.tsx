@@ -17,6 +17,7 @@ interface ConnectButtonProps {
 export const ConnectButton = ({ className = '', showAddress = true }: ConnectButtonProps) => {
   const { address } = useAccount()
   const [copied, setCopied] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
   const { balance: tokenBalance, isLoading: loading } = useTokenBalance('STRK')
   const { chain } = useNetwork()
   const addFunds = useAddFunds()
@@ -34,10 +35,13 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
         // Try to connect with the first available connector
         const connector = connectors[0]
         if (connector) {
+          setIsConnecting(true)
           await connectAsync({ connector })
         }
       } catch (err) {
         console.error('Header', 'Auto-connect failed', err)
+      } finally {
+        setIsConnecting(false)
       }
     }
 
@@ -46,9 +50,14 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
   }, []) // Empty dependency array ensures this only runs once on mount
 
   async function connectWalletWithModal() {
-    const { connector } = await starknetkitConnectModal()
-    if (!connector) return
-    await connectAsync({ connector })
+    try {
+      setIsConnecting(true)
+      const { connector } = await starknetkitConnectModal()
+      if (!connector) return
+      await connectAsync({ connector })
+    } finally {
+      setIsConnecting(false)
+    }
   }
 
   const formatAddress = (addr: string) => {
@@ -128,8 +137,12 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
 
   return (
     <div>
-      <button onClick={connectWalletWithModal} className={className}>
-        Connect Wallet
+      <button 
+        onClick={connectWalletWithModal} 
+        className={className}
+        disabled={isConnecting}
+      >
+        {isConnecting ? 'Connecting...' : 'Connect Wallet'}
       </button>
     </div>
   )
