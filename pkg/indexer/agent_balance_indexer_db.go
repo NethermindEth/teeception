@@ -38,7 +38,8 @@ type AgentBalanceIndexerDatabase interface {
 
 // AgentBalanceIndexerDatabaseInMemory is an in-memory implementation of the AgentBalanceIndexerDatabase interface.
 type AgentBalanceIndexerDatabaseInMemory struct {
-	balances map[[32]byte]*AgentBalance
+	balances   map[[32]byte]*AgentBalance
+	valueCache map[[32]byte]*big.Int
 
 	sortedAgentsMu      sync.RWMutex
 	sortedAgents        *utils.LazySortedList[[32]byte]

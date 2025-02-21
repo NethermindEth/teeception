@@ -25,7 +25,6 @@ type UIServiceConfig struct {
 	RegistryAddress      *felt.Felt
 	StartingBlock        uint64
 	TokenRates           map[[32]byte]*big.Int
-	BalanceTickRate      time.Duration
 	PriceTickRate        time.Duration
 	EventTickRate        time.Duration
 	EventStartupTickRate time.Duration
@@ -83,8 +82,6 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	agentBalanceIndexer := indexer.NewAgentBalanceIndexer(&indexer.AgentBalanceIndexerConfig{
 		Client:          config.Client,
 		AgentIdx:        agentIndexer,
-		TickRate:        config.BalanceTickRate,
-		SafeBlockDelta:  0,
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
 		EventWatcher:    eventWatcher,
@@ -543,7 +540,7 @@ func (s *UIService) buildAgentData(info *indexer.AgentInfo) (*AgentData, error) 
 		Name:          info.Name,
 		SystemPrompt:  info.SystemPrompt,
 		Token:         balance.Token.String(),
-		Balance:       balance.Amount.String(),
+		Balance:       new(big.Int).Sub(balance.Amount, balance.PendingAmount).String(),
 		EndTime:       strconv.FormatUint(balance.EndTime, 10),
 		Model:         info.Model.String(),
 		IsDrained:     usage.IsDrained,

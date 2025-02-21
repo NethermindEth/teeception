@@ -81,7 +81,6 @@ func main() {
 				RegistryAddress:      registryAddress,
 				StartingBlock:        deploymentBlock,
 				TokenRates:           tokenRates,
-				BalanceTickRate:      balanceTickRate,
 				PriceTickRate:        priceTickRate,
 				EventTickRate:        eventTickRate,
 				EventStartupTickRate: eventStartupTickRate,

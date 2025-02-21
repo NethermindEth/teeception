@@ -2,7 +2,6 @@ package indexer
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"math/big"
 	"sync"
@@ -11,16 +10,16 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/NethermindEth/juno/core/felt"
-	"github.com/NethermindEth/starknet.go/rpc"
 
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
-	snaccount "github.com/NethermindEth/teeception/pkg/wallet/starknet"
 )
 
 type AgentBalance struct {
 	Pending         bool
 	Token           *felt.Felt
+	PromptPrice     *big.Int
 	Amount          *big.Int
+	PendingAmount   *big.Int
 	AmountUpdatedAt uint64
 	EndTime         uint64
 	IsDrained       bool
@@ -42,9 +41,6 @@ type AgentBalanceIndexer struct {
 	registryAddress *felt.Felt
 
 	priceCache AgentBalanceIndexerPriceCache
-
-	toUpdate   map[[32]byte]struct{}
-	toUpdateMu sync.Mutex
 
 	tickRate       time.Duration
 	safeBlockDelta uint64
@@ -80,7 +76,7 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
-	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventTransfer|EventDrained|EventWithdrawn, eventCh)
+	eventSubID := config.EventWatcher.Subscribe(EventAgentRegistered|EventTransfer|EventDrained|EventWithdrawn|EventPromptPaid|EventPromptConsumed, eventCh)
 
 	return &AgentBalanceIndexer{
 		client:          config.Client,
@@ -88,7 +84,6 @@ func NewAgentBalanceIndexer(config *AgentBalanceIndexerConfig) *AgentBalanceInde
 		registryAddress: config.RegistryAddress,
 		db:              config.InitialState.Db,
 		priceCache:      config.PriceCache,
-		toUpdate:        make(map[[32]byte]struct{}),
 		tickRate:        config.TickRate,
 		safeBlockDelta:  config.SafeBlockDelta,
 		eventCh:         eventCh,
@@ -112,23 +107,23 @@ func (i *AgentBalanceIndexer) run(ctx context.Context) error {
 		i.eventWatcher.Unsubscribe(i.eventSubID)
 	}()
 
-	g, ctx := errgroup.WithContext(ctx)
-	g.Go(func() error {
-		return i.balanceUpdateTask(ctx)
-	})
-
 	for {
 		select {
 		case data := <-i.eventCh:
 			for _, ev := range data.Events {
-				if ev.Type == EventTransfer {
+				switch ev.Type {
+				case EventTransfer:
 					i.onTransferEvent(ctx, ev)
-				} else if ev.Type == EventAgentRegistered {
+				case EventAgentRegistered:
 					i.onAgentRegisteredEvent(ctx, ev)
-				} else if ev.Type == EventDrained {
+				case EventDrained:
 					i.onDrainedEvent(ctx, ev)
-				} else if ev.Type == EventWithdrawn {
+				case EventWithdrawn:
 					i.onWithdrawnEvent(ctx, ev)
+				case EventPromptPaid:
+					i.onPromptPaidEvent(ctx, ev)
+				case EventPromptConsumed:
+					i.onPromptConsumedEvent(ctx, ev)
 				}
 			}
 		case <-ctx.Done():
@@ -143,13 +138,21 @@ func (i *AgentBalanceIndexer) onTransferEvent(ctx context.Context, ev *Event) {
 		return
 	}
 
-	if i.db.GetAgentExists(transferEvent.From.Bytes()) {
-		slog.Debug("enqueueing balance update for from", "address", transferEvent.From.String())
-		i.enqueueBalanceUpdate(transferEvent.From)
-	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	// Handle incoming transfers to agents
 	if i.db.GetAgentExists(transferEvent.To.Bytes()) {
-		slog.Debug("enqueueing balance update for to", "address", transferEvent.To.String())
-		i.enqueueBalanceUpdate(transferEvent.To)
+		balance, _ := i.db.GetAgentBalance(transferEvent.To.Bytes())
+		balance.Amount = new(big.Int).Add(balance.Amount, transferEvent.Amount)
+		i.db.SetAgentBalance(transferEvent.To.Bytes(), balance)
+	}
+
+	// Handle outgoing transfers from agents
+	if i.db.GetAgentExists(transferEvent.From.Bytes()) {
+		balance, _ := i.db.GetAgentBalance(transferEvent.From.Bytes())
+		balance.Amount = new(big.Int).Sub(balance.Amount, transferEvent.Amount)
+		i.db.SetAgentBalance(transferEvent.From.Bytes(), balance)
 	}
 }
 
@@ -166,8 +169,9 @@ func (i *AgentBalanceIndexer) onAgentRegisteredEvent(ctx context.Context, ev *Ev
 
 	i.pushAgent(agentRegisteredEvent)
 
-	slog.Info("enqueueing balance update for agent registered", "address", agentRegisteredEvent.Agent.String())
-	i.enqueueBalanceUpdate(agentRegisteredEvent.Agent)
+	i.mu.Lock()
+	i.db.SortAgents(i.priceCache)
+	i.mu.Unlock()
 }
 
 func (i *AgentBalanceIndexer) onDrainedEvent(ctx context.Context, ev *Event) {
@@ -213,6 +217,38 @@ func (i *AgentBalanceIndexer) onWithdrawnEvent(ctx context.Context, ev *Event) {
 	i.db.SetAgentBalance(addrBytes, agentBalance)
 }
 
+func (i *AgentBalanceIndexer) onPromptPaidEvent(ctx context.Context, ev *Event) {
+	_, ok := ev.ToPromptPaidEvent()
+	if !ok {
+		return
+	}
+
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
+		balance, _ := i.db.GetAgentBalance(ev.Raw.FromAddress.Bytes())
+		balance.PendingAmount = new(big.Int).Add(balance.PendingAmount, balance.PromptPrice)
+		i.db.SetAgentBalance(ev.Raw.FromAddress.Bytes(), balance)
+	}
+}
+
+func (i *AgentBalanceIndexer) onPromptConsumedEvent(ctx context.Context, ev *Event) {
+	_, ok := ev.ToPromptConsumedEvent()
+	if !ok {
+		return
+	}
+
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	if i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
+		balance, _ := i.db.GetAgentBalance(ev.Raw.FromAddress.Bytes())
+		balance.PendingAmount = new(big.Int).Sub(balance.PendingAmount, balance.PromptPrice)
+		i.db.SetAgentBalance(ev.Raw.FromAddress.Bytes(), balance)
+	}
+}
+
 func (i *AgentBalanceIndexer) pushAgent(ev *AgentRegisteredEvent) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -222,148 +258,14 @@ func (i *AgentBalanceIndexer) pushAgent(ev *AgentRegisteredEvent) {
 	i.db.SetAgentBalance(ev.Agent.Bytes(), &AgentBalance{
 		Pending:         true,
 		Token:           ev.TokenAddress,
+		PromptPrice:     ev.PromptPrice,
 		Amount:          big.NewInt(0),
+		PendingAmount:   big.NewInt(0),
 		AmountUpdatedAt: 0,
 		EndTime:         ev.EndTime,
 		IsDrained:       false,
 		DrainAmount:     big.NewInt(0),
 	})
-}
-
-func (i *AgentBalanceIndexer) enqueueBalanceUpdate(addr *felt.Felt) {
-	i.toUpdateMu.Lock()
-	defer i.toUpdateMu.Unlock()
-
-	if !i.db.GetAgentExists(addr.Bytes()) {
-		slog.Debug("agent not found in balances", "address", addr.String())
-		return
-	}
-
-	i.toUpdate[addr.Bytes()] = struct{}{}
-}
-
-func (i *AgentBalanceIndexer) balanceUpdateTask(ctx context.Context) error {
-	ticker := time.NewTicker(i.tickRate)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			var currentBlock uint64
-			var err error
-
-			if err := i.client.Do(func(provider rpc.RpcProvider) error {
-				currentBlock, err = provider.BlockNumber(ctx)
-				if err != nil {
-					return err
-				}
-
-				return nil
-			}); err != nil {
-				slog.Error("failed to get current block for balance updates", "error", err)
-				continue
-			}
-
-			safeBlock := currentBlock - i.safeBlockDelta
-			i.processQueue(ctx, safeBlock)
-		}
-	}
-}
-
-// processQueue consumes the "toUpdate" set and tries to fetch new balances.
-func (i *AgentBalanceIndexer) processQueue(ctx context.Context, blockNumber uint64) {
-	slog.Info("processing balance update queue", "block", blockNumber)
-
-	i.toUpdateMu.Lock()
-	addresses := i.toUpdate
-	i.toUpdate = make(map[[32]byte]struct{})
-	i.toUpdateMu.Unlock()
-
-	addr := new(felt.Felt)
-	for addrBytes := range addresses {
-		addr.SetBytes(addrBytes[:])
-
-		slog.Info("processing balance update", "address", addr.String())
-
-		if err := i.updateBalance(ctx, addr, blockNumber); err != nil {
-			slog.Error("failed to update agent balance", "error", err, "agent", addr)
-		}
-	}
-
-	i.mu.RLock()
-	defer i.mu.RUnlock()
-
-	i.db.SortAgents(i.priceCache)
-}
-
-// updateBalance does the actual "balanceOf" call at a given blockNumber
-func (i *AgentBalanceIndexer) updateBalance(ctx context.Context, agent *felt.Felt, blockNum uint64) error {
-	currentInfo, ok := i.GetBalance(agent)
-	if !ok {
-		currentInfo = &AgentBalance{
-			Pending:         true,
-			Token:           nil,
-			Amount:          big.NewInt(0),
-			AmountUpdatedAt: 0,
-			EndTime:         0,
-			IsDrained:       false,
-			DrainAmount:     big.NewInt(0),
-		}
-	}
-
-	slog.Info("updating balance", "agent", agent, "token", currentInfo.Token, "block", blockNum)
-
-	if currentInfo.Token == nil {
-		// We need the token address from metadata
-		info, ok := i.agentIdx.GetAgentInfo(agent)
-		if !ok {
-			slog.Error("failed to get metadata for balance update", "agent", agent)
-			return fmt.Errorf("failed to get metadata for balance update")
-		}
-		if info.TokenAddress == nil {
-			slog.Error("agent has no token in metadata", "agent", agent)
-			return fmt.Errorf("agent has no token in metadata")
-		}
-
-		currentInfo.Token = info.TokenAddress
-		currentInfo.EndTime = info.EndTime
-	}
-
-	var balanceResp []*felt.Felt
-	var err error
-
-	if err := i.client.Do(func(provider rpc.RpcProvider) error {
-		balanceResp, err = provider.Call(ctx, rpc.FunctionCall{
-			ContractAddress:    agent,
-			EntryPointSelector: getPrizePoolSelector,
-			Calldata:           []*felt.Felt{},
-		}, rpc.WithBlockNumber(blockNum))
-
-		return err
-	}); err != nil {
-		return fmt.Errorf("get_prize_pool call failed: %w", snaccount.FormatRpcError(err))
-	}
-
-	var amount *big.Int
-	if len(balanceResp) == 1 {
-		amount = balanceResp[0].BigInt(new(big.Int))
-	} else if len(balanceResp) == 2 {
-		amount = snaccount.Uint256ToBigInt([2]*felt.Felt(balanceResp[0:2]))
-	} else {
-		return fmt.Errorf("unexpected length in balanceOf response: %d", len(balanceResp))
-	}
-
-	currentInfo.Pending = false
-	currentInfo.Amount = amount
-	currentInfo.AmountUpdatedAt = blockNum
-
-	i.mu.Lock()
-	i.db.SetAgentBalance(agent.Bytes(), currentInfo)
-	i.mu.Unlock()
-
-	return nil
 }
 
 func (i *AgentBalanceIndexer) GetTotalAgentBalances() map[*felt.Felt]*big.Int {
