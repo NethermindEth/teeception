@@ -83,64 +83,75 @@ export const useAgent = ({ fetchBy, value }: { fetchBy: 'name' | 'address'; valu
     setState((prev) => ({ ...prev, loading: true }))
     let response: Response | null = null
 
-    try {
-      if (fetchBy === 'name') {
-        const encodedName = encodeURIComponent(value)
-        response = await fetch(`/api/agent?name=${encodedName}`)
-      } else {
-        response = await fetch(`/api/agent?address=${value}`)
+    const startTime = Date.now()
+    const retryTimeout = 15000
+    
+    while (Date.now() - startTime < retryTimeout) {
+      try {
+        if (fetchBy === 'name') {
+          const encodedName = encodeURIComponent(value)
+          response = await fetch(`/api/agent?name=${encodedName}`)
+        } else {
+          response = await fetch(`/api/agent?address=${value}`)
+        }
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch agent: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        const matchingAgent: AgentFromIndexer | undefined =
+          fetchBy === 'name'
+            ? data.agents.find((agent: AgentFromIndexer) => agent.name === value)
+            : data
+
+        if (!matchingAgent) {
+          throw new Error('Agent not found')
+        }
+
+        const token = ACTIVE_NETWORK.tokens.find(({ address }) => address === matchingAgent.token)
+
+        const formattedAgent: SingleAgentDetails = {
+          address: matchingAgent.address,
+          name: matchingAgent.name,
+          balance: matchingAgent.balance,
+          promptPrice: matchingAgent.prompt_price,
+          breakAttempts: parseInt(matchingAgent.break_attempts),
+          endTime: matchingAgent.end_time,
+          tokenAddress: matchingAgent.token,
+          symbol: token?.symbol || '',
+          decimal: token?.decimals || DEFAULT_TOKEN_DECIMALS,
+          pending: matchingAgent.pending,
+          latestPrompts: matchingAgent.latest_prompts,
+          systemPrompt: matchingAgent.system_prompt,
+          creator: matchingAgent.creator,
+          isDrained: matchingAgent.is_drained,
+          isWithdrawn: matchingAgent.is_withdrawn,
+          drainAmount: matchingAgent.drain_amount,
+          isFinalized: matchingAgent.is_finalized,
+          drainPrompt: matchingAgent.drain_prompt,
+        }
+
+        setState({
+          agent: formattedAgent,
+          loading: false,
+          error: null,
+        })
+        return // Success - exit retry loop
+      } catch (err) {
+        if (Date.now() - startTime >= retryTimeout) {
+          debug.error('useAgent', 'Error in fetchAgent after retries', err)
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: err instanceof Error ? err.message : 'Failed to fetch agent details',
+          }))
+          return
+        }
+        // Wait 1 second before retrying
+        await new Promise(resolve => setTimeout(resolve, 2000))
       }
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch agent: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-
-      const matchingAgent: AgentFromIndexer | undefined =
-        fetchBy === 'name'
-          ? data.agents.find((agent: AgentFromIndexer) => agent.name === value)
-          : data
-
-      if (!matchingAgent) {
-        throw new Error('Agent not found')
-      }
-
-      const token = ACTIVE_NETWORK.tokens.find(({ address }) => address === matchingAgent.token)
-
-      const formattedAgent: SingleAgentDetails = {
-        address: matchingAgent.address,
-        name: matchingAgent.name,
-        balance: matchingAgent.balance,
-        promptPrice: matchingAgent.prompt_price,
-        breakAttempts: parseInt(matchingAgent.break_attempts),
-        endTime: matchingAgent.end_time,
-        tokenAddress: matchingAgent.token,
-        symbol: token?.symbol || '',
-        decimal: token?.decimals || DEFAULT_TOKEN_DECIMALS,
-        pending: matchingAgent.pending,
-        latestPrompts: matchingAgent.latest_prompts,
-        systemPrompt: matchingAgent.system_prompt,
-        creator: matchingAgent.creator,
-        isDrained: matchingAgent.is_drained,
-        isWithdrawn: matchingAgent.is_withdrawn,
-        drainAmount: matchingAgent.drain_amount,
-        isFinalized: matchingAgent.is_finalized,
-        drainPrompt: matchingAgent.drain_prompt,
-      }
-
-      setState({
-        agent: formattedAgent,
-        loading: false,
-        error: null,
-      })
-    } catch (err) {
-      debug.error('useAgent', 'Error in fetchAgent', err)
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: err instanceof Error ? err.message : 'Failed to fetch agent details',
-      }))
     }
   }, [fetchBy, value])
 
