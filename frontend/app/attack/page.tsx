@@ -1,24 +1,12 @@
 'use client'
 
-import { AgentDetails } from '@/hooks/useAgents'
 import { useAccount } from '@starknet-react/core'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
-import { useRouter } from 'nextjs-toploader/app'
 import { AgentListView } from '@/components/AgentListView'
 import { TEXT_COPIES } from '@/constants'
-import { AttackerDetails } from '@/hooks/useAttackers'
 
 export default function AttackPage() {
   const { address } = useAccount()
-  const router = useRouter()
-
-  const onAgentClick = (agent: AgentDetails) => {
-    router.push(`/attack/${agent.address}`)
-  }
-
-  const onAttackerClick = (attacker: AttackerDetails) => {
-    console.log(attacker)
-  }
 
   if (!address) {
     return (
@@ -35,8 +23,6 @@ export default function AttackPage() {
       <AgentListView
         heading={TEXT_COPIES.attack.heading}
         subheading={TEXT_COPIES.attack.subheading}
-        onAgentClick={onAgentClick}
-        onAttackerClick={onAttackerClick}
       />
     </div>
   )

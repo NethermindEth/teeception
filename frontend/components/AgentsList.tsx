@@ -5,6 +5,7 @@ import { AgentDetails } from '@/hooks/useAgents'
 import { formatBalance, getAgentStatus } from '@/lib/utils'
 import CountdownTimer from './CountdownTimer'
 import { AgentStatus } from '@/types'
+import Link from 'next/link'
 
 export enum TabType {
   AgentRanking = 'AGENT_RANKING',
@@ -17,13 +18,11 @@ export const AgentsList = ({
   offset,
   isFetchingAgents,
   searchQuery,
-  onAgentClick,
 }: {
   agents: AgentDetails[]
   isFetchingAgents: boolean
   searchQuery: string
   offset: number
-  onAgentClick: (agent: AgentDetails) => void
 }) => {
   return (
     <AnimatePresence mode="wait">
@@ -75,8 +74,8 @@ export const AgentsList = ({
                         transition={{ duration: 0.2, delay: idx * 0.05 }}
                         className="bg-[#2E40494D] backdrop-blur-xl p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
                         key={agent.address}
-                        onClick={() => onAgentClick(agent)}
                       >
+                        <Link href={`/attack/${agent.address}`} className="block">
                         {/* Mobile Layout */}
                         <div className="md:hidden space-y-2">
                           <div className="flex justify-between items-center">
@@ -144,6 +143,7 @@ export const AgentsList = ({
                             )}
                           </div>
                         </div>
+                        </Link>
                       </motion.div>
                     )
                   })}

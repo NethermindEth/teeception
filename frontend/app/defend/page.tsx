@@ -253,7 +253,6 @@ export default function DefendPage() {
 
   const handleLaunchSuccessModalClose = () => {
     setShowSuccess(false)
-    router.push(`/attack/${formState.agentAddress}`)
   }
 
   if (!address) {
@@ -413,6 +412,7 @@ export default function DefendPage() {
         open={showSuccess}
         transactionHash={formState.transactionHash!}
         agentName={formState.values.agentName}
+        agentAddress={formState.agentAddress || ''}
         onClose={handleLaunchSuccessModalClose}
       />
     </div>

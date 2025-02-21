@@ -4,19 +4,18 @@ import { LeaderboardSkeleton } from './ui/skeletons/LeaderboardSkeleton'
 import { AttackerDetails } from '@/hooks/useAttackers'
 import { formatBalance } from '@/lib/utils'
 import { ACTIVE_NETWORK } from '@/constants'
+import Link from 'next/link'
 
 export const AttackersList = ({
   attackers,
   isFetchingAttackers,
   searchQuery,
   offset,
-  onAttackerClick,
 }: {
   attackers: AttackerDetails[]
   isFetchingAttackers: boolean
   searchQuery: string
   offset: number
-  onAttackerClick: (attacker: AttackerDetails) => void
 }) => {
   return (
     <AnimatePresence mode="wait">
@@ -70,8 +69,8 @@ export const AttackersList = ({
                         transition={{ duration: 0.2, delay: idx * 0.05 }}
                         className="bg-[#2E40494D] backdrop-blur-xl p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
                         key={attacker.address}
-                        onClick={() => onAttackerClick(attacker)}
                       >
+                        <Link href={`/attackers/${attacker.address}`} className="block">
                         {/* Mobile Layout */}
                         <div className="md:hidden space-y-2">
                           <div className="flex items-center gap-2">
@@ -105,6 +104,7 @@ export const AttackersList = ({
                           <div className="col-span-3 ps-4">{attacker.promptCount}</div>
                           <div className="col-span-3 ps-4">{attacker.breakCount}</div>
                         </div>
+                        </Link>
                       </motion.div>
                     )
                   })}

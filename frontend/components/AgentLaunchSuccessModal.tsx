@@ -3,11 +3,13 @@ import { Dialog } from '@/components/Dialog'
 import { Check } from 'lucide-react'
 
 import { ACTIVE_NETWORK } from '@/constants'
+import Link from 'next/link'
 
 interface SuccessModalProps {
   open: boolean
   transactionHash: string
   agentName: string
+  agentAddress: string
   onClose: () => void
 }
 
@@ -15,6 +17,7 @@ export const AgentLaunchSuccessModal = ({
   open,
   transactionHash,
   agentName = '',
+  agentAddress = '',
   onClose,
 }: SuccessModalProps) => {
   const handleTweet = () => {
@@ -64,11 +67,11 @@ export const AgentLaunchSuccessModal = ({
             </button>
           </div>
 
-          <div className="flex justify-end gap-3">
+          <Link href={`/attack/${agentAddress}`} className="flex justify-end gap-3">
             <button onClick={handleClose} className="px-4 py-2 text-gray-600 hover:text-gray-800">
               Close
             </button>
-          </div>
+          </Link>
         </div>
       </div>
     </Dialog>

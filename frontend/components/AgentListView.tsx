@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import { AgentDetails, useAgents } from '@/hooks/useAgents'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { DOTS, usePagination } from '@/hooks/usePagination'
-import { AttackerDetails, useAttackers } from '@/hooks/useAttackers'
+import { useAttackers } from '@/hooks/useAttackers'
 import { AttackersList } from './AttackersList'
 
 const PAGE_SIZE = 10
@@ -14,11 +14,9 @@ const SIBLING_COUNT = 1
 type AgentListViewProps = {
   heading: string
   subheading: string
-  onAgentClick: (agent: AgentDetails) => void
-  onAttackerClick: (attacker: AttackerDetails) => void
 }
 
-export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerClick }: AgentListViewProps) => {
+export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(0)
   const [selectedTab, setSelectedTab] = useState(TabType.ActiveAgents)
@@ -134,7 +132,6 @@ export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerCli
               isFetchingAgents={isFetchingAgents}
               searchQuery={searchQuery}
               offset={currentPage * PAGE_SIZE}
-              onAgentClick={onAgentClick}
             />
           </TabsContent>
           <TabsContent value={TabType.ActiveAgents}>
@@ -143,7 +140,6 @@ export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerCli
               isFetchingAgents={isFetchingAgents}
               searchQuery={searchQuery}
               offset={currentPage * PAGE_SIZE}
-              onAgentClick={onAgentClick}
             />
           </TabsContent>
           <TabsContent value={TabType.TopAttackers}>
@@ -152,7 +148,6 @@ export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerCli
               isFetchingAttackers={isFetchingAttackers}
               searchQuery=""
               offset={currentPage * PAGE_SIZE}
-              onAttackerClick={onAttackerClick}
             />
           </TabsContent>
         </Tabs>
