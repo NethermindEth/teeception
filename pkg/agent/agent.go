@@ -112,9 +112,8 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		return nil, fmt.Errorf("invalid twitter client mode: %s", params.TwitterClientMode)
 	}
 
-	openaiClient := chat.NewOpenAIChatCompletionOpenAI(openai.GPT4, params.OpenAIKey)
-
-	chatCompletionClient, err := chat.NewTokenLimitChatCompletion(openaiClient, params.MaxSystemPromptTokens, params.MaxPromptTokens)
+	openaiChatCompletion := chat.NewOpenAIChatCompletionOpenAI(openai.GPT4, params.OpenAIKey)
+	tokenLimitChatCompletion, err := chat.NewTokenLimitChatCompletion(openaiChatCompletion, params.MaxSystemPromptTokens, params.MaxPromptTokens)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create token limit chat completion: %v", err)
 	}
@@ -195,7 +194,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		IsUnencumbered: false,
 		UnencumberData: params.UnencumberData,
 
-		ChatCompletion: chatCompletionClient,
+		ChatCompletion: tokenLimitChatCompletion,
 		StarknetClient: starknetClient,
 		Quoter:         quoter,
 
@@ -499,6 +498,11 @@ func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 
 func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) error {
 	slog.Info("generating AI response", "tweet_id", promptPaidEvent.TweetID)
+
+	expectedTweet := fmt.Sprintf("@%s :%s: %s", a.twitterClientConfig.Username, agentInfo.Name, promptPaidEvent.Prompt)
+	if len(expectedTweet) > 280 {
+		return fmt.Errorf("prompt is too long, expected %d tokens, got %d", 280, len(expectedTweet))
+	}
 
 	metadata := a.buildChatMetadata(agentInfo, promptPaidEvent)
 	resp, err := a.chatCompletion.Prompt(ctx, metadata, agentInfo.SystemPrompt, promptPaidEvent.Prompt)

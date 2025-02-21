@@ -53,7 +53,7 @@ func main_impl() error {
 		TickRate:                     10 * time.Second,
 		SafeBlockDelta:               0,
 		MaxSystemPromptTokens:        800,
-		MaxPromptTokens:              800,
+		MaxPromptTokens:              -1,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create agent config: %w", err)
