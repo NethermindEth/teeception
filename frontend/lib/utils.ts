@@ -77,9 +77,9 @@ export const formatBalance = (balance: bigint, decimals: number, precision: numb
 
   if (balance < decimalsDivisor / precisionDivisor) {
     if (precision === 0) {
-      return '< 1'
+      return '1'
     }
-    return '< 0.' + '0'.repeat(precision - 1) + '1'
+    return '0.' + '0'.repeat(precision - 1) + '1'
   }
 
   return bigIntToString(balance, decimals, precision, ceil)
