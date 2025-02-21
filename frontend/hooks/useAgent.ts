@@ -83,10 +83,11 @@ export const useAgent = ({ fetchBy, value }: { fetchBy: 'name' | 'address'; valu
     setState((prev) => ({ ...prev, loading: true }))
     let response: Response | null = null
 
-    const startTime = Date.now()
-    const retryTimeout = 15000
+    const retryInterval = 3000 // 2 second interval between retries
+    const maxRetries = 5
+    let retryCount = 0
     
-    while (Date.now() - startTime < retryTimeout) {
+    while (retryCount < maxRetries) {
       try {
         if (fetchBy === 'name') {
           const encodedName = encodeURIComponent(value)
@@ -140,8 +141,9 @@ export const useAgent = ({ fetchBy, value }: { fetchBy: 'name' | 'address'; valu
         })
         return // Success - exit retry loop
       } catch (err) {
-        if (Date.now() - startTime >= retryTimeout) {
-          debug.error('useAgent', 'Error in fetchAgent after retries', err)
+        retryCount++
+        if (retryCount >= maxRetries) {
+          debug.error('useAgent', `Error in fetchAgent after ${retryCount} retries`, err)
           setState((prev) => ({
             ...prev,
             loading: false,
@@ -149,8 +151,7 @@ export const useAgent = ({ fetchBy, value }: { fetchBy: 'name' | 'address'; valu
           }))
           return
         }
-        // Wait 1 second before retrying
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        await new Promise(resolve => setTimeout(resolve, retryInterval))
       }
     }
   }, [fetchBy, value])
