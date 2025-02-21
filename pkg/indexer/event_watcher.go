@@ -815,7 +815,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 
 		slog.Info("finished chunk", "lastIndexedBlock", w.lastIndexedBlock)
 
-		if from > safeBlock {
+		if from >= safeBlock {
 			break
 		}
 
