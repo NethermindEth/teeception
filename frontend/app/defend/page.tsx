@@ -13,9 +13,10 @@ import { useTokenBalance } from '@/hooks/useTokenBalance'
 import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
 import { ACTIVE_NETWORK, AGENT_REGISTRY_ADDRESS, SYSTEM_PROMPT_MAX_TOKENS } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
-import { uint256 } from 'starknet'
+import { addAddressPadding, InvokeTransactionReceiptResponse, TransactionExecutionStatus, TransactionStatus, uint256 } from 'starknet'
 import { AgentLaunchSuccessModal } from '@/components/AgentLaunchSuccessModal'
 import Link from 'next/link'
+import { useRouter } from 'nextjs-toploader/app'
 import { useTokenCount } from '@/hooks/useTokenCount'
 
 const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | undefined) => {
@@ -31,6 +32,7 @@ const useAgentForm = (tokenBalance: { balance?: bigint; formatted?: string } | u
     isSubmitting: false,
     transactionStatus: 'idle' as 'idle' | 'submitting' | 'completed' | 'failed',
     transactionHash: null as string | null,
+    agentAddress: null as string | null,
   })
 
   const validateField = useCallback(
@@ -176,6 +178,7 @@ const FormInput = ({
 )
 
 export default function DefendPage() {
+  const router = useRouter()
   const { address, account } = useAccount()
   const { balance: tokenBalance } = useTokenBalance('STRK')
   const { contract: registry } = useContract({
@@ -204,9 +207,19 @@ export default function DefendPage() {
     try {
       const response = await sendAsync()
       if (response?.transaction_hash) {
-        setFormState((prev) => ({ ...prev, transactionHash: response.transaction_hash }))
-        await account.waitForTransaction(response.transaction_hash)
-        setFormState((prev) => ({ ...prev, transactionStatus: 'completed' }))
+        const receipt = await account.waitForTransaction(response.transaction_hash, {
+          successStates: [TransactionExecutionStatus.SUCCEEDED],
+        })
+        const invokeReceipt = receipt as InvokeTransactionReceiptResponse;
+        const agentAddress = invokeReceipt.events[1].keys[1];
+        const paddedAgentAddress = addAddressPadding(agentAddress);
+        
+        setFormState((prev) => ({ 
+          ...prev, 
+          transactionHash: response.transaction_hash,
+          agentAddress: paddedAgentAddress,
+          transactionStatus: 'completed' 
+        }))
         setShowSuccess(true)
       }
     } catch (error) {
@@ -228,6 +241,11 @@ export default function DefendPage() {
       ...prev,
       values: { ...prev.values, systemPrompt: value },
     }))
+  }
+
+  const handleLaunchSuccessModalClose = () => {
+    setShowSuccess(false)
+    router.push(`/attack/${formState.agentAddress}`)
   }
 
   if (!address) {
@@ -359,7 +377,8 @@ export default function DefendPage() {
         open={showSuccess}
         transactionHash={formState.transactionHash!}
         agentName={formState.values.agentName}
-        onClose={() => setShowSuccess(false)}
+        agentAddress={formState.agentAddress!}
+        onClose={handleLaunchSuccessModalClose}
       />
     </div>
   )

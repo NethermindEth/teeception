@@ -1,6 +1,5 @@
 import React from 'react'
 import { Dialog } from '@/components/Dialog'
-
 import { Check } from 'lucide-react'
 
 import { ACTIVE_NETWORK } from '@/constants'
@@ -28,8 +27,12 @@ export const AgentLaunchSuccessModal = ({
     handleTweet()
   }
 
+  const handleClose = () => {
+    onClose()
+  }
+
   return (
-    <Dialog open={open} onClose={onClose}>
+    <Dialog open={open} onClose={handleClose}>
       <div className="p-6 space-y-6">
         <div className="text-center">
           <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -62,7 +65,7 @@ export const AgentLaunchSuccessModal = ({
           </div>
 
           <div className="flex justify-end gap-3">
-            <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:text-gray-800">
+            <button onClick={handleClose} className="px-4 py-2 text-gray-600 hover:text-gray-800">
               Close
             </button>
           </div>
