@@ -370,7 +370,7 @@ export default function DefendPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Duration (days)</label>
+          <label className="block text-sm font-medium mb-2">Duration</label>
           <select
             name="duration"
             value={formState.values.duration}
