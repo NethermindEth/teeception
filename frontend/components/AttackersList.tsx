@@ -9,11 +9,13 @@ export const AttackersList = ({
   attackers,
   isFetchingAttackers,
   searchQuery,
+  offset,
   onAttackerClick,
 }: {
   attackers: AttackerDetails[]
   isFetchingAttackers: boolean
   searchQuery: string
+  offset: number
   onAttackerClick: (attacker: AttackerDetails) => void
 }) => {
   return (
@@ -73,7 +75,7 @@ export const AttackersList = ({
                         {/* Mobile Layout */}
                         <div className="md:hidden space-y-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-400">#{idx + 1}</span>
+                            <span className="text-gray-400">#{offset + idx + 1}</span>
                             <span className="font-medium">{formattedAddress}</span>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
@@ -95,7 +97,7 @@ export const AttackersList = ({
                         {/* Desktop Layout */}
                         <div className="hidden md:grid md:grid-cols-12 items-center">
                           <div className="col-span-3 grid grid-cols-12 items-center">
-                            <p className="pr-1 col-span-1">{idx + 1}</p>
+                            <p className="pr-1 col-span-1">{offset + idx + 1}</p>
                             <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                             <div className="col-span-10 pl-4">{formattedAddress}</div>
                           </div>

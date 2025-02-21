@@ -14,6 +14,7 @@ export enum TabType {
 
 export const AgentsList = ({
   agents,
+  offset,
   isFetchingAgents,
   searchQuery,
   onAgentClick,
@@ -21,6 +22,7 @@ export const AgentsList = ({
   agents: AgentDetails[]
   isFetchingAgents: boolean
   searchQuery: string
+  offset: number
   onAgentClick: (agent: AgentDetails) => void
 }) => {
   return (
@@ -79,7 +81,7 @@ export const AgentsList = ({
                         <div className="md:hidden space-y-2">
                           <div className="flex justify-between items-center">
                             <div className="flex items-center gap-2">
-                              <span className="text-gray-400">#{idx + 1}</span>
+                              <span className="text-gray-400">#{offset + idx + 1}</span>
                               <span className="font-medium">{agent.name}</span>
                             </div>
                             {agentStatus === AgentStatus.ACTIVE && (
@@ -117,7 +119,7 @@ export const AgentsList = ({
                         {/* Desktop Layout */}
                         <div className="hidden md:grid md:grid-cols-12 items-center">
                           <div className="col-span-3 grid grid-cols-12 items-center">
-                            <p className="pr-1 col-span-1">{idx + 1}</p>
+                            <p className="pr-1 col-span-1">{offset + idx + 1}</p>
                             <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                             <div className="col-span-10 pl-4">{agent.name}</div>
                           </div>

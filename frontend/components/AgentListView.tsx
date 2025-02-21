@@ -133,6 +133,7 @@ export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerCli
               agents={filteredAgents}
               isFetchingAgents={isFetchingAgents}
               searchQuery={searchQuery}
+              offset={currentPage * PAGE_SIZE}
               onAgentClick={onAgentClick}
             />
           </TabsContent>
@@ -141,6 +142,7 @@ export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerCli
               agents={filteredActiveAgents}
               isFetchingAgents={isFetchingAgents}
               searchQuery={searchQuery}
+              offset={currentPage * PAGE_SIZE}
               onAgentClick={onAgentClick}
             />
           </TabsContent>
@@ -149,6 +151,7 @@ export const AgentListView = ({ heading, subheading, onAgentClick, onAttackerCli
               attackers={attackers}
               isFetchingAttackers={isFetchingAttackers}
               searchQuery=""
+              offset={currentPage * PAGE_SIZE}
               onAttackerClick={onAttackerClick}
             />
           </TabsContent>
