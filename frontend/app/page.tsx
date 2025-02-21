@@ -4,7 +4,7 @@ import Image from 'next/image'
 import { AgentListView } from '@/components/AgentListView'
 import { LandingPage } from '@/components/LandingPage'
 import { AgentDetails } from '@/hooks/useAgents'
-import { useRouter } from 'next/navigation'
+import { useRouter } from 'nextjs-toploader/app'
 import { TEXT_COPIES } from '@/constants'
 import { AttackerDetails } from '@/hooks/useAttackers'
 

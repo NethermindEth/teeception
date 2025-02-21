@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { IBM_Plex_Mono, DM_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import NextTopLoader from 'nextjs-toploader'
 
 const ibmPlexMono = IBM_Plex_Mono({
   variable: '--font-ibm-plex-mono',
@@ -27,7 +28,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`${ibmPlexMono.variable} ${dmSans.variable} font-sans antialiased`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          <NextTopLoader color="#FFFFFF" />
+          {children}
+        </Providers>
       </body>
     </html>
   )

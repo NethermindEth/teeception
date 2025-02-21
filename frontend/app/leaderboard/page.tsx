@@ -4,7 +4,7 @@ import { AgentListView } from '@/components/AgentListView'
 import { TEXT_COPIES } from '@/constants'
 import { AgentDetails } from '@/hooks/useAgents'
 import { AttackerDetails } from '@/hooks/useAttackers'
-import { useRouter } from 'next/navigation'
+import { useRouter } from 'nextjs-toploader/app'
 
 export default function LeaderboardPage() {
   const router = useRouter()

@@ -3,7 +3,7 @@
 import { AgentDetails } from '@/hooks/useAgents'
 import { useAccount } from '@starknet-react/core'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
-import { useRouter } from 'next/navigation'
+import { useRouter } from 'nextjs-toploader/app'
 import { AgentListView } from '@/components/AgentListView'
 import { TEXT_COPIES } from '@/constants'
 import { AttackerDetails } from '@/hooks/useAttackers'
