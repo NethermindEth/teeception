@@ -139,7 +139,8 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create rate limited client: %v", err)
 	}
-	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
+
+	eventWatcher, err := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          starknetClient,
 		SafeBlockDelta:  params.SafeBlockDelta,
 		TickRate:        5 * time.Second,
@@ -150,6 +151,9 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 			LastIndexedBlock: max(params.AgentRegistryDeploymentBlock, 1) - 1,
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create event watcher: %v", err)
+	}
 
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          starknetClient,

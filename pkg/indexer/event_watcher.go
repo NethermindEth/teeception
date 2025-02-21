@@ -2,6 +2,8 @@ package indexer
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -9,6 +11,8 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	lru "github.com/hashicorp/golang-lru/v2"
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/rpc"
@@ -564,14 +568,22 @@ type EventWatcher struct {
 	subs        map[EventType][]*EventSubscriber
 	eventsLists map[EventType]*EventsListEntry
 	nextSubID   int64
+
+	// Add event cache
+	eventCache *lru.Cache[[32]byte, struct{}]
 }
 
 // NewEventWatcher initializes a new EventWatcher.
-func NewEventWatcher(cfg *EventWatcherConfig) *EventWatcher {
+func NewEventWatcher(cfg *EventWatcherConfig) (*EventWatcher, error) {
 	if cfg.InitialState == nil {
 		cfg.InitialState = &EventWatcherInitialState{
 			LastIndexedBlock: 0,
 		}
+	}
+
+	cache, err := lru.New[[32]byte, struct{}](10000)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create event cache: %w", err)
 	}
 
 	return &EventWatcher{
@@ -584,7 +596,8 @@ func NewEventWatcher(cfg *EventWatcherConfig) *EventWatcher {
 		initializedAtBlock: 0,
 		subs:               make(map[EventType][]*EventSubscriber),
 		eventsLists:        make(map[EventType]*EventsListEntry),
-	}
+		eventCache:         cache,
+	}, nil
 }
 
 // Subscribe registers a subscriber for events and returns a subscription ID that can be used to unsubscribe.
@@ -691,7 +704,6 @@ func (w *EventWatcher) run(ctx context.Context) error {
 // fetchEvents fetches events from the Starknet node following a continuation token.
 func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) ([]rpc.EmittedEvent, error) {
 	var events []rpc.EmittedEvent
-
 	continuationToken := ""
 
 	for {
@@ -711,13 +723,25 @@ func (w *EventWatcher) fetchEvents(ctx context.Context, filter rpc.EventFilter) 
 			return nil, fmt.Errorf("failed to get events from %v to %v: %w", filter.FromBlock, filter.ToBlock, snaccount.FormatRpcError(err))
 		}
 
-		continuationToken = eventsResp.ContinuationToken
-		if len(events) == 0 {
-			events = eventsResp.Events
-		} else {
-			events = append(events, eventsResp.Events...)
+		lastTxHash := new(felt.Felt)
+		eventId := 0
+
+		for _, ev := range eventsResp.Events {
+			if lastTxHash.Equal(ev.TransactionHash) {
+				eventId++
+			} else {
+				lastTxHash = ev.TransactionHash
+				eventId = 0
+			}
+
+			hash := eventHash(ev, eventId)
+			if _, exists := w.eventCache.Peek(hash); !exists {
+				events = append(events, ev)
+				w.eventCache.Add(hash, struct{}{})
+			}
 		}
 
+		continuationToken = eventsResp.ContinuationToken
 		if continuationToken == "" {
 			break
 		}
@@ -739,18 +763,16 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 	}
 
 	safeBlock := currentBlock - w.safeBlockDelta
-	if safeBlock <= w.lastIndexedBlock {
-		return nil
-	}
 
-	for from := w.lastIndexedBlock + 1; from <= safeBlock; from += uint64(w.indexChunkSize) {
+	from := w.lastIndexedBlock
+	for {
 		toBlock := from + uint64(w.indexChunkSize) - 1
 		if toBlock > safeBlock {
 			toBlock = safeBlock
 		}
-
-		if from > toBlock {
-			break
+		blockId := rpc.WithBlockNumber(toBlock)
+		if toBlock == safeBlock {
+			blockId = rpc.WithBlockTag("pending")
 		}
 
 		slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
@@ -758,7 +780,7 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 		// Gather events for these blocks from the node
 		events, err := w.fetchEvents(ctx, rpc.EventFilter{
 			FromBlock: rpc.WithBlockNumber(from),
-			ToBlock:   rpc.WithBlockNumber(toBlock),
+			ToBlock:   blockId,
 			// We'll fetch all possible keys of interest in a single request:
 			Keys: [][]*felt.Felt{EventSelectors},
 		})
@@ -792,6 +814,12 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 		w.mu.Unlock()
 
 		slog.Info("finished chunk", "lastIndexedBlock", w.lastIndexedBlock)
+
+		if from > safeBlock {
+			break
+		}
+
+		from += uint64(w.indexChunkSize)
 	}
 
 	slog.Info("finished indexing events up to", "block", w.lastIndexedBlock)
@@ -838,4 +866,17 @@ func (w *EventWatcher) ReadState(f func(uint64)) {
 	defer w.mu.RUnlock()
 
 	f(w.lastIndexedBlock)
+}
+
+func eventHash(ev rpc.EmittedEvent, eventIndex int) [32]byte {
+	h := sha256.New()
+	h.Write(ev.TransactionHash.Marshal())
+	for _, key := range ev.Keys {
+		h.Write(key.Marshal())
+	}
+	for _, data := range ev.Data {
+		h.Write(data.Marshal())
+	}
+	binary.Write(h, binary.BigEndian, uint64(eventIndex))
+	return [32]byte(h.Sum(nil))
 }

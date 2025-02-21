@@ -50,7 +50,7 @@ type UIService struct {
 func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	lastIndexedBlock := config.StartingBlock - 1
 
-	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
+	eventWatcher, err := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          config.Client,
 		SafeBlockDelta:  0,
 		TickRate:        config.EventTickRate,
@@ -61,6 +61,10 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 			LastIndexedBlock: lastIndexedBlock,
 		},
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create event watcher: %v", err)
+	}
+
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
 		Client:          config.Client,
 		RegistryAddress: config.RegistryAddress,

@@ -503,13 +503,16 @@ func NewMockAgentConfig(config *MockAgentConfigConfig) (*agent.AgentConfig, erro
 		Client:          config.MockProviderWrapper,
 	})
 
-	eventWatcher := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
+	eventWatcher, err := indexer.NewEventWatcher(&indexer.EventWatcherConfig{
 		Client:          config.MockProviderWrapper,
 		SafeBlockDelta:  0,
 		TickRate:        config.MockTickRate,
 		IndexChunkSize:  10,
 		RegistryAddress: config.MockAgentRegistryAddress,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create event watcher: %v", err)
+	}
 
 	return &agent.AgentConfig{
 		TwitterClient:       config.MockTwitterClient,
