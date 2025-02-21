@@ -43,11 +43,11 @@ func (c *TokenLimitChatCompletion) Prompt(ctx context.Context, metadata, systemP
 	systemPromptTokenCount := c.getTokenCount(systemPrompt)
 	promptTokenCount := c.getTokenCount(prompt)
 
-	if systemPromptTokenCount > c.systemPromptTokenLimit {
+	if c.systemPromptTokenLimit >= 0 && systemPromptTokenCount > c.systemPromptTokenLimit {
 		return nil, fmt.Errorf("system prompt token count is greater than the limit: %d > %d", systemPromptTokenCount, c.systemPromptTokenLimit)
 	}
 
-	if promptTokenCount > c.promptTokenLimit {
+	if c.promptTokenLimit >= 0 && promptTokenCount > c.promptTokenLimit {
 		return nil, fmt.Errorf("prompt token count is greater than the limit: %d > %d", promptTokenCount, c.promptTokenLimit)
 	}
 
