@@ -59,7 +59,12 @@ export const AgentsList = ({
                 {/* Agent Cards */}
                 <AnimatePresence>
                   {agents.map((agent, idx) => {
-                    const promptPrice = formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)
+                    const promptPrice = formatBalance(
+                      BigInt(agent.promptPrice),
+                      agent.decimal,
+                      2,
+                      true
+                    )
                     const prizePool = formatBalance(BigInt(agent.balance), agent.decimal)
                     const drainAmount = formatBalance(BigInt(agent.drainAmount), agent.decimal)
                     const agentStatus = getAgentStatus({
@@ -76,73 +81,77 @@ export const AgentsList = ({
                         key={agent.address}
                       >
                         <Link href={`/attack/${agent.address}`} className="block">
-                        {/* Mobile Layout */}
-                        <div className="md:hidden space-y-2">
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                              <span className="text-gray-400">#{offset + idx + 1}</span>
-                              <span className="font-medium">{agent.name}</span>
-                            </div>
-                            {agentStatus === AgentStatus.ACTIVE && (
-                              <CountdownTimer endTime={Number(agent.endTime)} size="sm" />
-                            )}
-                            {agentStatus === AgentStatus.DEFEATED && (
-                              <div className="w-24 flex justify-center text-xs font-semibold bg-[#FF3F26]/20 text-[#FF3F26] py-1 rounded-full ">
-                                DEFEATED
+                          {/* Mobile Layout */}
+                          <div className="md:hidden space-y-2">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                <span className="text-gray-400">#{offset + idx + 1}</span>
+                                <span className="font-medium overflow-hidden">{agent.name}</span>
                               </div>
-                            )}
-                            {agentStatus === AgentStatus.UNDEFEATED && (
-                              <div className="w-24 flex justify-center text-xs font-semibold bg-[#1388D5]/20 text-[#1388D5] py-1 rounded-full">
-                                UNDEFEATED
+                              {agentStatus === AgentStatus.ACTIVE && (
+                                <CountdownTimer endTime={Number(agent.endTime)} size="sm" />
+                              )}
+                              {agentStatus === AgentStatus.DEFEATED && (
+                                <div className="w-24 flex justify-center text-xs font-semibold bg-[#FF3F26]/20 text-[#FF3F26] py-1 rounded-full ">
+                                  DEFEATED
+                                </div>
+                              )}
+                              {agentStatus === AgentStatus.UNDEFEATED && (
+                                <div className="w-24 flex justify-center text-xs font-semibold bg-[#1388D5]/20 text-[#1388D5] py-1 rounded-full">
+                                  UNDEFEATED
+                                </div>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <p className="text-gray-400 text-xs">Reward</p>
+                                <p>
+                                  {`${
+                                    agent.isDrained || agent.isWithdrawn ? drainAmount : prizePool
+                                  } ${agent.symbol}`.trim()}
+                                </p>
                               </div>
-                            )}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <p className="text-gray-400 text-xs">Reward</p>
-                              <p>
-                                {`${(agent.isDrained || agent.isWithdrawn) ? drainAmount : prizePool} ${agent.symbol}`.trim()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs">Message price</p>
-                              <p>{`${promptPrice} ${agent.symbol}`.trim()}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs">Break attempts</p>
-                              <p>{agent.breakAttempts}</p>
+                              <div>
+                                <p className="text-gray-400 text-xs">Message price</p>
+                                <p>{`${promptPrice} ${agent.symbol}`.trim()}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400 text-xs">Break attempts</p>
+                                <p>{agent.breakAttempts}</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Desktop Layout */}
-                        <div className="hidden md:grid md:grid-cols-12 items-center">
-                          <div className="col-span-3 grid grid-cols-12 items-center">
-                            <p className="pr-1 col-span-1">{offset + idx + 1}</p>
-                            <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
-                            <div className="col-span-10 pl-4">{agent.name}</div>
+                          {/* Desktop Layout */}
+                          <div className="hidden md:grid md:grid-cols-12 items-center">
+                            <div className="col-span-3 grid grid-cols-12 items-center">
+                              <p className="pr-1 col-span-1">{offset + idx + 1}</p>
+                              <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
+                              <div className="col-span-10 pl-4 overflow-hidden">{agent.name}</div>
+                            </div>
+                            <div className="col-span-3 ps-4">
+                              {`${prizePool} ${agent.symbol}`.trim()}
+                            </div>
+                            <div className="col-span-2 ps-4">
+                              {`${promptPrice} ${agent.symbol}`.trim()}
+                            </div>
+                            <div className="col-span-2 ps-4">{agent.breakAttempts}</div>
+                            <div className="col-span-2 ps-4">
+                              {agentStatus === AgentStatus.ACTIVE && (
+                                <CountdownTimer endTime={Number(agent.endTime)} size="md" />
+                              )}
+                              {agentStatus === AgentStatus.DEFEATED && (
+                                <div className="w-32 flex justify-center text-center text-sm font-bold tracking-wider bg-[#FF3F26]/20 text-[#FF3F26] py-2 rounded-full ">
+                                  DEFEATED
+                                </div>
+                              )}
+                              {agentStatus === AgentStatus.UNDEFEATED && (
+                                <div className="w-32 flex justify-center text-sm text-center font-bold  bg-[#1388D5]/20 text-[#1388D5] py-2 rounded-full">
+                                  UNDEFEATED
+                                </div>
+                              )}
+                            </div>
                           </div>
-                          <div className="col-span-3 ps-4">{`${prizePool} ${agent.symbol}`.trim()}</div>
-                          <div className="col-span-2 ps-4">
-                            {`${promptPrice} ${agent.symbol}`.trim()}
-                          </div>
-                          <div className="col-span-2 ps-4">{agent.breakAttempts}</div>
-                          <div className="col-span-2 ps-4">
-                            {agentStatus === AgentStatus.ACTIVE && (
-                              <CountdownTimer endTime={Number(agent.endTime)} size="md" />
-                            )}
-                            {agentStatus === AgentStatus.DEFEATED && (
-                              <div className="w-32 flex justify-center text-center text-sm font-bold tracking-wider bg-[#FF3F26]/20 text-[#FF3F26] py-2 rounded-full ">
-                                DEFEATED
-                              </div>
-                            )}
-                            {agentStatus === AgentStatus.UNDEFEATED && (
-                              <div className="w-32 flex justify-center text-sm text-center font-bold  bg-[#1388D5]/20 text-[#1388D5] py-2 rounded-full">
-                                UNDEFEATED
-                              </div>
-                            )}
-                          </div>
-                        </div>
                         </Link>
                       </motion.div>
                     )
