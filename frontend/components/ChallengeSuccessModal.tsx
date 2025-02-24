@@ -29,7 +29,7 @@ export const ChallengeSuccessModal = ({ open, onClose }: ChallengeSuccessModalPr
             </div>
           </div>
           <h2 className="text-2xl font-bold mb-2">Challenge Submitted!</h2>
-          <p className="text-gray-600 mb-4">
+          <p className="text-white/90 mb-4">
             Your challenge has been successfully submitted. The agent will respond to your tweet in
             few seconds.
           </p>
