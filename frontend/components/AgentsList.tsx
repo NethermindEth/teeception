@@ -67,6 +67,7 @@ export const AgentsList = ({
                     )
                     const prizePool = formatBalance(BigInt(agent.balance), agent.decimal)
                     const drainAmount = formatBalance(BigInt(agent.drainAmount), agent.decimal)
+                    const reward = agent.isDrained || agent.isWithdrawn ? drainAmount : prizePool
                     const agentStatus = getAgentStatus({
                       isDrained: agent.isDrained,
                       isFinalized: agent.isFinalized,
@@ -106,9 +107,7 @@ export const AgentsList = ({
                               <div>
                                 <p className="text-gray-400 text-xs">Reward</p>
                                 <p>
-                                  {`${
-                                    agent.isDrained || agent.isWithdrawn ? drainAmount : prizePool
-                                  } ${agent.symbol}`.trim()}
+                                  {`${reward} ${agent.symbol}`.trim()}
                                 </p>
                               </div>
                               <div>
@@ -130,7 +129,7 @@ export const AgentsList = ({
                               <div className="col-span-10 pl-4 overflow-hidden">{agent.name}</div>
                             </div>
                             <div className="col-span-3 ps-4">
-                              {`${prizePool} ${agent.symbol}`.trim()}
+                              {`${reward} ${agent.symbol}`.trim()}
                             </div>
                             <div className="col-span-2 ps-4">
                               {`${promptPrice} ${agent.symbol}`.trim()}
