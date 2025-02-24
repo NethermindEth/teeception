@@ -16,6 +16,7 @@ import { Prompt, useAgent } from '@/hooks/useAgent'
 import { StatusDisplay } from '@/components/StatusDisplay'
 import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
+import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 
 const tweetUrlRegex = /^(?:https?:\/\/)?(?:www\.)?(twitter\.com|x\.com)\/\w+\/status\/([1-9]\d*)$/
 
@@ -75,6 +76,7 @@ export default function AgentChallengePage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [isPaid, setIsPaid] = useState(false)
+  const [showChallengeSuccess, setShowChallengeSuccess] = useState(false)
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -84,6 +86,12 @@ export default function AgentChallengePage() {
     const status = getAgentStatus({ isDrained: agent?.isDrained, isFinalized: agent?.isFinalized })
     setAgentStatus(status)
   }, [agent])
+
+  useEffect(() => {
+    if (currentTweetId && isPaid && !showChallengeSuccess) {
+      setShowChallengeSuccess(true)
+    }
+  }, [currentTweetId, isPaid, showChallengeSuccess])
 
   // Contract instances
   const { contract: tokenContract } = useContract({
@@ -479,7 +487,9 @@ export default function AgentChallengePage() {
                               <>
                                 Pay to Challenge
                                 <span className="text-sm opacity-80">
-                                  ({formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)} STRK)
+                                  (
+                                  {formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)}{' '}
+                                  STRK)
                                 </span>
                               </>
                             )}
@@ -690,6 +700,12 @@ export default function AgentChallengePage() {
           </div> */}
         </div>
       </div>
+      <ChallengeSuccessModal
+        open={showChallengeSuccess}
+        onClose={() => {
+          setShowChallengeSuccess(false)
+        }}
+      />
     </div>
   )
 }
