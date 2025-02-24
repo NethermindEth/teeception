@@ -149,14 +149,16 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 	})
 
 	db.totalActiveBalances = make(map[[32]byte]*big.Int)
+	foundFinalized := false
+
 	for idx, agent := range db.sortedAgents.Items() {
 		bal := db.balances[agent]
 		isFinalized := bal.EndTime < currentTime || bal.IsDrained
 
 		// since we know the finalized agents are at the end of the list, we can break early
-		if isFinalized {
+		if !foundFinalized && isFinalized {
 			db.activeAgentsCount = uint64(idx + 1)
-			break
+			foundFinalized = true
 		}
 
 		tokenAddr := bal.Token.Bytes()
