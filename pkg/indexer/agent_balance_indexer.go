@@ -183,10 +183,10 @@ func (i *AgentBalanceIndexer) onDrainedEvent(ctx context.Context, ev *Event) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	addrBytes := drainedEvent.To.Bytes()
+	addrBytes := ev.Raw.FromAddress.Bytes()
 	agentBalance, ok := i.db.GetAgentBalance(addrBytes)
 	if !ok {
-		slog.Warn("drained event for non-existent agent", "agent", drainedEvent.To.String())
+		slog.Warn("drained event for non-existent agent", "agent", ev.Raw.FromAddress.String())
 		return
 	}
 
