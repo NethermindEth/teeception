@@ -152,12 +152,14 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 	foundFinalized := false
 
 	for idx, agent := range db.sortedAgents.Items() {
+
 		bal := db.balances[agent]
 		isFinalized := bal.EndTime < currentTime || bal.IsDrained
+		slog.Info("agent", "idx", idx, "agent", bal, "isFinalized", isFinalized)
 
 		// since we know the finalized agents are at the end of the list, we can break early
 		if !foundFinalized && isFinalized {
-			db.activeAgentsCount = uint64(idx + 1)
+			db.activeAgentsCount = uint64(idx)
 			foundFinalized = true
 		}
 
@@ -192,7 +194,7 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 		}
 	}
 
-	if start >= effectiveLen {
+	if start >= effectiveLen || effectiveLen == 0 {
 		return &AgentLeaderboardResponse{
 			Agents:     make([][32]byte, 0),
 			AgentCount: effectiveLen,
@@ -200,8 +202,8 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 		}, nil
 	}
 
-	if end > effectiveLen {
-		end = effectiveLen
+	if end > effectiveLen-1 {
+		end = effectiveLen - 1
 	}
 
 	agents, ok := db.sortedAgents.GetRange(int(start), int(end))
