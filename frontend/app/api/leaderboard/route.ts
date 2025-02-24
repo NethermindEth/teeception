@@ -6,9 +6,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const page = searchParams.get('page') ?? '0'
     const pageSize = searchParams.get('page_size') ?? '10'
+    const active = searchParams.get('active') ?? null
 
     const response = await fetch(
-      `${INDEXER_BASE_URL}/leaderboard?page=${page}&page_size=${pageSize}`,
+      `${INDEXER_BASE_URL}/leaderboard?page=${page}&page_size=${pageSize}${active !== null ? `&active=${active}` : ''}`,
       {
         next: {
           revalidate: 1,

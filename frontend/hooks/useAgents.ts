@@ -27,8 +27,9 @@ export interface AgentDetails {
 }
 
 export interface UseAgentsProps {
-  pageSize?: number
-  page?: number
+  pageSize: number
+  page: number
+  active: boolean | null
 }
 
 export interface UseAgentsState {
@@ -50,7 +51,7 @@ interface IndexerAgentResponse {
 
 const DEFAULT_PAGE_SIZE = 10
 
-export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsProps = {}) => {
+export const useAgents = ({page, pageSize, active}: UseAgentsProps = { page: 0, pageSize: DEFAULT_PAGE_SIZE, active: null }) => {
   const [state, setState] = useState<UseAgentsState>({
     agents: [],
     loading: true,
@@ -63,7 +64,7 @@ export const useAgents = ({ page = 0, pageSize = DEFAULT_PAGE_SIZE }: UseAgentsP
   const fetchAgents = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true }))
     try {
-      const response = await fetch(`/api/leaderboard?page=${page}&page_size=${pageSize}`)
+      const response = await fetch(`/api/leaderboard?page=${page}&page_size=${pageSize}${active !== null ? `&active=${active}` : ''}`)
 
       if (!response.ok) {
         throw new Error(`Failed to fetch agents: ${response.statusText}`)

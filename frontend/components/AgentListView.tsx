@@ -22,10 +22,16 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
   const [selectedTab, setSelectedTab] = useState(TabType.ActiveAgents)
   //TODO: show toast for failed to load agents
   const {
-    agents = [],
-    loading: isFetchingAgents,
-    totalAgents,
-  } = useAgents({ page: currentPage, pageSize: PAGE_SIZE })
+    agents: allAgents,
+    loading: isFetchingAllAgents,
+    totalAgents: totalAllAgents,
+  } = useAgents({ page: currentPage, pageSize: PAGE_SIZE, active: null })
+
+  const {
+    agents: activeAgents,
+    loading: isFetchingActiveAgents,
+    totalAgents: totalActiveAgents,
+  } = useAgents({ page: currentPage, pageSize: PAGE_SIZE, active: true })
 
   const {
     attackers = [],
@@ -33,17 +39,22 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
     totalAttackers,
   } = useAttackers({ page: currentPage, pageSize: PAGE_SIZE })
 
-  const totalPages = selectedTab === TabType.TopAttackers 
-    ? Math.ceil(totalAttackers / PAGE_SIZE)
-    : Math.ceil(totalAgents / PAGE_SIZE)
+  let totalTabEntries = 0
+  if (selectedTab === TabType.TopAttackers) {
+    totalTabEntries = totalAttackers
+  } else if (selectedTab === TabType.ActiveAgents) {
+    totalTabEntries = totalActiveAgents
+  } else {
+    totalTabEntries = totalAllAgents
+  }
+  const totalPages = Math.ceil(totalTabEntries / PAGE_SIZE)
 
   const paginationRange = usePagination({
     currentPage,
-    totalCount: selectedTab === TabType.TopAttackers ? totalAttackers : totalAgents,
+    totalCount: totalTabEntries,
     pageSize: PAGE_SIZE,
     siblingCount: SIBLING_COUNT,
   })
-  const activeAgents = useMemo(() => agents.filter((agent) => !agent.isFinalized), [agents])
 
   const filterAgents = (agents: AgentDetails[], query: string) => {
     if (!query.trim()) return agents
@@ -55,7 +66,7 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
         agent.address.toLowerCase().includes(lowercaseQuery)
     )
   }
-  const filteredAgents = useMemo(() => filterAgents(agents, searchQuery), [agents, searchQuery])
+  const filteredAgents = useMemo(() => filterAgents(allAgents, searchQuery), [allAgents, searchQuery])
   const filteredActiveAgents = useMemo(
     () => filterAgents(activeAgents, searchQuery),
     [activeAgents, searchQuery]
@@ -129,7 +140,7 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
           <TabsContent value={TabType.AgentRanking}>
             <AgentsList
               agents={filteredAgents}
-              isFetchingAgents={isFetchingAgents}
+              isFetchingAgents={isFetchingAllAgents}
               searchQuery={searchQuery}
               offset={currentPage * PAGE_SIZE}
             />
@@ -137,7 +148,7 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
           <TabsContent value={TabType.ActiveAgents}>
             <AgentsList
               agents={filteredActiveAgents}
-              isFetchingAgents={isFetchingAgents}
+              isFetchingAgents={isFetchingActiveAgents}
               searchQuery={searchQuery}
               offset={currentPage * PAGE_SIZE}
             />
