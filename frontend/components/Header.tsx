@@ -7,6 +7,7 @@ import { MenuItems } from './MenuItems'
 import { MenuIcon, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { ConnectButton } from './ConnectButton'
+import { BetaBanner } from './BetaBanner'
 
 export const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -24,16 +25,14 @@ export const Header = () => {
 
   return (
     <header
-      className={clsx(
-        'fixed left-0 right-0 top-0 w-full z-50 transition-all duration-200',
-        {
-          'h-[180px] bg-[#12121266] backdrop-blur-lg': menuOpen,
-          'h-[67px]': !menuOpen,
-          'bg-transparent': !scrolled && !menuOpen,
-          'bg-[#12121266] backdrop-blur-lg': scrolled || menuOpen
-        }
-      )}
+      className={clsx('fixed left-0 right-0 top-0 w-full z-50 transition-all duration-200', {
+        'h-[180px] bg-[#12121266] backdrop-blur-lg': menuOpen,
+        'h-[67px]': !menuOpen,
+        'bg-transparent': !scrolled && !menuOpen,
+        'bg-[#12121266] backdrop-blur-lg': scrolled || menuOpen,
+      })}
     >
+      <BetaBanner persistDismissal />
       <div className="max-w-[1632px] mx-auto flex items-center p-[11px] md:p-4 justify-between">
         <div className="flex items-center justify-center">
           <Link className="block mr-1 md:mr-4" href="/">
