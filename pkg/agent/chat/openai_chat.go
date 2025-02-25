@@ -123,9 +123,10 @@ func (c *OpenAIChatCompletion) ValidateName(ctx context.Context, name string) (b
 		{
 			Role: openai.ChatMessageRoleSystem,
 			Content: "You are a content moderator. Your task is to determine if a name is appropriate " +
-				"for social media posting. The name should not contain sexual content, offensive words, " +
-				"hate speech, or other inappropriate content. Respond with a JSON object that has a single " +
-				"field 'appropriate' with a boolean value.",
+				"for social media posting. The name should not contain sexual content, highly offensive words, " +
+				"hate speech, or other inappropriate content. Words which are only slightly offensive can be allowed " +
+				"as it can have comic effect. Respond with a JSON object that has a single field 'appropriate' " +
+				"with a boolean value.",
 		},
 		{
 			Role:    openai.ChatMessageRoleUser,
