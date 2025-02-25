@@ -59,7 +59,7 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                 isAnimating ? 'bg-opacity-90' : 'bg-opacity-100'
               }`}
             >
-              <div className="max-w-7xl mx-auto px-4 py-2 sm:px-6 lg:px-8">
+              <div className="max-w-[1400px] mx-auto px-4 py-2 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between flex-wrap">
                   <div className="flex items-center">
                     <span className="flex p-2 rounded-lg bg-[#121212] bg-opacity-70 -mt-[2px]">
