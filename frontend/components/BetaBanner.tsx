@@ -76,10 +76,19 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                         Beta on Sepolia. Bugs expected.
                       </span>
                       <span className="hidden md:inline">
-                        <span className="font-bold text-white uppercase">BETA LAUNCH:</span>{' '}
+                        <span className="font-bold text-white uppercase">#BETA LAUNCH:</span>{' '}
                         <span className="text-[#B5B5B5]">
                           Teeception is live on Sepolia testnet! Expect some bugs as we optimize —
-                          your feedback helps us improve!
+                          join our{' '}
+                          <a
+                            href="https://t.me/nm_teeception"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#558EB4] hover:underline"
+                          >
+                            Telegram
+                          </a>{' '}
+                          community to report issues and get help!
                         </span>
                       </span>
                     </p>
