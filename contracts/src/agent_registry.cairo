@@ -265,6 +265,9 @@ pub mod AgentRegistry {
         pub tee: ContractAddress,
     }
 
+    /// @notice Maximum length for agent names
+    const AGENT_NAME_MAX_LENGTH: usize = 50;
+
     #[storage]
     struct Storage {
         /// @notice Ownable component storage
@@ -320,7 +323,7 @@ pub mod AgentRegistry {
             end_time: u64,
         ) -> ContractAddress {
             self._assert_not_paused();
-            let name_hash = self._assert_agent_name_unique(@name);
+            let name_hash = self._assert_agent_name_valid(@name);
             self._assert_token_params_met(token, prompt_price, initial_balance);
             self._assert_model_supported(model);
 
@@ -597,11 +600,12 @@ pub mod AgentRegistry {
             assert(initial_balance >= token_params.min_initial_balance, 'Initial balance too low');
         }
 
-        /// @notice Checks if agent name is unique
-        /// @param name Name to check uniqueness
+        /// @notice Checks if agent name is valid (unique and following max length)
+        /// @param name Name to check validity
         /// @return Hash of the name
-        /// @dev Reverts if name is already used
-        fn _assert_agent_name_unique(self: @ContractState, name: @ByteArray) -> felt252 {
+        /// @dev Reverts if name is invalid
+        fn _assert_agent_name_valid(self: @ContractState, name: @ByteArray) -> felt252 {
+            assert(name.len() <= AGENT_NAME_MAX_LENGTH, 'Name too long');
             let name_hash = hash_byte_array(name);
             let agent_with_name_hash = self.agent_by_name_hash.read(name_hash);
             assert(agent_with_name_hash == contract_address_const::<0>(), 'Name already used');

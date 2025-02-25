@@ -1804,3 +1804,25 @@ fn test_event_emissions() {
             ],
         );
 }
+
+#[test]
+#[should_panic(expected: ('Name too long',))]
+fn test_register_long_name() {
+    let setup = setup();
+    let name = "================50 characters here================ ";
+    let system_prompt = "";
+
+    start_cheat_caller_address(setup.registry.contract_address, setup.creator);
+    let _ = setup
+        .registry
+        .register_agent(
+            name.clone(),
+            system_prompt.clone(),
+            setup.model,
+            setup.token_address,
+            setup.prompt_price,
+            setup.initial_balance,
+            setup.end_time,
+        );
+    stop_cheat_caller_address(setup.registry.contract_address);
+}
