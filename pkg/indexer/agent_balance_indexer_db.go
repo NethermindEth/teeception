@@ -20,6 +20,7 @@ type AgentBalanceIndexerDatabaseReader interface {
 	GetAgentBalance(addr [32]byte) (*AgentBalance, bool)
 	GetTotalAgentBalances() map[[32]byte]*big.Int
 	GetLastIndexedBlock() uint64
+	GetAgentCount() int
 }
 
 // AgentBalanceIndexerDatabaseWriter is the writer for an AgentBalanceIndexerDatabase.
@@ -60,6 +61,11 @@ func NewAgentBalanceIndexerDatabaseInMemory(initialBlock uint64) *AgentBalanceIn
 		activeAgentsCount:   0,
 		totalActiveBalances: make(map[[32]byte]*big.Int),
 	}
+}
+
+// GetAgentCount returns the number of agents in the database.
+func (db *AgentBalanceIndexerDatabaseInMemory) GetAgentCount() int {
+	return len(db.balances)
 }
 
 // GetAgentExists returns true if the agent exists in the database.
@@ -145,7 +151,22 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 			return 0
 		}
 
-		return -amountA.Mul(amountA, rateA).Cmp(amountB.Mul(amountB, rateB))
+		lessAmount := -amountA.Mul(amountA, rateA).Cmp(amountB.Mul(amountB, rateB))
+		if lessAmount != 0 {
+			return lessAmount
+		}
+
+		if balA.EndTime != balB.EndTime {
+			if balA.EndTime < balB.EndTime {
+				return -1
+			}
+			return 1
+		}
+
+		if balA.Id < balB.Id {
+			return -1
+		}
+		return 1
 	})
 
 	db.totalActiveBalances = make(map[[32]byte]*big.Int)

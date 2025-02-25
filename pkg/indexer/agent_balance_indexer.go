@@ -15,6 +15,7 @@ import (
 )
 
 type AgentBalance struct {
+	Id              int
 	Pending         bool
 	Token           *felt.Felt
 	PromptPrice     *big.Int
@@ -107,6 +108,9 @@ func (i *AgentBalanceIndexer) run(ctx context.Context) error {
 		i.eventWatcher.Unsubscribe(i.eventSubID)
 	}()
 
+	ticker := time.NewTicker(i.tickRate)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case data := <-i.eventCh:
@@ -126,6 +130,10 @@ func (i *AgentBalanceIndexer) run(ctx context.Context) error {
 					i.onPromptConsumedEvent(ctx, ev)
 				}
 			}
+		case <-ticker.C:
+			i.mu.Lock()
+			i.db.SortAgents(i.priceCache)
+			i.mu.Unlock()
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -256,6 +264,7 @@ func (i *AgentBalanceIndexer) pushAgent(ev *AgentRegisteredEvent) {
 	slog.Debug("pushing agent", "address", ev.Agent.String())
 
 	i.db.SetAgentBalance(ev.Agent.Bytes(), &AgentBalance{
+		Id:              i.db.GetAgentCount(),
 		Pending:         true,
 		Token:           ev.TokenAddress,
 		PromptPrice:     ev.PromptPrice,
