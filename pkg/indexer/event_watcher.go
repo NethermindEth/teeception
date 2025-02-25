@@ -775,6 +775,10 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 			blockId = rpc.WithBlockTag("pending")
 		}
 
+		if from > toBlock {
+			break
+		}
+
 		slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
 
 		// Gather events for these blocks from the node
