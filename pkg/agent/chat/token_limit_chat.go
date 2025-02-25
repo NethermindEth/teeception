@@ -57,6 +57,10 @@ func (c *TokenLimitChatCompletion) Prompt(ctx context.Context, metadata, systemP
 	return response, nil
 }
 
+func (c *TokenLimitChatCompletion) ValidateName(ctx context.Context, name string) (bool, error) {
+	return c.ChatCompletion.ValidateName(ctx, name)
+}
+
 func (c *TokenLimitChatCompletion) SystemPromptTokenLimit() int {
 	return c.systemPromptTokenLimit
 }

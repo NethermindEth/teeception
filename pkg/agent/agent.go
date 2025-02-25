@@ -22,6 +22,7 @@ import (
 	"github.com/NethermindEth/teeception/pkg/agent/debug"
 	"github.com/NethermindEth/teeception/pkg/agent/quote"
 	"github.com/NethermindEth/teeception/pkg/agent/setup"
+	"github.com/NethermindEth/teeception/pkg/agent/validation"
 	"github.com/NethermindEth/teeception/pkg/indexer"
 	"github.com/NethermindEth/teeception/pkg/twitter"
 	"github.com/NethermindEth/teeception/pkg/wallet/starknet"
@@ -80,6 +81,7 @@ type AgentConfig struct {
 
 	AgentIndexer *indexer.AgentIndexer
 	EventWatcher *indexer.EventWatcher
+	NameCache    *validation.NameCache
 
 	Account                *snaccount.StarknetAccount
 	AccountDeploymentState AgentAccountDeploymentState
@@ -191,6 +193,8 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		return nil, fmt.Errorf("failed to get startup block number: %v", err)
 	}
 
+	nameCache := validation.NewNameCache(tokenLimitChatCompletion)
+
 	return &AgentConfig{
 		TwitterClient:       twitterClient,
 		TwitterClientConfig: params.TwitterClientConfig,
@@ -201,6 +205,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		ChatCompletion: tokenLimitChatCompletion,
 		StarknetClient: starknetClient,
 		Quoter:         quoter,
+		NameCache:      nameCache,
 
 		AgentIndexer: agentIndexer,
 		EventWatcher: eventWatcher,
@@ -228,6 +233,7 @@ type Agent struct {
 
 	agentIndexer *indexer.AgentIndexer
 	eventWatcher *indexer.EventWatcher
+	nameCache    *validation.NameCache
 
 	account                *snaccount.StarknetAccount
 	accountDeploymentState AgentAccountDeploymentState
@@ -293,7 +299,10 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 
 	g.Go(func() error {
-		eventSubID := a.eventWatcher.Subscribe(indexer.EventPromptPaid|indexer.EventPromptConsumed|indexer.EventTeeUnencumbered, a.eventCh)
+		return a.nameCache.Run(ctx)
+	})
+	g.Go(func() error {
+		eventSubID := a.eventWatcher.Subscribe(indexer.EventAgentRegistered|indexer.EventPromptPaid|indexer.EventPromptConsumed|indexer.EventTeeUnencumbered, a.eventCh)
 		defer a.eventWatcher.Unsubscribe(eventSubID)
 
 		return a.eventWatcher.Run(ctx)
@@ -394,12 +403,23 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 					a.onPromptConsumedEvent(ev, startupController)
 				} else if ev.Type == indexer.EventPromptPaid {
 					a.onPromptPaidEvent(ctx, ev, startupController)
+				} else if ev.Type == indexer.EventAgentRegistered {
+					a.onAgentRegisteredEvent(ev, startupController)
 				}
 			}
 
 			startupController.SetBlockNumber(data.ToBlock)
 		}
 	}
+}
+
+func (a *Agent) onAgentRegisteredEvent(ev *indexer.Event, startupController *agentEventStartupController) {
+	agentRegisteredEvent, ok := ev.ToAgentRegisteredEvent()
+	if !ok {
+		return
+	}
+
+	a.nameCache.EnqueueForValidation(agentRegisteredEvent.Name)
 }
 
 func (a *Agent) onTeeUnencumberedEvent(ev *indexer.Event) {
@@ -560,6 +580,11 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			if !debug.IsDebugDisableTweetValidation() {
 				return nil
 			}
+		}
+
+		if !a.nameCache.IsValid(agentInfo.Name) {
+			slog.Warn("agent name is not valid", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "name", agentInfo.Name)
+			return nil
 		}
 
 		if isDrain {

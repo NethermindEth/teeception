@@ -53,7 +53,8 @@ func (m *MockTwitterClient) SendTweet(tweet string) error {
 }
 
 type MockChatCompletionMethods struct {
-	Prompt func(ctx context.Context, metadata, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error)
+	Prompt       func(ctx context.Context, metadata, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error)
+	ValidateName func(ctx context.Context, name string) (bool, error)
 }
 
 type MockChatCompletion struct {
@@ -62,6 +63,10 @@ type MockChatCompletion struct {
 
 func (m *MockChatCompletion) Prompt(ctx context.Context, metadata, systemPrompt, prompt string) (*chat.ChatCompletionResponse, error) {
 	return m.Methods.Prompt(ctx, metadata, systemPrompt, prompt)
+}
+
+func (m *MockChatCompletion) ValidateName(ctx context.Context, name string) (bool, error) {
+	return m.Methods.ValidateName(ctx, name)
 }
 
 type MockProviderMethods struct {
@@ -698,6 +703,9 @@ func TestProcessPromptPaidEvent(t *testing.T) {
 							Response: tt.aiResponse,
 							Drain:    nil,
 						}, nil
+					},
+					ValidateName: func(ctx context.Context, name string) (bool, error) {
+						return true, nil
 					},
 				},
 			}
