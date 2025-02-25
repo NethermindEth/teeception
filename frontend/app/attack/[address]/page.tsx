@@ -53,12 +53,6 @@ export default function AgentChallengePage() {
     setAgentStatus(status)
   }, [agent])
 
-  useEffect(() => {
-    if (currentTweetId && isPaid && !showChallengeSuccess) {
-      setShowChallengeSuccess(true)
-    }
-  }, [currentTweetId, isPaid, showChallengeSuccess])
-
   const { contract: tokenContract } = useContract({
     abi: TEECEPTION_ERC20_ABI,
     address: agent ? `0x${BigInt(agent.tokenAddress).toString(16).padStart(64, '0')}` : undefined,
@@ -197,6 +191,7 @@ export default function AgentChallengePage() {
         setPendingTweet((prev) => (prev ? { ...prev, submitted: true } : null))
         setTweetUrl('')
         setIsPaid(true)
+        setShowChallengeSuccess(true)
       }
     } catch (error) {
       console.error('Failed to process payment:', error)
