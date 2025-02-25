@@ -261,6 +261,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		chatCompletion: config.ChatCompletion,
 		starknetClient: config.StarknetClient,
 		quoter:         config.Quoter,
+		nameCache:      config.NameCache,
 
 		agentIndexer:           config.AgentIndexer,
 		eventWatcher:           config.EventWatcher,
