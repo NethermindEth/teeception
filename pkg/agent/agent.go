@@ -420,7 +420,7 @@ func (a *Agent) onTeeUnencumberedEvent(ev *indexer.Event) {
 }
 
 func (a *Agent) onPromptConsumedEvent(ev *indexer.Event, startupController *agentEventStartupController) {
-	if ev.Raw.BlockNumber > a.startupBlockNumber {
+	if ev.Raw.BlockNumber == 0 || ev.Raw.BlockNumber > a.startupBlockNumber {
 		return
 	}
 
