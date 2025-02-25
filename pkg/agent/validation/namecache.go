@@ -86,7 +86,7 @@ func (c *NameCache) run(ctx context.Context) error {
 
 // IsValid checks if a name is valid according to the cache.
 // If the name is not in the cache, it enqueues it for validation
-// and returns true (considering it valid until proven otherwise).
+// and returns false (considering it invalid until proven otherwise).
 func (c *NameCache) IsValid(name string) bool {
 	c.mu.RLock()
 	if valid, exists := c.validNames[name]; exists {
@@ -97,7 +97,7 @@ func (c *NameCache) IsValid(name string) bool {
 
 	// Name not in cache, enqueue for validation
 	c.EnqueueForValidation(name)
-	return true // Consider names as valid until proven otherwise
+	return false // Consider names as invalid until proven otherwise
 }
 
 // EnqueueForValidation adds a name to the validation queue.

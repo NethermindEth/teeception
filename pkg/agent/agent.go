@@ -582,21 +582,22 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			}
 		}
 
+		tweetAgentIdentifier := agentInfo.Name
 		if !a.nameCache.IsValid(agentInfo.Name) {
 			slog.Warn("agent name is not valid", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "name", agentInfo.Name)
-			return nil
+			tweetAgentIdentifier = agentInfo.Address.String()
 		}
 
 		if isDrain {
 			slog.Info("sending tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "drain_to", resp.Drain.Address)
-			tweet := fmt.Sprintf(":%s: was drained! Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", agentInfo.Name, txHash)
+			tweet := fmt.Sprintf(":%s: was drained! Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", tweetAgentIdentifier, txHash)
 			err := a.twitterClient.SendTweet(tweet)
 			if err != nil {
 				slog.Warn("failed to send tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 			}
 
 			slog.Info("replying as drained to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "drain_to", resp.Drain.Address)
-			reply := fmt.Sprintf(":%s: Drained! Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", agentInfo.Name, agentInfo.Address, resp.Drain.Address, txHash)
+			reply := fmt.Sprintf(":%s: Drained! Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", tweetAgentIdentifier, agentInfo.Address, resp.Drain.Address, txHash)
 			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
 			if err != nil {
 				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
@@ -612,7 +613,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 
 		if strings.TrimSpace(reply) != "" {
 			slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
-			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", agentInfo.Name, reply))
+			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", tweetAgentIdentifier, reply))
 			if err != nil {
 				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 			}
