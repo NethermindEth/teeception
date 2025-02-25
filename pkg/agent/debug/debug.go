@@ -1,7 +1,7 @@
 package debug
 
 const (
-	Debug = true
+	Debug = false
 )
 
 func IsDebug() bool {
