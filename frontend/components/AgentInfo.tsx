@@ -7,6 +7,8 @@ export type AgentInfoProps = {
   promptPrice: string
   symbol: string
   breakAttempts: number
+  isDrained: boolean
+  drainAmount: string
   className?: string
 }
 export const AgentInfo = ({
@@ -15,10 +17,14 @@ export const AgentInfo = ({
   promptPrice,
   symbol,
   breakAttempts,
+  isDrained,
+  drainAmount,
   className,
 }: AgentInfoProps) => {
   const prizePool = formatBalance(BigInt(balance), decimal)
   const messagePrice = formatBalance(BigInt(promptPrice), decimal, 2, true)
+  const drainAmountFormatted = formatBalance(BigInt(drainAmount), decimal)
+
   return (
     <div
       className={clsx(
@@ -31,7 +37,7 @@ export const AgentInfo = ({
           <div>
             <p className="text-[10px] md:text-xs text-[#E1EDF2]">Prize pool</p>
             <h4 className="text-xl md:text-2xl font-bold">
-              {prizePool} {symbol}
+              {isDrained ? drainAmountFormatted : prizePool} {symbol}
             </h4>
           </div>
 

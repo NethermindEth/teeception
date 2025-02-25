@@ -104,6 +104,8 @@ export default function Agent() {
             promptPrice={agent.promptPrice}
             symbol={agent.symbol}
             breakAttempts={agent.breakAttempts}
+            isDrained={agent.isDrained}
+            drainAmount={agent.drainAmount}
           />
         </div>
         <div className="mt-8">

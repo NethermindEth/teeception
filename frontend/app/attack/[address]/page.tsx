@@ -331,6 +331,8 @@ export default function AgentChallengePage() {
                   promptPrice={agent.promptPrice}
                   symbol={agent.symbol}
                   breakAttempts={agent.breakAttempts}
+                  isDrained={agent.isDrained}
+                  drainAmount={agent.drainAmount}
                   className="w-full"
                 />
                 <div className="mt-4">
