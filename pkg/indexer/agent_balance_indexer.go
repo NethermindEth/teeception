@@ -202,6 +202,7 @@ func (i *AgentBalanceIndexer) onDrainedEvent(ctx context.Context, ev *Event) {
 	agentBalance.DrainAmount = agentBalance.DrainAmount.Add(agentBalance.DrainAmount, drainedEvent.Amount)
 
 	i.db.SetAgentBalance(addrBytes, agentBalance)
+	i.db.SortAgents(i.priceCache)
 }
 
 func (i *AgentBalanceIndexer) onWithdrawnEvent(ctx context.Context, ev *Event) {
@@ -223,6 +224,7 @@ func (i *AgentBalanceIndexer) onWithdrawnEvent(ctx context.Context, ev *Event) {
 	agentBalance.DrainAmount = agentBalance.DrainAmount.Add(agentBalance.DrainAmount, withdrawnEvent.Amount)
 
 	i.db.SetAgentBalance(addrBytes, agentBalance)
+	i.db.SortAgents(i.priceCache)
 }
 
 func (i *AgentBalanceIndexer) onPromptPaidEvent(ctx context.Context, ev *Event) {
