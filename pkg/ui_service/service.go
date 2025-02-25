@@ -29,6 +29,7 @@ type UIServiceConfig struct {
 	EventTickRate        time.Duration
 	EventStartupTickRate time.Duration
 	UserTickRate         time.Duration
+	AgentBalanceTickRate time.Duration
 }
 
 type UIService struct {
@@ -89,6 +90,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		RegistryAddress: config.RegistryAddress,
 		PriceCache:      tokenIndexer,
 		EventWatcher:    eventWatcher,
+		TickRate:        config.AgentBalanceTickRate,
 		InitialState: &indexer.AgentBalanceIndexerInitialState{
 			Db: indexer.NewAgentBalanceIndexerDatabaseInMemory(lastIndexedBlock),
 		},

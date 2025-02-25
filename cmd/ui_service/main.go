@@ -85,6 +85,7 @@ func main() {
 				EventTickRate:        eventTickRate,
 				EventStartupTickRate: eventStartupTickRate,
 				UserTickRate:         userTickRate,
+				AgentBalanceTickRate: balanceTickRate,
 			})
 			if err != nil {
 				slog.Error("failed to create UI service", "error", err)
