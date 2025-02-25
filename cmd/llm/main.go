@@ -64,6 +64,43 @@ func executeChat(params ChatParams) (*chat.ChatCompletionResponse, error) {
 	return response, nil
 }
 
+func validateName(apiURL, authToken, model, name string) (bool, error) {
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+
+	fmt.Printf("\n%s Validating name: %s\n", info("🔍"), name)
+
+	clientConfig := openai.DefaultConfig(authToken)
+	clientConfig.BaseURL = apiURL
+
+	s.Suffix = " Creating chat client..."
+	s.Start()
+	client := openai.NewClientWithConfig(clientConfig)
+	chatClient := chat.NewOpenAIChatCompletion(chat.OpenAIChatCompletionConfig{
+		Client: client,
+		Model:  model,
+	})
+	s.Stop()
+	fmt.Printf("%s Chat client created successfully\n", success("✓"))
+
+	s.Suffix = " Validating name..."
+	s.Start()
+	ctx := context.Background()
+	valid, err := chatClient.ValidateName(ctx, name)
+	s.Stop()
+	if err != nil {
+		fmt.Printf("%s Failed to validate name\n", fail("❌"))
+		return false, fmt.Errorf("failed to validate name: %w", err)
+	}
+
+	if valid {
+		fmt.Printf("%s Name is valid\n", success("✓"))
+	} else {
+		fmt.Printf("%s Name is invalid\n", fail("❌"))
+	}
+
+	return valid, nil
+}
+
 func buildMetadata() string {
 	randomFelt := func() *felt.Felt {
 		randomBytes := make([]byte, 32)
@@ -95,6 +132,7 @@ func main() {
 	var model string
 	var systemPrompt string
 	var prompt string
+	var nameToValidate string
 
 	rootCmd := &cobra.Command{
 		Use:   "llm",
@@ -130,14 +168,36 @@ func main() {
 		},
 	}
 
-	rootCmd.Flags().StringVar(&apiURL, "api-url", "https://api.openai.com/v1", "API URL for the LLM service")
-	rootCmd.Flags().StringVar(&authToken, "auth-token", "", "Authentication token for the LLM service")
-	rootCmd.Flags().StringVar(&model, "model", "gpt-4", "Model to use for completion")
+	validateCmd := &cobra.Command{
+		Use:   "validate-name",
+		Short: "Validate a name for appropriateness",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("\n%s Starting name validation...\n", info("🚀"))
+
+			valid, err := validateName(apiURL, authToken, model, nameToValidate)
+			if err != nil {
+				fmt.Printf("\n%s Error validating name: %v\n", fail("❌"), err)
+				os.Exit(1)
+			}
+
+			fmt.Printf("\n%s Name validation result: %v\n\n", info("📄"), valid)
+		},
+	}
+
+	rootCmd.PersistentFlags().StringVar(&apiURL, "api-url", "https://api.openai.com/v1", "API URL for the LLM service")
+	rootCmd.PersistentFlags().StringVar(&authToken, "auth-token", "", "Authentication token for the LLM service")
+	rootCmd.PersistentFlags().StringVar(&model, "model", "gpt-4", "Model to use for completion")
+
 	rootCmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "System prompt/instructions")
 	rootCmd.Flags().StringVar(&prompt, "prompt", "", "User prompt to execute")
 
-	rootCmd.MarkFlagRequired("auth-token")
+	validateCmd.Flags().StringVar(&nameToValidate, "name", "", "Name to validate")
+	validateCmd.MarkFlagRequired("name")
+
+	rootCmd.MarkPersistentFlagRequired("auth-token")
 	rootCmd.MarkFlagRequired("prompt")
+
+	rootCmd.AddCommand(validateCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Printf("%s %v\n", fail("❌"), err)
