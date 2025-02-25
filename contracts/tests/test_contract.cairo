@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 use starknet::ContractAddress;
 use starknet::get_block_timestamp;
 

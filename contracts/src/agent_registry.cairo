@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 use core::starknet::ContractAddress;
 use core::starknet::ClassHash;
 

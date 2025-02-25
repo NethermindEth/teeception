@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 use core::hash::HashStateTrait;
 use core::pedersen::PedersenTrait;
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 /// @title Agent Contract
 /// @notice Represents an AI agent that can process prompts for payment
 /// @dev Implements prompt payment, consumption, and reward distribution

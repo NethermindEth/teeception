@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // Mock ERC20 contract for testing purposes
 #[starknet::contract]
 mod ERC20 {
