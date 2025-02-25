@@ -18,6 +18,7 @@ type NameCache struct {
 	validationCh     chan string
 	chatCompletion   chat.ChatCompletion
 	concurrencyLimit int
+	waiters          map[string][]chan bool
 }
 
 // NewNameCache creates a new name cache with the given chat completion instance.
@@ -37,6 +38,7 @@ func NewNameCacheWithConcurrency(chatCompletion chat.ChatCompletion, concurrency
 		validationCh:     make(chan string, 200),
 		chatCompletion:   chatCompletion,
 		concurrencyLimit: concurrencyLimit,
+		waiters:          make(map[string][]chan bool),
 	}
 
 	return cache
@@ -75,6 +77,18 @@ func (c *NameCache) run(ctx context.Context) error {
 
 			c.mu.Lock()
 			c.validNames[name] = valid
+			// Notify any waiters for this name
+			if waiters, exists := c.waiters[name]; exists {
+				for _, waiter := range waiters {
+					select {
+					case waiter <- valid:
+					default:
+						// If channel is full or closed, skip it
+					}
+					close(waiter)
+				}
+				delete(c.waiters, name)
+			}
 			c.mu.Unlock()
 
 		case <-ctx.Done():
@@ -98,6 +112,57 @@ func (c *NameCache) IsValid(name string) bool {
 	// Name not in cache, enqueue for validation
 	c.EnqueueForValidation(name)
 	return false // Consider names as invalid until proven otherwise
+}
+
+// IsValidWithWait checks if a name is valid according to the cache.
+// If the name is not in the cache, it enqueues it for validation
+// and waits for the validation to complete or until the context is done.
+func (c *NameCache) IsValidWithWait(ctx context.Context, name string) (bool, error) {
+	// First check if already validated
+	c.mu.RLock()
+	if valid, exists := c.validNames[name]; exists {
+		c.mu.RUnlock()
+		return valid, nil
+	}
+	c.mu.RUnlock()
+
+	// Create a channel to wait for validation result
+	resultCh := make(chan bool, 1)
+
+	// Register the waiter
+	c.mu.Lock()
+	if _, exists := c.waiters[name]; !exists {
+		c.waiters[name] = make([]chan bool, 0)
+	}
+	c.waiters[name] = append(c.waiters[name], resultCh)
+	c.mu.Unlock()
+
+	// Enqueue for validation
+	c.EnqueueForValidation(name)
+
+	// Wait for result or context cancellation
+	select {
+	case valid := <-resultCh:
+		return valid, nil
+	case <-ctx.Done():
+		// Clean up the waiter if context is done
+		c.mu.Lock()
+		if waiters, exists := c.waiters[name]; exists {
+			for i, waiter := range waiters {
+				if waiter == resultCh {
+					// Remove this waiter
+					c.waiters[name] = append(waiters[:i], waiters[i+1:]...)
+					break
+				}
+			}
+			// If no more waiters, clean up the map entry
+			if len(c.waiters[name]) == 0 {
+				delete(c.waiters, name)
+			}
+		}
+		c.mu.Unlock()
+		return false, ctx.Err()
+	}
 }
 
 // EnqueueForValidation adds a name to the validation queue.

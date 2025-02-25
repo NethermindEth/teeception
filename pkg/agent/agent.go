@@ -583,7 +583,14 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		}
 
 		tweetAgentIdentifier := agentInfo.Name
-		if !a.nameCache.IsValid(agentInfo.Name) {
+
+		nameValidCtx, _ := context.WithTimeout(ctx, 30*time.Second)
+		isNameValid, err := a.nameCache.IsValidWithWait(nameValidCtx, agentInfo.Name)
+		if err != nil {
+			slog.Error("error while checking name validity", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "name", agentInfo.Name, "error", err)
+			isNameValid = false
+		}
+		if !isNameValid {
 			slog.Warn("agent name is not valid", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "name", agentInfo.Name)
 			tweetAgentIdentifier = agentInfo.Address.String()
 		}
