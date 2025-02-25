@@ -6,59 +6,25 @@ import { useAccount, useContract, useSendTransaction } from '@starknet-react/cor
 import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { formatBalance, getAgentStatus } from '@/lib/utils'
+import { extractTweetId, formatBalance, getAgentStatus } from '@/lib/utils'
 import { X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
 import { TweetPreview } from '@/components/TweetPreview'
-import { Prompt, useAgent } from '@/hooks/useAgent'
+import { useAgent } from '@/hooks/useAgent'
 import { StatusDisplay } from '@/components/StatusDisplay'
 import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
-
-const tweetUrlRegex = /^(?:https?:\/\/)?(?:www\.)?(twitter\.com|x\.com)\/\w+\/status\/([1-9]\d*)$/
-
-const extractTweetId = (url: string): string | null => {
-  try {
-    // Handle direct tweet ID input (numeric string) first
-    if (url.match(/^\d+$/)) {
-      return url
-    }
-
-    // Basic URL validation
-    if (!url || typeof url !== 'string' || url.trim() === '') {
-      return null
-    }
-
-    // Clean the URL
-    const cleanUrl = url.trim()
-
-    // Match tweet URL pattern and extract ID
-    const match = cleanUrl.match(tweetUrlRegex)
-
-    if (match) {
-      return match[2] // Return the tweet ID (second capture group)
-    }
-  } catch (error) {
-    console.error('Failed to parse tweet URL:', error)
-  }
-  return null
-}
+import { ChallengeDisplay } from './ChallengeDisplay'
 
 export default function AgentChallengePage() {
   const params = useParams()
-
-  const {
-    agent,
-    loading: isFetchingAgent,
-    // error: isErrorAgent,
-  } = useAgent({
+  const { agent, loading: isFetchingAgent } = useAgent({
     fetchBy: 'address',
     value: params.address as string,
   })
-
   const { address, account } = useAccount()
   const [challenge, setChallenge] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -93,7 +59,6 @@ export default function AgentChallengePage() {
     }
   }, [currentTweetId, isPaid, showChallengeSuccess])
 
-  // Contract instances
   const { contract: tokenContract } = useContract({
     abi: TEECEPTION_ERC20_ABI,
     address: agent ? `0x${BigInt(agent.tokenAddress).toString(16).padStart(64, '0')}` : undefined,
@@ -163,7 +128,6 @@ export default function AgentChallengePage() {
         <div className="flex items-center gap-2 mb-4">
           <div className="font-mono text-sm text-[#FFD700]">{agent.address}</div>
         </div>
-
         <div className="space-y-4">
           <div className="bg-black/30 p-4 rounded-lg">
             <pre className="whitespace-pre-wrap font-mono text-lg text-[#FFD700]">
@@ -171,9 +135,8 @@ export default function AgentChallengePage() {
             </pre>
           </div>
         </div>
-
         <div className="flex justify-between items-center mt-4">
-          <p className="text-sm text-gray-400">{new Date().toLocaleDateString()}</p>
+          {/* <p className="text-sm text-gray-400">{new Date().toLocaleDateString()}</p> */}
         </div>
       </div>
     )
@@ -188,7 +151,6 @@ export default function AgentChallengePage() {
       const tweetText = `${X_BOT_NAME} :${agent.name}: ${challenge}`
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
 
-      // Wait for 2 seconds to show the animation
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Then proceed with opening Twitter
@@ -230,7 +192,6 @@ export default function AgentChallengePage() {
 
     try {
       const response = await sendAsync()
-
       if (response?.transaction_hash) {
         await account.waitForTransaction(response.transaction_hash)
         setPendingTweet((prev) => (prev ? { ...prev, submitted: true } : null))
@@ -260,45 +221,6 @@ export default function AgentChallengePage() {
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
       window.open(tweetIntent, '_blank')
     }
-  }
-
-  const ChallengeDisplay = ({ challenge }: { challenge: Prompt }) => {
-    const isWinner = challenge.is_success
-
-    return (
-      <div
-        className={`bg-[#12121266] backdrop-blur-lg p-6 rounded-lg ${
-          isWinner ? 'border-2 border-[#FFD700] shadow-[0_0_30px_rgba(255,215,0,0.1)]' : ''
-        }`}
-      >
-        <div className="flex items-center gap-2 mb-4">
-          <div className={`font-mono text-sm ${isWinner ? 'text-[#FFD700]' : 'text-gray-400'}`}>
-            {challenge.drained_to}
-          </div>
-          {/* <div className={`text-sm ${isWinner ? 'text-[#FFD700]' : 'text-blue-400'}`}>
-            {challenge.twitterHandle }
-          </div> */}
-        </div>
-
-        <div className="space-y-4">
-          <div className="bg-black/30 p-4 rounded-lg">
-            <p className={`font-mono text-lg ${isWinner ? 'text-[#FFD700]' : 'text-white'}`}>
-              {challenge.prompt}
-            </p>
-          </div>
-          <div className="bg-black/30 p-4 rounded-lg">
-            {/* <p className="font-mono text-lg text-gray-400">{challenge.agentResponse}</p> */}
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center mt-4">
-          <p className="text-sm text-gray-400">
-            {/* {new Date(challenge.timestamp).toLocaleDateString()} */}
-          </p>
-          {isWinner && <div className="text-[#FFD700] text-sm font-medium">Winning Attempt</div>}
-        </div>
-      </div>
-    )
   }
 
   const getMaxPromptLength = () => {
@@ -591,8 +513,11 @@ export default function AgentChallengePage() {
                 <div className="white-gradient-border"></div>
                 <div className="white-gradient-border rotate-180"></div>
               </div>
-
-              <ChallengeDisplay challenge={agent.drainPrompt} />
+              {agent.drainPrompt.tweet_id ? (
+                <TweetPreview tweetId={agent.drainPrompt.tweet_id} />
+              ) : (
+                <ChallengeDisplay challenge={agent.drainPrompt} />
+              )}
 
               <div className="text-4xl md:text-[48px] font-bold text-center uppercase mb-6">
                 System Prompt
@@ -647,17 +572,14 @@ export default function AgentChallengePage() {
                       >
                         <div className="w-full bg-black/50 border-b border-gray-800/50 py-3 px-4">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-gray-400">
-                              {/* <span>{new Date(challenge.timestamp).toLocaleDateString()}</span> */}
-                            </div>
-                            {/* <div className="text-sm text-gray-400">{challenge.twitterHandle}</div> */}
+                            <div className="flex items-center gap-2 text-sm text-gray-400"></div>
                           </div>
                         </div>
                         <div className="p-4">
                           {challenge.tweet_id ? (
                             <TweetPreview tweetId={challenge.tweet_id} isPaid={true} />
                           ) : (
-                            <div className="text-red-400 text-sm">Invalid tweet ID format</div>
+                            <ChallengeDisplay challenge={challenge} />
                           )}
                         </div>
                       </div>
@@ -666,40 +588,6 @@ export default function AgentChallengePage() {
               </div>
             </div>
           )}
-
-          {/* Test Controls */}
-          {/* <div className="fixed bottom-4 right-4 flex gap-4 bg-black/50 backdrop-blur-lg p-4 rounded-lg">
-            <button
-              onClick={() => setTestStatus('active')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                testStatus === 'active'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-black/50 text-gray-400 hover:text-white'
-              }`}
-            >
-              Test Active
-            </button>
-            <button
-              onClick={() => setTestStatus('undefeated')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                testStatus === 'undefeated'
-                  ? 'bg-[#1388D5] text-white'
-                  : 'bg-black/50 text-gray-400 hover:text-white'
-              }`}
-            >
-              Test Undefeated
-            </button>
-            <button
-              onClick={() => setTestStatus('defeated')}
-              className={`px-4 py-2 rounded-lg transition-all ${
-                testStatus === 'defeated'
-                  ? 'bg-[#FF3F26] text-white'
-                  : 'bg-black/50 text-gray-400 hover:text-white'
-              }`}
-            >
-              Test Defeated
-            </button>
-          </div> */}
         </div>
       </div>
       <ChallengeSuccessModal

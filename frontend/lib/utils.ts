@@ -27,7 +27,7 @@ export const calculateTimeLeft = (endTime: number) => {
 
 export const stringToBigInt = (value: string, decimals: number = 0) => {
   if (!value) return BigInt(0)
-  
+
   if (value.includes('.')) {
     const [integerPart, decimalPart] = value.split('.')
     const paddedDecimals = decimalPart.padEnd(decimals, '0').slice(0, decimals)
@@ -42,11 +42,16 @@ export const stringToBigInt = (value: string, decimals: number = 0) => {
   return BigInt(value) * multiplier
 }
 
-export const bigIntToString = (value: bigint, decimals: number, precision: number = 2, ceil: boolean = false) => {
+export const bigIntToString = (
+  value: bigint,
+  decimals: number,
+  precision: number = 2,
+  ceil: boolean = false
+) => {
   const divisor = BigInt(10) ** BigInt(decimals)
   let quotient = value / divisor
   let remainder = value % divisor
-  
+
   if (ceil && remainder > BigInt(0)) {
     const precisionDivisor = BigInt(10) ** BigInt(decimals - precision)
     const remainderMod = remainder % precisionDivisor
@@ -67,7 +72,12 @@ export const bigIntToString = (value: bigint, decimals: number, precision: numbe
   return `${quotient}.${remainderStr}`
 }
 
-export const formatBalance = (balance: bigint, decimals: number, precision: number = 0, ceil: boolean = false) => {
+export const formatBalance = (
+  balance: bigint,
+  decimals: number,
+  precision: number = 0,
+  ceil: boolean = false
+) => {
   if (balance === BigInt(0)) {
     return '0'
   }
@@ -99,4 +109,32 @@ export const getAgentStatus = ({
     return AgentStatus.UNDEFEATED
   }
   return AgentStatus.ACTIVE
+}
+
+const tweetUrlRegex = /^(?:https?:\/\/)?(?:www\.)?(twitter\.com|x\.com)\/\w+\/status\/([1-9]\d*)$/
+
+export const extractTweetId = (url: string): string | null => {
+  try {
+    if (url.match(/^\d+$/)) {
+      return url
+    }
+
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return null
+    }
+    const cleanUrl = url.trim()
+
+    const match = cleanUrl.match(tweetUrlRegex)
+
+    if (match) {
+      return match[2] // Return the tweet ID (second capture group)
+    }
+  } catch (error) {
+    console.error('Failed to parse tweet URL:', error)
+  }
+  return null
+}
+
+export const truncateAddress = (addr: string) => {
+  return addr.slice(0, 6) + '...' + addr.slice(-6)
 }

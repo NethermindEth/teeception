@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AgentChat } from '@/components/AgentChat'
 import { useAgent } from '@/hooks/useAgent'
 import { useParams } from 'next/navigation'
-import { formatBalance } from '@/lib/utils'
+import { formatBalance, truncateAddress } from '@/lib/utils'
 import { AgentStates } from '@/components/AgentStates'
 import { Copy } from 'lucide-react'
 import { useState } from 'react'
@@ -19,10 +19,6 @@ const AddressDisplay = ({ address, label }: { address: string; label: string }) 
     await navigator.clipboard.writeText(address)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  const truncateAddress = (addr: string) => {
-    return addr.slice(0, 6) + '...' + addr.slice(-6)
   }
 
   return (

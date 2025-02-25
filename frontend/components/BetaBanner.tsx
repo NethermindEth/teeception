@@ -17,11 +17,9 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
   useEffect(() => {
     setIsMounted(true)
 
-    // Check for dismissal after component mounts to prevent hydration mismatch
     if (persistDismissal) {
       const dismissed = localStorage.getItem('betaBannerDismissed')
       if (dismissed !== 'true') {
-        // Only show if not dismissed
         setIsVisible(true)
       }
     } else {
@@ -88,7 +86,7 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                           >
                             Telegram
                           </a>{' '}
-                          community to report issues and get help!
+                          community for feedback, support, and real-time updates!
                         </span>
                       </span>
                     </p>
