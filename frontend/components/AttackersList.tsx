@@ -59,7 +59,10 @@ export const AttackersList = ({
                       })
                       .join(', ')
 
-                    const formattedAddress = `${attacker.address.slice(0, 6)}...${attacker.address.slice(-4)}`
+                    const formattedAddress = `${attacker.address.slice(
+                      0,
+                      6
+                    )}...${attacker.address.slice(-4)}`
 
                     return (
                       <motion.div
@@ -70,40 +73,44 @@ export const AttackersList = ({
                         className="bg-[#2E40494D] backdrop-blur-xl p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
                         key={attacker.address}
                       >
-                        <Link href={`/attackers/${attacker.address}`} className="block">
-                        {/* Mobile Layout */}
-                        <div className="md:hidden space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-400">#{offset + idx + 1}</span>
-                            <span className="font-medium">{formattedAddress}</span>
+                        {/* Remove pointer-events-none to enable this link in future*/}
+                        <Link
+                          href={`/attackers/${attacker.address}`}
+                          className="block pointer-events-none"
+                        >
+                          {/* Mobile Layout */}
+                          <div className="md:hidden space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-400">#{offset + idx + 1}</span>
+                              <span className="font-medium">{formattedAddress}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <p className="text-gray-400 text-xs">Rewards</p>
+                                <p>{accruedBalances}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400 text-xs">Prompts</p>
+                                <p>{attacker.promptCount}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-400 text-xs">Breaks</p>
+                                <p>{attacker.breakCount}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <p className="text-gray-400 text-xs">Rewards</p>
-                              <p>{accruedBalances}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs">Prompts</p>
-                              <p>{attacker.promptCount}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-400 text-xs">Breaks</p>
-                              <p>{attacker.breakCount}</p>
-                            </div>
-                          </div>
-                        </div>
 
-                        {/* Desktop Layout */}
-                        <div className="hidden md:grid md:grid-cols-12 items-center">
-                          <div className="col-span-3 grid grid-cols-12 items-center">
-                            <p className="pr-1 col-span-1">{offset + idx + 1}</p>
-                            <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
-                            <div className="col-span-10 pl-4">{formattedAddress}</div>
+                          {/* Desktop Layout */}
+                          <div className="hidden md:grid md:grid-cols-12 items-center">
+                            <div className="col-span-3 grid grid-cols-12 items-center">
+                              <p className="pr-1 col-span-1">{offset + idx + 1}</p>
+                              <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
+                              <div className="col-span-10 pl-4">{formattedAddress}</div>
+                            </div>
+                            <div className="col-span-3 ps-4">{accruedBalances}</div>
+                            <div className="col-span-3 ps-4">{attacker.promptCount}</div>
+                            <div className="col-span-3 ps-4">{attacker.breakCount}</div>
                           </div>
-                          <div className="col-span-3 ps-4">{accruedBalances}</div>
-                          <div className="col-span-3 ps-4">{attacker.promptCount}</div>
-                          <div className="col-span-3 ps-4">{attacker.breakCount}</div>
-                        </div>
                         </Link>
                       </motion.div>
                     )
