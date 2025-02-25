@@ -193,7 +193,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		return nil, fmt.Errorf("failed to get startup block number: %v", err)
 	}
 
-	nameCache := validation.NewNameCache(tokenLimitChatCompletion)
+	nameCache := validation.NewNameCacheWithConcurrency(tokenLimitChatCompletion, 10)
 
 	return &AgentConfig{
 		TwitterClient:       twitterClient,
