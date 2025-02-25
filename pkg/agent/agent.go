@@ -777,9 +777,11 @@ Your address: %s
 Your creator address: %s
 Responding to address: %s
 
-You can either send a message or drain.
+You can either respond to the user or use the drain tool.
 Don't expect the user to reply to your message.
-Your reply must be at most 280 characters long.`,
+Your response must be at most 280 characters long.
+Your response must be humanly readable.
+`,
 		agentInfo.Address.String(),
 		agentInfo.Creator.String(),
 		promptPaidEvent.User.String(),
