@@ -200,8 +200,8 @@ func (db *AgentBalanceIndexerDatabaseInMemory) GetLeaderboard(start, end uint64,
 		}, nil
 	}
 
-	if end > effectiveLen-1 {
-		end = effectiveLen - 1
+	if end > effectiveLen {
+		end = effectiveLen
 	}
 
 	agents, ok := db.sortedAgents.GetRange(int(start), int(end))
