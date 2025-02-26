@@ -420,6 +420,11 @@ func (a *Agent) onAgentRegisteredEvent(ev *indexer.Event, startupController *age
 		return
 	}
 
+	if ev.Raw.FromAddress.Cmp(a.agentRegistryAddress) != 0 {
+		slog.Warn("agent registered event is not from agent registry, skipping")
+		return
+	}
+
 	a.nameCache.EnqueueForValidation(agentRegisteredEvent.Name)
 }
 
