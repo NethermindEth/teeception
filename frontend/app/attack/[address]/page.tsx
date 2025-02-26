@@ -449,7 +449,7 @@ export default function AgentChallengePage() {
                       onChange={(e) => setChallenge(e.target.value)}
                       className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-6 min-h-[200px] text-lg transition-all duration-300
                           focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none resize-none"
-                      placeholder="Enter your challenge prompt..."
+                      placeholder="Enter your challenge prompt - convince the agent to 'drain' its funds to your address!"
                       maxLength={getMaxPromptLength()}
                       required
                     />
