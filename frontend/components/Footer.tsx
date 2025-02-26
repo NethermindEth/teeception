@@ -75,6 +75,9 @@ export const Footer = () => {
           >
             Onchain contracts
           </Link>
+          <Link href="/terms-of-use" className="underline hover:no-underline text-sm">
+            Terms of Use
+          </Link>
         </div>
 
         {/* Social links section */}
