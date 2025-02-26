@@ -66,7 +66,10 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
         agent.address.toLowerCase().includes(lowercaseQuery)
     )
   }
-  const filteredAgents = useMemo(() => filterAgents(allAgents, searchQuery), [allAgents, searchQuery])
+  const filteredAgents = useMemo(
+    () => filterAgents(allAgents, searchQuery),
+    [allAgents, searchQuery]
+  )
   const filteredActiveAgents = useMemo(
     () => filterAgents(activeAgents, searchQuery),
     [activeAgents, searchQuery]
@@ -93,7 +96,7 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
   }
 
   return (
-    <div className="px-2 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto md:mt-20">
+    <div className="px-2 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto md:pt-36">
       <div className="mb-20">
         <p className="text-4xl md:text-[48px] font-bold text-center uppercase" id="leaderboard">
           {heading}
@@ -106,18 +109,16 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
         <p className="text-[#B4B4B4] text-center max-w-[594px] mx-auto">{subheading}</p>
       </div>
       <div>
-        <Tabs defaultValue={TabType.ActiveAgents} className="w-full" onValueChange={handleTabChange}>
+        <Tabs
+          defaultValue={TabType.ActiveAgents}
+          className="w-full"
+          onValueChange={handleTabChange}
+        >
           <div className="flex flex-col md:flex-row items-center justify-between mb-6">
             <TabsList className="flex w-full">
-              <TabsTrigger value={TabType.AgentRanking}>
-                Agents ranking
-              </TabsTrigger>
-              <TabsTrigger value={TabType.ActiveAgents}>
-                Active agents
-              </TabsTrigger>
-              <TabsTrigger value={TabType.TopAttackers}>
-                Top attackers
-              </TabsTrigger>
+              <TabsTrigger value={TabType.AgentRanking}>Agents ranking</TabsTrigger>
+              <TabsTrigger value={TabType.ActiveAgents}>Active agents</TabsTrigger>
+              <TabsTrigger value={TabType.TopAttackers}>Top attackers</TabsTrigger>
             </TabsList>
 
             {selectedTab !== TabType.TopAttackers && (
