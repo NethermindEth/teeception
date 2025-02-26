@@ -112,7 +112,7 @@ export const ChallengeSuccessModal = ({
               </div>
               <h2 className="text-2xl font-bold mb-2">Verification Timeout</h2>
               <p className="text-white/90 mb-4">
-                We couldn't verify the result of your challenge. The transaction was submitted, but verification attempts exceeded the limit. Check your tweet for a response and report this if needed.
+                We couldn&apos;t verify the result of your challenge. The transaction was submitted, but verification attempts exceeded the limit. Check your tweet for a response and report this if needed.
               </p>
             </>
           ) : (
