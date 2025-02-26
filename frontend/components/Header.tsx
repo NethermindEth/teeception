@@ -40,7 +40,7 @@ export const Header = () => {
       <BetaBanner persistDismissal onDismiss={handleBannerDismiss} />
       <div
         className={clsx('max-w-full mx-auto flex items-center p-[11px] md:p-4 justify-between', {
-          'pt-[22px]': !bannerVisible,
+          'pt-[10px]': !bannerVisible,
         })}
       >
         <div className="flex items-center">

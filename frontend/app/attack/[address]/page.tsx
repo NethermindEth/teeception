@@ -228,7 +228,7 @@ export default function AgentChallengePage() {
       <div className="container mx-auto px-2 md:px-8 py-8 md:py-20 max-w-[1560px] relative">
         <Link
           href="/attack"
-          className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors mb-8 relative z-20"
+          className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors mb-8 relative z-20 mt-12 md:mt-0"
         >
           <ChevronLeft className="w-5 h-5" />
           <span>Agents</span>
