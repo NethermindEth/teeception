@@ -765,8 +765,9 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 	safeBlock := currentBlock - w.safeBlockDelta
 
 	from := w.lastIndexedBlock
+	toBlock := uint64(0)
 	for {
-		toBlock := from + uint64(w.indexChunkSize) - 1
+		toBlock = from + uint64(w.indexChunkSize) - 1
 		if toBlock > safeBlock {
 			toBlock = safeBlock
 		}
@@ -779,7 +780,9 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 			break
 		}
 
-		slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
+		if from != toBlock {
+			slog.Info("processing block chunk", "fromBlock", from, "toBlock", toBlock)
+		}
 
 		// Gather events for these blocks from the node
 		events, err := w.fetchEvents(ctx, rpc.EventFilter{
@@ -792,7 +795,9 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 			return fmt.Errorf("failed to get events from %v to %v: %w", from, toBlock, snaccount.FormatRpcError(err))
 		}
 
-		slog.Info("got events", "count", len(events))
+		if from != toBlock {
+			slog.Info("got events", "count", len(events))
+		}
 
 		// Parse each event into our local struct and broadcast.
 		for _, rawEvent := range events {
@@ -817,7 +822,9 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 		w.lastIndexedBlock = toBlock
 		w.mu.Unlock()
 
-		slog.Info("finished chunk", "lastIndexedBlock", w.lastIndexedBlock)
+		if from != toBlock {
+			slog.Info("finished chunk", "lastIndexedBlock", w.lastIndexedBlock)
+		}
 
 		if from >= safeBlock {
 			break
@@ -826,7 +833,6 @@ func (w *EventWatcher) indexBlocks(ctx context.Context) error {
 		from += uint64(w.indexChunkSize)
 	}
 
-	slog.Info("finished indexing events up to", "block", w.lastIndexedBlock)
 	return nil
 }
 

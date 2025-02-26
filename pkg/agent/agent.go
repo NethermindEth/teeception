@@ -123,7 +123,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(params.DstackTappdEndpoint))
 	quoter := quote.NewTappdQuoter(dstackTappdClient)
 
-	slog.Info("connecting to starknet", "rpc_urls", params.StarknetRpcUrls)
+	slog.Info("connecting to starknet")
 
 	providers := make([]rpc.RpcProvider, 0, len(params.StarknetRpcUrls))
 	for _, url := range params.StarknetRpcUrls {
@@ -417,6 +417,11 @@ func (a *Agent) ProcessEvents(ctx context.Context) error {
 func (a *Agent) onAgentRegisteredEvent(ev *indexer.Event, startupController *agentEventStartupController) {
 	agentRegisteredEvent, ok := ev.ToAgentRegisteredEvent()
 	if !ok {
+		return
+	}
+
+	if ev.Raw.FromAddress.Cmp(a.agentRegistryAddress) != 0 {
+		slog.Warn("agent registered event is not from agent registry, skipping")
 		return
 	}
 
