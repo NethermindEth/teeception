@@ -7,7 +7,7 @@ import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { extractTweetId, formatBalance, getAgentStatus } from '@/lib/utils'
-import { X_BOT_NAME } from '@/constants'
+import { DEFAULT_RPC_URL, X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
 import { ConnectPrompt } from '@/components/ConnectPrompt'
@@ -18,7 +18,7 @@ import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 import { ChallengeDisplay } from './ChallengeDisplay'
-import { shortString } from 'starknet'
+import { addAddressPadding, InvokeTransactionReceiptResponse, RpcProvider, selector, shortString } from 'starknet'
 
 export default function AgentChallengePage() {
   const params = useParams()
@@ -45,6 +45,8 @@ export default function AgentChallengePage() {
   const [isPaid, setIsPaid] = useState(false)
   const [showChallengeSuccess, setShowChallengeSuccess] = useState(false)
   const [promptError, setPromptError] = useState<string | null>(null)
+  const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'failed' | 'tries_exceeded' |null>(null)
+  const [transactionLanded, setTransactionLanded] = useState(false)
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -193,21 +195,82 @@ export default function AgentChallengePage() {
     setCurrentTweetId(tweetId)
     setIsProcessingPayment(true)
     setPaymentError(null)
+    setShowChallengeSuccess(true)
+    setTransactionLanded(false)
 
     try {
       const response = await sendAsync()
+      console.log('response', response)
       if (response?.transaction_hash) {
-        await account.waitForTransaction(response.transaction_hash)
+        const blockNumber = await account.getBlock('latest')
+        
+        const txReceipt = await account.waitForTransaction(response.transaction_hash)
         setPendingTweet((prev) => (prev ? { ...prev, submitted: true } : null))
         setTweetUrl('')
         setIsPaid(true)
-        setShowChallengeSuccess(true)
+        setTransactionLanded(true)
+        setVerificationStatus('loading')
+
+        const invokeReceipt: InvokeTransactionReceiptResponse = txReceipt as InvokeTransactionReceiptResponse
+        const promptId = invokeReceipt.events[3].keys[2]
+
+        const SELECTOR_PROMPT_PAID = selector.getSelectorFromName('PromptConsumed')
+        let attempts = 0;
+        const maxAttempts = 5;
+        let isSuccess: boolean | null = null;
+
+        setVerificationStatus(null)
+
+        const checkForEvents = async () => {
+          if (attempts >= maxAttempts) {
+            setVerificationStatus('tries_exceeded')
+            return;
+          }
+  
+          try {
+            const rpcProvider = new RpcProvider({ nodeUrl: DEFAULT_RPC_URL })
+            const eventsResp = await rpcProvider.getEvents({
+              address: addAddressPadding(agent.address),
+              from_block: { block_number: blockNumber.block_number },
+              to_block: 'pending',
+              keys: [[SELECTOR_PROMPT_PAID]],
+              chunk_size: 1000,
+            });
+
+            attempts++;
+
+            for (const event of eventsResp.events) {
+              if (event.keys[1] === promptId) {
+                isSuccess = event.data[6] !== agent.address
+                setVerificationStatus(isSuccess ? 'success' : 'failed')
+                return;
+              }
+            }
+            
+            if (attempts < maxAttempts) {
+              setTimeout(checkForEvents, 10000);
+            } else {
+              setVerificationStatus('tries_exceeded')
+            }
+          } catch (error) {
+            console.error('Failed to fetch events:', error);
+            attempts++;
+            if (attempts < maxAttempts) {
+              setTimeout(checkForEvents, 10000);
+            } else {
+              setVerificationStatus('tries_exceeded')
+            }
+          }
+        };
+        
+        setTimeout(checkForEvents, 5000);
       }
     } catch (error) {
       console.error('Failed to process payment:', error)
       setPaymentError(
         error instanceof Error ? error.message : 'Failed to process payment. Please try again.'
       )
+      setShowChallengeSuccess(false)
     } finally {
       setIsProcessingPayment(false)
     }
@@ -341,7 +404,7 @@ export default function AgentChallengePage() {
                       <div className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium flex items-center justify-center gap-2">
                         <span>Challenge Submitted</span>
                       </div>
-                      <div className="p-8 flex justify-center">
+                      <div className="p-8 flex flex-col items-center">
                         <TweetPreview tweetId={currentTweetId} isPaid={isPaid} />
                       </div>
                     </div>
@@ -410,7 +473,7 @@ export default function AgentChallengePage() {
                             {isProcessingPayment ? (
                               <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Processing Payment...
+                                Submitting Challenge...
                               </>
                             ) : (
                               <>
@@ -423,8 +486,19 @@ export default function AgentChallengePage() {
                               </>
                             )}
                           </button>
-                          <div className="p-8 flex justify-center">
+                          <div className="p-8 flex flex-col items-center">
                             <TweetPreview tweetId={currentTweetId} isPaid={false} />
+                            {isProcessingPayment && (
+                              <div className="w-full max-w-[300px] h-1 bg-[#FF3F26]/10 rounded-full overflow-hidden relative mt-4">
+                                <div
+                                  className="absolute inset-0 h-full bg-[#FF3F26] rounded-full animate-loading-progress"
+                                  style={{
+                                    boxShadow:
+                                      '0 0 8px rgba(255, 63, 38, 0.3), 0 0 4px rgba(255, 63, 38, 0.2)',
+                                  }}
+                                />
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -603,6 +677,8 @@ export default function AgentChallengePage() {
         onClose={() => {
           setShowChallengeSuccess(false)
         }}
+        verificationStatus={verificationStatus}
+        transactionLanded={transactionLanded}
       />
     </div>
   )

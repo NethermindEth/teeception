@@ -3,6 +3,8 @@ import { IBM_Plex_Mono, DM_Sans } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import NextTopLoader from 'nextjs-toploader'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 const ibmPlexMono = IBM_Plex_Mono({
   variable: '--font-ibm-plex-mono',
@@ -31,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <NextTopLoader color="#FFFFFF" showSpinner={false} />
           {children}
+          <ToastContainer />
         </Providers>
       </body>
     </html>
