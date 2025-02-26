@@ -18,6 +18,7 @@ import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 import { ChallengeDisplay } from './ChallengeDisplay'
+import { shortString } from 'starknet'
 
 export default function AgentChallengePage() {
   const params = useParams()
@@ -43,6 +44,7 @@ export default function AgentChallengePage() {
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [isPaid, setIsPaid] = useState(false)
   const [showChallengeSuccess, setShowChallengeSuccess] = useState(false)
+  const [promptError, setPromptError] = useState<string | null>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -138,6 +140,14 @@ export default function AgentChallengePage() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate if the prompt contains only ASCII characters
+    if (!shortString.isASCII(challenge)) {
+      setPromptError("Your prompt contains non-ASCII characters. Please use only ASCII characters.");
+      return;
+    }
+    
+    setPromptError(null);
     setIsSubmitting(true)
     setIsRedirecting(true)
 

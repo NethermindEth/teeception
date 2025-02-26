@@ -16,6 +16,7 @@ import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import {
   addAddressPadding,
   InvokeTransactionReceiptResponse,
+  shortString,
   TransactionExecutionStatus,
   uint256,
 } from 'starknet'
@@ -52,6 +53,7 @@ const useAgentForm = (
         case 'agentName':
           if (!value.trim()) return 'Agent name is required'
           if (value.length > 31) return 'Agent name must be 31 characters or less'
+          if (!shortString.isASCII(value)) return 'Agent name must contain only ASCII characters'
           break
         case 'feePerMessage':
           const fee = parseFloat(value)
@@ -87,6 +89,7 @@ const useAgentForm = (
           break
         case 'systemPrompt':
           if (!value.trim()) return 'System prompt is required'
+          if (!shortString.isASCII(value)) return 'System prompt must contain only ASCII characters'
           break
       }
       return ''
@@ -274,6 +277,10 @@ export default function DefendPage() {
     setFormState((prev) => ({
       ...prev,
       values: { ...prev.values, systemPrompt: value },
+      errors: {
+        ...prev.errors,
+        systemPrompt: !shortString.isASCII(value) ? 'System prompt must contain only ASCII characters' : '',
+      },
     }))
   }
 
@@ -340,6 +347,9 @@ export default function DefendPage() {
           </p>
           {tokenCount > SYSTEM_PROMPT_MAX_TOKENS && (
             <p className="mt-1 text-sm text-red-500">System prompt exceeds token limit</p>
+          )}
+          {formState.errors.systemPrompt && (
+            <p className="mt-1 text-sm text-red-500">{formState.errors.systemPrompt}</p>
           )}
         </div>
 
