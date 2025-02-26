@@ -40,11 +40,13 @@ class TwitterClientApi {
             /** @type {InitializeRequest} */
             const initializeRequest = req.body
 
+            const twoFactorSecret = process.env.AGENT_TWITTER_CLIENT_2FA_SECRET
+
             await this.scraper.login(
                 initializeRequest.username,
                 initializeRequest.password,
                 initializeRequest.email,
-                undefined,
+                twoFactorSecret,
                 initializeRequest.consumerKey,
                 initializeRequest.consumerSecret,
                 undefined,
