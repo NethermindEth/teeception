@@ -123,7 +123,7 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 	dstackTappdClient := tappd.NewTappdClient(tappd.WithEndpoint(params.DstackTappdEndpoint))
 	quoter := quote.NewTappdQuoter(dstackTappdClient)
 
-	slog.Info("connecting to starknet", "rpc_urls", params.StarknetRpcUrls)
+	slog.Info("connecting to starknet")
 
 	providers := make([]rpc.RpcProvider, 0, len(params.StarknetRpcUrls))
 	for _, url := range params.StarknetRpcUrls {
