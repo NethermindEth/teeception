@@ -12,60 +12,72 @@ import { BetaBanner } from './BetaBanner'
 export const Header = () => {
   const [menuOpen, setMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [bannerVisible, setBannerVisible] = useState(true)
 
-  // Add scroll listener
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 0)
     }
 
     window.addEventListener('scroll', handleScroll)
+    const dismissed = localStorage.getItem('betaBannerDismissed')
+    setBannerVisible(dismissed !== 'true')
+
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  const handleBannerDismiss = () => {
+    setBannerVisible(false)
+  }
 
   return (
     <header
       className={clsx('fixed left-0 right-0 top-0 w-full z-50 transition-all duration-200', {
-        'h-[180px] bg-[#12121266] backdrop-blur-lg': menuOpen,
-        'h-[67px]': !menuOpen,
+        'bg-[#12121266] backdrop-blur-lg': menuOpen || scrolled,
         'bg-transparent': !scrolled && !menuOpen,
-        'bg-[#12121266] backdrop-blur-lg': scrolled || menuOpen,
       })}
     >
-      <BetaBanner persistDismissal />
-      <div className="max-w-[1632px] mx-auto flex items-center p-[11px] md:p-4 justify-between">
-        <div className="flex items-center justify-center">
-          <Link className="block mr-1 md:mr-4" href="/">
+      <BetaBanner persistDismissal onDismiss={handleBannerDismiss} />
+      <div
+        className={clsx('max-w-full mx-auto flex items-center p-[11px] md:p-4 justify-between', {
+          'pt-[22px]': !bannerVisible,
+        })}
+      >
+        <div className="flex items-center">
+          <Link className="block mr-1 md:mr-4 flex-shrink-0" href="/">
             <Image src={'/icons/shield.svg'} width={40} height={44} alt="shield" />
           </Link>
-          <div className="">
-            <MenuItems />
+          <div className="hidden md:block">
+            <MenuItems menuOpen={menuOpen} />
           </div>
-          <div
-            className={clsx(
-              'absolute right-6 top-16 flex items-center justify-end md:top-auto md:block left-0 md:left-auto',
-              {
-                hidden: !menuOpen,
-              }
-            )}
-          >
+        </div>
+        <div className="hidden md:block">
+          <ConnectButton
+            showAddress
+            className="bg-white text-black px-6 py-2 rounded-full hover:bg-white/90"
+          />
+        </div>
+        <button
+          className="md:hidden flex-shrink-0 ml-2"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+        >
+          {menuOpen ? <Plus className="rotate-45 block" /> : <MenuIcon />}
+        </button>
+      </div>
+      {menuOpen && (
+        <div className="md:hidden px-[11px] pb-4">
+          <div className="py-4">
+            <MenuItems menuOpen={menuOpen} />
+          </div>
+          <div className="mt-4">
             <ConnectButton
               showAddress
-              className={clsx(
-                'bg-white text-black px-6 py-2 rounded-full hover:bg-white/90 md:block col-span-11',
-                {
-                  block: menuOpen,
-                  hidden: !menuOpen,
-                }
-              )}
+              className="bg-white text-black px-6 py-2 rounded-full hover:bg-white/90 w-full"
             />
           </div>
         </div>
-
-        <button className="ms-auto md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
-          {menuOpen ? <Plus className="rotate-45" /> : <MenuIcon />}
-        </button>
-      </div>
+      )}
     </header>
   )
 }

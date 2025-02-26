@@ -59,9 +59,9 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                 isAnimating ? 'bg-opacity-90' : 'bg-opacity-100'
               }`}
             >
-              <div className="max-w-[1600px] mx-auto px-4 py-2 sm:pl-6 sm:pr-1 lg:px-8">
+              <div className="max-w-[1600px] mx-auto px-4 py-2 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center flex-1 mr-2">
+                  <div className="flex items-center flex-1">
                     <span className="flex p-2 rounded-lg bg-[#121212] bg-opacity-70 -mt-[2px] flex-shrink-0">
                       <AlertTriangle
                         className={`h-5 w-5 text-[#E53922] transition-transform duration-700 ${
@@ -101,11 +101,11 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                       </p>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 pr-[1px]">
                     <button
                       type="button"
                       onClick={handleDismiss}
-                      className="flex p-2 rounded-md hover:bg-[#121212] focus:outline-none focus:ring-2 focus:ring-[#558EB4] transition-colors duration-200"
+                      className="flex p-[11px] md:p-2 rounded-md hover:bg-[#121212] focus:outline-none focus:ring-2 focus:ring-[#558EB4] transition-colors duration-200"
                       aria-label="Dismiss"
                     >
                       <X className="h-5 w-5" aria-hidden="true" />
