@@ -93,7 +93,6 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
                   )}
                 </motion.div>
               )}
-              )}
             </AnimatePresence>
 
             {/* Balance + Address Pill */}
