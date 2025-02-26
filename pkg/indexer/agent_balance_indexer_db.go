@@ -135,23 +135,24 @@ func (db *AgentBalanceIndexerDatabaseInMemory) SortAgents(priceCache AgentBalanc
 			amountB = balB.DrainAmount
 		}
 
-		if balA.Token == balB.Token {
-			return -amountA.Cmp(amountB)
+		lessAmount := -amountA.Cmp(amountB)
+
+		if balA.Token != balB.Token {
+			rateA, ok := priceCache.GetTokenRate(balA.Token)
+			if !ok {
+				slog.Error("failed to get USD rate for agent", "token", balA.Token)
+				return 0
+			}
+
+			rateB, ok := priceCache.GetTokenRate(balB.Token)
+			if !ok {
+				slog.Error("failed to get USD rate for agent", "token", balB.Token)
+				return 0
+			}
+
+			lessAmount = -amountA.Mul(amountA, rateA).Cmp(amountB.Mul(amountB, rateB))
 		}
 
-		rateA, ok := priceCache.GetTokenRate(balA.Token)
-		if !ok {
-			slog.Error("failed to get USD rate for agent", "token", balA.Token)
-			return 0
-		}
-
-		rateB, ok := priceCache.GetTokenRate(balB.Token)
-		if !ok {
-			slog.Error("failed to get USD rate for agent", "token", balB.Token)
-			return 0
-		}
-
-		lessAmount := -amountA.Mul(amountA, rateA).Cmp(amountB.Mul(amountB, rateB))
 		if lessAmount != 0 {
 			return lessAmount
 		}

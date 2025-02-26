@@ -78,7 +78,21 @@ export const ConnectButton = ({ className = '', showAddress = true }: ConnectBut
                 >
                   <div className="w-2 h-2 bg-[#58F083] rounded-full mr-2" />
                   <span className="text-sm text-[#FAFAFA] font-medium uppercase">{chain.network}</span>
+                  {chain.network === "sepolia" && (
+                    <>
+                      <div className="mx-2 h-3 w-px bg-[#383838]" />
+                      <a 
+                        href="https://starknet-faucet.vercel.app/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-[#FFFFFF] hover:text-[#CCCCCC] transition-colors"
+                      >
+                        Get STRK
+                      </a>
+                    </>
+                  )}
                 </motion.div>
+              )}
               )}
             </AnimatePresence>
 

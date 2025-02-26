@@ -220,7 +220,7 @@ export default function AgentChallengePage() {
 
   const getMaxPromptLength = () => {
     const prefix = `${X_BOT_NAME} :${agent.name}: `
-    return 280 - prefix.length
+    return 279 - prefix.length
   }
 
   return (

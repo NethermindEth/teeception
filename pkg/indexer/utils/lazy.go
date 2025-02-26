@@ -8,36 +8,27 @@ import (
 // LazySortedList maintains a list that can be lazily sorted with a custom
 // comparator
 type LazySortedList[T any] struct {
-	items    []T
-	len      int
-	needSort bool
+	items []T
+	len   int
 }
 
 // NewLazySortedList creates a new LazySortedList
 func NewLazySortedList[T any]() *LazySortedList[T] {
 	return &LazySortedList[T]{
-		items:    make([]T, 0),
-		len:      0,
-		needSort: false,
+		items: make([]T, 0),
+		len:   0,
 	}
 }
 
 // Add appends an item to the list and marks it as needing sorting
 func (l *LazySortedList[T]) Add(items ...T) {
 	l.items = append(l.items, items...)
-	l.needSort = true
 }
 
 // Sort sorts the list using the provided less function if needed
 func (l *LazySortedList[T]) Sort(less func(a, b T) int) {
-	if !l.needSort {
-		return
-	}
-
 	l.len = len(l.items)
 	slices.SortFunc(l.items, less)
-
-	l.needSort = false
 }
 
 // Get returns the item at the given index
@@ -93,5 +84,4 @@ func (l *LazySortedList[T]) InnerLen() int {
 func (l *LazySortedList[T]) Clear() {
 	l.items = make([]T, 0)
 	l.len = 0
-	l.needSort = false
 }
