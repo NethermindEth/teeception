@@ -49,7 +49,6 @@ export const useUsageStats = () => {
         }
 
         const rawData: RawUsageResponse = await response.json()
-        console.log('raw data', rawData)
 
         const formattedPrizePools = Object.entries(rawData.prize_pools)
           .map(([address, amount]) => {
