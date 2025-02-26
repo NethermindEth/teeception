@@ -245,7 +245,7 @@ export default function TermsOfUsePage() {
           </p>
         </section>
         <section>
-          <h2 className="text-2xl font-medium text-[#558EB4] mb-4">9. Jurisdiction</h2>
+          <h2 className="text-2xl font-medium text-[#558EB4] mb-4">10. Jurisdiction</h2>
           <p>
             These Terms and Conditions will be governed by and construed in accordance with the laws
             of England and Wales. The courts of London, United Kingdom, alone shall have exclusive
