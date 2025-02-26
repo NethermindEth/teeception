@@ -11,8 +11,9 @@ import (
 )
 
 func (a *Agent) StartServer(ctx context.Context) error {
-	router := gin.Default()
 	gin.SetMode(gin.ReleaseMode)
+
+	router := gin.Default()
 
 	router.GET("/address", func(c *gin.Context) {
 		c.String(http.StatusOK, a.account.Address().String())
