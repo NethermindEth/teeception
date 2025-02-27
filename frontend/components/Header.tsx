@@ -51,6 +51,14 @@ export const Header = () => {
             <MenuItems menuOpen={menuOpen} />
           </div>
         </div>
+        <a
+          href="https://starknet-faucet.vercel.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block text-center mx-auto text-sm font-medium text-[#FFFFFF] hover:text-[#CCCCCC] transition-colors underline"
+        >
+          Need STRK ?
+        </a>
         <div className="hidden xl:block">
           <ConnectButton
             showAddress
