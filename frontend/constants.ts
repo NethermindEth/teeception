@@ -1,6 +1,6 @@
 import { constants } from 'starknet'
 import { mainnet, sepolia } from '@starknet-react/chains'
-export const DEFAULT_RPC_URL = 'https://free-rpc.nethermind.io/sepolia-juno/v0_7'
+export const DEFAULT_RPC_URL = 'https://api.cartridge.gg/x/starknet/sepolia'
 export const RPC_NODE_URL = process.env.NEXT_PUBLIC_RPC_NODE_URL || DEFAULT_RPC_URL
 export const AGENT_REGISTRY_ADDRESS =
   '0x02f6574e5b2e998e58dae9c256c8413d5bd4a9850a5f8162afe824b69cffeee7'
