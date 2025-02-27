@@ -55,7 +55,7 @@ export const Header = () => {
           href="https://starknet-faucet.vercel.app/"
           target="_blank"
           rel="noopener noreferrer"
-          className="block text-center mx-auto text-sm font-medium text-[#FFFFFF] hover:text-[#CCCCCC] transition-colors underline"
+          className="mb-12 lg:mb-0 block text-center mx-auto text-sm font-medium text-[#FFFFFF] hover:text-[#CCCCCC] transition-colors underline"
         >
           Need STRK ?
         </a>
