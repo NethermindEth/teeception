@@ -110,9 +110,9 @@ export const LandingPage = () => {
 
             <div className="my-4">
               <ul className="text-center flex flex-col justify-center items-center text-[#B5B5B5] ps-4 md:ps-0 list-disc text-sm md:text-base">
-                <li>Create unbreakable prompts</li>
-                <li>Earn fees for every attempt</li>
-                <li>Survive to the end</li>
+                <li>Break AI defenses</li>
+                <li>Win rewards for successful attacks</li>
+                <li>Outsmart the system</li>
               </ul>
             </div>
 
