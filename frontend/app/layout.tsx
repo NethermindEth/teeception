@@ -5,6 +5,7 @@ import { Providers } from './providers'
 import NextTopLoader from 'nextjs-toploader'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import { Analytics } from '@vercel/analytics/react'
 
 const ibmPlexMono = IBM_Plex_Mono({
   variable: '--font-ibm-plex-mono',
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <ToastContainer />
         </Providers>
+        <Analytics />
       </body>
     </html>
   )
