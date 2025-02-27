@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
 
@@ -686,19 +685,15 @@ func (a *Agent) quote(ctx context.Context) (*QuoteData, error) {
 }
 
 func (a *Agent) validateTweetText(tweetText, agentName, promptText string) error {
-	fullPattern := `(?:(?:(.*?)\s*@` + regexp.QuoteMeta(a.twitterClientConfig.Username) + `\s+)?@` + regexp.QuoteMeta(a.twitterClientConfig.Username) + `)\s*:\s*` + regexp.QuoteMeta(agentName) + `\s*:\s*(.*)`
-	fullRe := regexp.MustCompile(fullPattern)
-	matches := fullRe.FindStringSubmatch(tweetText)
-	if len(matches) < 3 {
-		return fmt.Errorf("tweet text does not match expected format. Expected format: <prompt_left> @%s :%s <prompt_right>", a.twitterClientConfig.Username, agentName)
+	// Check if the tweet contains the username
+	if !strings.Contains(tweetText, "@"+a.twitterClientConfig.Username) {
+		return fmt.Errorf("tweet must mention @%s", a.twitterClientConfig.Username)
 	}
 
-	promptLeft := matches[1]
-	promptRight := matches[2]
-	combinedPrompt := strings.TrimSpace(promptLeft + " " + promptRight)
-
-	if combinedPrompt != promptText {
-		return fmt.Errorf("tweet text has incorrect prompt text. Expected: '%s', Got: '%s'", promptText, combinedPrompt)
+	// Check if the tweet contains the agent name with colon format
+	agentNamePattern := ":" + agentName + ":"
+	if !strings.Contains(tweetText, agentNamePattern) {
+		return fmt.Errorf("tweet must include agent name in format :%s:", agentName)
 	}
 
 	return nil
