@@ -18,7 +18,7 @@ import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 import { ChallengeDisplay } from './ChallengeDisplay'
-import { addAddressPadding, byteArray, InvokeTransactionReceiptResponse, RpcProvider, selector, shortString } from 'starknet'
+import { addAddressPadding, InvokeTransactionReceiptResponse, RpcProvider, selector, shortString } from 'starknet'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function AgentChallengePage() {
@@ -85,7 +85,7 @@ export default function AgentChallengePage() {
         const payCall = agentContract.populate('pay_for_prompt', [tweetIdBigInt, pendingTweet.text])
         const encodedPrompt = byteArrayFromString(pendingTweet.text)
         payCall.calldata = [
-          // @ts-expect-error
+          // @ts-expect-error calldata[0] is not typed
           payCall.calldata?.[0],
           encodedPrompt.data.length.toString(),
           ...encodedPrompt.data,

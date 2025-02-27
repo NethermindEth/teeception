@@ -191,9 +191,9 @@ const useTransactionManager = (
           ...encodedSystemPrompt.data,
           encodedSystemPrompt.pending_word,
           encodedSystemPrompt.pending_word_len.toString(),
-          // @ts-expect-error
+          // @ts-expect-error calldata[0] is not typed
           ...registerCall.calldata.slice(-7),
-        ] as any[];
+        ];
 
         const calldata = [
           tokenContract.populate('approve', [AGENT_REGISTRY_ADDRESS, initialBalance]),
