@@ -6,7 +6,7 @@ import { useAccount, useContract, useSendTransaction } from '@starknet-react/cor
 import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { byteArrayFromString, extractTweetId, formatBalance, getAgentStatus } from '@/lib/utils'
+import { byteArrayFromString, extractTweetId, formatBalance, getAgentStatus, utf8Length } from '@/lib/utils'
 import { DEFAULT_RPC_URL, X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
@@ -18,7 +18,7 @@ import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 import { ChallengeDisplay } from './ChallengeDisplay'
-import { addAddressPadding, InvokeTransactionReceiptResponse, RpcProvider, selector, shortString } from 'starknet'
+import { addAddressPadding, InvokeTransactionReceiptResponse, RpcProvider, selector } from 'starknet'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function AgentChallengePage() {
@@ -82,7 +82,7 @@ export default function AgentChallengePage() {
       try {
         const tweetIdBigInt = BigInt(extractTweetId(tweetUrl) || '0')
 
-        const payCall = agentContract.populate('pay_for_prompt', [tweetIdBigInt, pendingTweet.text])
+        const payCall = agentContract.populate('pay_for_prompt', [tweetIdBigInt, ''])
         const encodedPrompt = byteArrayFromString(pendingTweet.text)
         payCall.calldata = [
           // @ts-expect-error calldata[0] is not typed
@@ -184,12 +184,6 @@ export default function AgentChallengePage() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    // Validate if the prompt contains only ASCII characters
-    if (!shortString.isASCII(challenge)) {
-      setPromptError('Your prompt contains non-ASCII characters. Please use only ASCII characters.')
-      return
-    }
 
     setPromptError(null)
     setIsSubmitting(true)
@@ -624,7 +618,7 @@ export default function AgentChallengePage() {
                         required
                       />
                       <div className="absolute bottom-4 right-4 text-sm text-gray-400">
-                        {challenge.length}/{getMaxPromptLength()}
+                        {utf8Length(challenge)}/{getMaxPromptLength()}
                       </div>
                       {promptError && (
                         <p className="mt-1 text-sm text-red-500">{promptError}</p>

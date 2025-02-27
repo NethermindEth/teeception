@@ -1,6 +1,5 @@
 import { AgentStatus } from '@/types'
 import { clsx, type ClassValue } from 'clsx'
-import { shortString } from 'starknet'
 import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) {
@@ -148,30 +147,70 @@ export const addHexPrefix = (hex: string) => {
   return `0x${removeHexPrefix(hex)}`;
 }
 
-export const splitLongString = (longStr: string) => {
-  const regex = RegExp(`[^]{1,31}`, "g");
-  return longStr.match(regex) || [];
+export const utf8Length = (str: string) => {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  return bytes.length;
 }
 
-export const encodeShortString = (str: string) => {
-  if (!shortString.isASCII(str))
-    throw new Error(`${str} is not an ASCII string`);
-  if (!shortString.isShortString(str))
-    throw new Error(`${str} is too long`);
+export const encodeToHex = (str: string) => {
   let result = '';
-  for (let i = 0; i < str.length; i++) {
-    result += str.charCodeAt(i).toString(16).padStart(2, "0");
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  for (let i = 0; i < bytes.length; i++) {
+    result += bytes[i].toString(16).padStart(2, "0");
+  }
+  return addHexPrefix(result);
+}
+
+export const splitByteArray = (bytes: Uint8Array, chunkSize: number = 31) => {
+  const chunks: Uint8Array[] = [];
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    chunks.push(bytes.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+export const encodeChunk = (chunk: Uint8Array) => {
+  let result = '';
+  for (let i = 0; i < chunk.length; i++) {
+    result += chunk[i].toString(16).padStart(2, "0");
   }
   return addHexPrefix(result);
 }
 
 export const byteArrayFromString = (targetString: string) => {
-  const shortStrings = splitLongString(targetString);
-  const remainder = shortStrings[shortStrings.length - 1];
-  const shortStringsEncoded = shortStrings.map(encodeShortString);
-  const [pendingWord, pendingWordLength] = remainder === void 0 || remainder.length === 31 ? ["0x00", 0] : [shortStringsEncoded.pop(), remainder.length];
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(targetString);
+  
+  // If the string is empty, return empty data with 0x0 as pending word
+  if (bytes.length === 0) {
+    return {
+      data: [],
+      pending_word: "0x0",
+      pending_word_len: 0
+    };
+  }
+  
+  // Calculate how many full chunks of 31 bytes we have
+  const fullChunksCount = Math.floor(bytes.length / 31);
+  
+  // Extract full chunks (all except the last one if it's not a full 31 bytes)
+  const fullChunks = [];
+  for (let i = 0; i < fullChunksCount; i++) {
+    fullChunks.push(bytes.slice(i * 31, (i + 1) * 31));
+  }
+  
+  // Encode the full chunks
+  const encodedChunks = fullChunks.map(encodeChunk);
+  
+  // Handle the pending word (0-30 bytes)
+  const pendingBytes = bytes.slice(fullChunksCount * 31);
+  const pendingWord = encodeChunk(pendingBytes);
+  const pendingWordLength = pendingBytes.length;
+  
   return {
-    data: shortStringsEncoded.length === 0 ? [] : shortStringsEncoded,
+    data: encodedChunks,
     pending_word: pendingWord,
     pending_word_len: pendingWordLength
   };

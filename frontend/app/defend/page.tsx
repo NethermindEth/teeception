@@ -16,7 +16,6 @@ import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import {
   addAddressPadding,
   InvokeTransactionReceiptResponse,
-  shortString,
   TransactionExecutionStatus,
   uint256,
 } from 'starknet'
@@ -24,7 +23,7 @@ import { AgentLaunchSuccessModal } from '@/components/AgentLaunchSuccessModal'
 import Link from 'next/link'
 import { useTokenCount } from '@/hooks/useTokenCount'
 import { useTokenParams } from '@/hooks/useTokenParams'
-import { byteArrayFromString, formatBalance, stringToBigInt } from '@/lib/utils'
+import { byteArrayFromString, formatBalance, stringToBigInt, utf8Length } from '@/lib/utils'
 import { Token } from '@/types'
 import { useAgentNameExists } from '@/hooks/useAgentNameExists'
 import { useRouter } from 'next/navigation'
@@ -55,8 +54,7 @@ const useAgentForm = (
       switch (name) {
         case 'agentName':
           if (!value.trim()) return 'Agent name is required'
-          if (value.length > 31) return 'Agent name must be 31 characters or less'
-          if (!shortString.isASCII(value)) return 'Agent name must contain only ASCII characters'
+          if (utf8Length(value) > 31) return 'Agent name must be 31 bytes or less'
           if (agentNameCheck.exists) return 'This agent name is already taken'
           break
         case 'feePerMessage':
@@ -93,7 +91,6 @@ const useAgentForm = (
           break
         case 'systemPrompt':
           if (!value.trim()) return 'System prompt is required'
-          if (!shortString.isASCII(value)) return 'System prompt must contain only ASCII characters'
           break
       }
       return ''
@@ -180,8 +177,8 @@ const useTransactionManager = (
         const encodedAgentName = byteArrayFromString(formData.agentName)
 
         const registerCall = registry.populate('register_agent', [
-          formData.agentName,
-          formData.systemPrompt,
+          '',
+          '',
           'gpt-4',
           selectedToken.originalAddress,
           promptPrice,
@@ -345,9 +342,7 @@ export default function DefendPage() {
       values: { ...prev.values, systemPrompt: value },
       errors: {
         ...prev.errors,
-        systemPrompt: !shortString.isASCII(value)
-          ? 'System prompt must contain only ASCII characters'
-          : '',
+        systemPrompt: ''
       },
     }))
   }
