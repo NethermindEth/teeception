@@ -6,7 +6,7 @@ import { useAccount, useContract, useSendTransaction } from '@starknet-react/cor
 import { Loader2, ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { extractTweetId, formatBalance, getAgentStatus } from '@/lib/utils'
+import { byteArrayFromString, extractTweetId, formatBalance, getAgentStatus } from '@/lib/utils'
 import { DEFAULT_RPC_URL, X_BOT_NAME } from '@/constants'
 import { TEECEPTION_ERC20_ABI } from '@/abis/TEECEPTION_ERC20_ABI'
 import { TEECEPTION_AGENT_ABI } from '@/abis/TEECEPTION_AGENT_ABI'
@@ -18,7 +18,7 @@ import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 import { ChallengeDisplay } from './ChallengeDisplay'
-import { addAddressPadding, InvokeTransactionReceiptResponse, RpcProvider, selector, shortString } from 'starknet'
+import { addAddressPadding, byteArray, InvokeTransactionReceiptResponse, RpcProvider, selector, shortString } from 'starknet'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function AgentChallengePage() {
@@ -82,9 +82,20 @@ export default function AgentChallengePage() {
       try {
         const tweetIdBigInt = BigInt(extractTweetId(tweetUrl) || '0')
 
+        const payCall = agentContract.populate('pay_for_prompt', [tweetIdBigInt, pendingTweet.text])
+        const encodedPrompt = byteArrayFromString(pendingTweet.text)
+        payCall.calldata = [
+          // @ts-expect-error
+          payCall.calldata?.[0],
+          encodedPrompt.data.length.toString(),
+          ...encodedPrompt.data,
+          encodedPrompt.pending_word,
+          encodedPrompt.pending_word_len.toString(),
+        ]
+
         return [
           tokenContract.populate('approve', [agentContract.address, BigInt(agent.promptPrice)]),
-          agentContract.populate('pay_for_prompt', [tweetIdBigInt, pendingTweet.text]),
+          payCall,
         ]
       } catch (error) {
         console.error('Error preparing transaction calls:', error)

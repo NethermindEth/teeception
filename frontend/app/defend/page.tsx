@@ -24,7 +24,7 @@ import { AgentLaunchSuccessModal } from '@/components/AgentLaunchSuccessModal'
 import Link from 'next/link'
 import { useTokenCount } from '@/hooks/useTokenCount'
 import { useTokenParams } from '@/hooks/useTokenParams'
-import { formatBalance, stringToBigInt } from '@/lib/utils'
+import { byteArrayFromString, formatBalance, stringToBigInt } from '@/lib/utils'
 import { Token } from '@/types'
 import { useAgentNameExists } from '@/hooks/useAgentNameExists'
 
@@ -169,18 +169,35 @@ const useTransactionManager = (
         const endTimeSeconds = Math.floor(
           new Date().getTime() / 1000 + parseInt(formData.duration) * 86400
         )
+        const encodedSystemPrompt = byteArrayFromString(formData.systemPrompt)
+        const encodedAgentName = byteArrayFromString(formData.agentName)
+
+        const registerCall = registry.populate('register_agent', [
+          formData.agentName,
+          formData.systemPrompt,
+          'gpt-4',
+          selectedToken.originalAddress,
+          promptPrice,
+          initialBalance,
+          endTimeSeconds,
+        ])
+
+        registerCall.calldata = [
+          encodedAgentName.data.length.toString(),
+          ...encodedAgentName.data,
+          encodedAgentName.pending_word,
+          encodedAgentName.pending_word_len.toString(),
+          encodedSystemPrompt.data.length.toString(),
+          ...encodedSystemPrompt.data,
+          encodedSystemPrompt.pending_word,
+          encodedSystemPrompt.pending_word_len.toString(),
+          // @ts-expect-error
+          ...registerCall.calldata.slice(-7),
+        ] as any[];
 
         const calldata = [
           tokenContract.populate('approve', [AGENT_REGISTRY_ADDRESS, initialBalance]),
-          registry.populate('register_agent', [
-            formData.agentName,
-            formData.systemPrompt,
-            'gpt-4',
-            selectedToken.originalAddress,
-            promptPrice,
-            initialBalance,
-            endTimeSeconds,
-          ]),
+          registerCall,
         ]
 
         // console.log('Calldata', calldata[1])

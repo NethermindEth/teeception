@@ -1,5 +1,6 @@
 import { AgentStatus } from '@/types'
 import { clsx, type ClassValue } from 'clsx'
+import { shortString } from 'starknet'
 import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) {
@@ -137,4 +138,41 @@ export const extractTweetId = (url: string): string | null => {
 
 export const truncateAddress = (addr: string) => {
   return addr.slice(0, 6) + '...' + addr.slice(-6)
+}
+
+export const removeHexPrefix = (hex: string) => {
+  return hex.replace(/^0x/i, "");
+}
+
+export const addHexPrefix = (hex: string) => {
+  return `0x${removeHexPrefix(hex)}`;
+}
+
+export const splitLongString = (longStr: string) => {
+  const regex = RegExp(`[^]{1,31}`, "g");
+  return longStr.match(regex) || [];
+}
+
+export const encodeShortString = (str: string) => {
+  if (!shortString.isASCII(str))
+    throw new Error(`${str} is not an ASCII string`);
+  if (!shortString.isShortString(str))
+    throw new Error(`${str} is too long`);
+  let result = '';
+  for (let i = 0; i < str.length; i++) {
+    result += str.charCodeAt(i).toString(16).padStart(2, "0");
+  }
+  return addHexPrefix(result);
+}
+
+export const byteArrayFromString = (targetString: string) => {
+  const shortStrings = splitLongString(targetString);
+  const remainder = shortStrings[shortStrings.length - 1];
+  const shortStringsEncoded = shortStrings.map(encodeShortString);
+  const [pendingWord, pendingWordLength] = remainder === void 0 || remainder.length === 31 ? ["0x00", 0] : [shortStringsEncoded.pop(), remainder.length];
+  return {
+    data: shortStringsEncoded.length === 0 ? [] : shortStringsEncoded,
+    pending_word: pendingWord,
+    pending_word_len: pendingWordLength
+  };
 }
