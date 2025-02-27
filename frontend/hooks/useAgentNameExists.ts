@@ -1,34 +1,24 @@
 import { Contract, RpcProvider } from 'starknet'
 import { TEECEPTION_AGENTREGISTRY_ABI } from '@/abis/TEECEPTION_AGENTREGISTRY_ABI'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { ACTIVE_NETWORK } from '@/constants'
 import { debug } from '@/lib/debug'
-import { useDebounce } from './useDebounce'
+import { useDebouncedCallback } from 'use-debounce'
 
 export function useAgentNameExists(agentName: string, debounceMs = 500) {
   const [exists, setExists] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [isDebouncing, setIsDebouncing] = useState<boolean>(false)
+  const [lastAgentName, setLastAgentName] = useState<string>('')
   
-  // Debounce the agent name to avoid too many requests
-  const debouncedAgentName = useDebounce(agentName, debounceMs)
-  
-  // Set debouncing state
-  useEffect(() => {
-    if (agentName !== debouncedAgentName) {
-      setIsDebouncing(true)
-    } else {
-      setIsDebouncing(false)
-    }
-  }, [agentName, debouncedAgentName])
-
-  // Check if agent name exists
-  useEffect(() => {
-    const checkAgentName = async () => {
-      if (!debouncedAgentName.trim()) {
+  // Debounced function to check if agent name exists
+  const debouncedCheckAgentName = useDebouncedCallback(
+    async (name: string) => {
+      if (!name.trim()) {
         setExists(false)
         setIsLoading(false)
+        setIsDebouncing(false)
         return
       }
       
@@ -44,7 +34,7 @@ export function useAgentNameExists(agentName: string, debounceMs = 500) {
         )
 
         // Call get_agent_by_name to check if the agent exists
-        const agentAddress = await registry.get_agent_by_name(debouncedAgentName)
+        const agentAddress = await registry.get_agent_by_name(name)
         
         // If the address is not zero, the agent name is already taken
         const nameExists = agentAddress !== BigInt(0)
@@ -60,11 +50,23 @@ export function useAgentNameExists(agentName: string, debounceMs = 500) {
         }
       } finally {
         setIsLoading(false)
+        setIsDebouncing(false)
       }
-    }
+    },
+    debounceMs
+  )
 
-    checkAgentName()
-  }, [debouncedAgentName])
+  // Wrapper function to handle immediate state updates
+  const checkAgentName = useCallback((name: string) => {
+    setLastAgentName(name)
+    setIsDebouncing(name !== lastAgentName)
+    debouncedCheckAgentName(name)
+  }, [debouncedCheckAgentName, lastAgentName])
+
+  // Trigger the check when the agent name changes
+  useEffect(() => {
+    checkAgentName(agentName)
+  }, [agentName, checkAgentName])
 
   return {
     exists,
