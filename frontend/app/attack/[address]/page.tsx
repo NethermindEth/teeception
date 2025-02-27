@@ -308,18 +308,18 @@ export default function AgentChallengePage() {
   return (
     <div className="min-h-screen bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <div className="container mx-auto px-2 md:px-8 py-8 md:py-20 max-w-[1560px] relative">
+        <Link
+          href="/attack"
+          className="hidden lg:flex items-center gap-1 text-gray-400 hover:text-white transition-colors z-50 absolute left-24 top-32"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span>Agents</span>
+        </Link>
         <div className="absolute top-[140px] inset-x-0 z-10 h-[180px] flex items-center">
           <div className="w-full">
             <div className="max-w-[1560px] mx-auto px-4">
               <div className="flex flex-col items-center justify-center">
                 <div className="flex relative">
-                  <Link
-                    href="/attack"
-                    className="hidden lg:flex items-center gap-1 text-gray-400 hover:text-white transition-colors z-20 absolute -left-24 top-2"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                    <span>Agents</span>
-                  </Link>
                   <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{agent.name}</h1>
                 </div>
 
