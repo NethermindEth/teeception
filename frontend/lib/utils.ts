@@ -176,6 +176,9 @@ export const encodeChunk = (chunk: Uint8Array) => {
   for (let i = 0; i < chunk.length; i++) {
     result += chunk[i].toString(16).padStart(2, "0");
   }
+  if (result === '') {
+    return '0x0';
+  }
   return addHexPrefix(result);
 }
 
