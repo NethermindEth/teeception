@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 interface BetaBannerProps {
@@ -9,7 +9,7 @@ interface BetaBannerProps {
   persistDismissal?: boolean
 }
 
-export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismissal = true }) => {
+export const BetaBanner: React.FC<BetaBannerProps> = ({ persistDismissal = true }) => {
   const [isVisible, setIsVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
   const [isMounted, setIsMounted] = useState(false)
@@ -33,15 +33,15 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
     return () => clearInterval(animationInterval)
   }, [persistDismissal])
 
-  const handleDismiss = () => {
-    setIsVisible(false)
-    if (persistDismissal) {
-      localStorage.setItem('betaBannerDismissed', 'true')
-    }
-    if (onDismiss) {
-      onDismiss()
-    }
-  }
+  // const handleDismiss = () => {
+  //   setIsVisible(false)
+  //   if (persistDismissal) {
+  //     localStorage.setItem('betaBannerDismissed', 'true')
+  //   }
+  //   if (onDismiss) {
+  //     onDismiss()
+  //   }
+  // }
 
   // Always render a placeholder div to prevent layout shifts
   // Only animate content when visible
