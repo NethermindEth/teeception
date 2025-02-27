@@ -28,7 +28,7 @@ export const STARKNET_CONFIG = {
     explorer: 'https://sepolia.voyager.online',
     rpc: 'https://api.cartridge.gg/x/starknet/sepolia',
     starkgate: 'https://sepolia.starkgate.starknet.io',
-    agentRegistryAddress: '0x00f415ab3f224935ed532dfa06485881c526fef8cb31e6e7e95cafc95fdc5e8d',
+    agentRegistryAddress: AGENT_REGISTRY_ADDRESS,
     tokens: [
       {
         address: '0x4718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d',
