@@ -131,6 +131,12 @@ const useAgentForm = (
     return Object.keys(newErrors).length === 0
   }, [formState.values, validateField, agentNameCheck.isLoading, agentNameCheck.isDebouncing])
 
+  useEffect(() => {
+    if (formState.values.agentName) {
+      setFormState((prev) => ({ ...prev, errors: { ...prev.errors, agentName: validateField('agentName', prev.values.agentName) } }))
+    }
+  }, [agentNameCheck.exists])
+
   return {
     formState,
     setFormState,
