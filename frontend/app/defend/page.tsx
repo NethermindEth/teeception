@@ -27,6 +27,7 @@ import { useTokenParams } from '@/hooks/useTokenParams'
 import { byteArrayFromString, formatBalance, stringToBigInt } from '@/lib/utils'
 import { Token } from '@/types'
 import { useAgentNameExists } from '@/hooks/useAgentNameExists'
+import { useRouter } from 'next/navigation'
 
 const useAgentForm = (
   tokenBalance: { balance?: bigint; formatted?: string } | undefined,
@@ -251,6 +252,7 @@ const FormInput = ({
 )
 
 export default function DefendPage() {
+  const router = useRouter()
   const token = ACTIVE_NETWORK.tokens[0]
 
   const { address, account } = useAccount()
@@ -351,6 +353,7 @@ export default function DefendPage() {
   }
 
   const handleLaunchSuccessModalClose = () => {
+    router.push(`/attack/${formState.agentAddress}`)
     setShowSuccess(false)
   }
 
