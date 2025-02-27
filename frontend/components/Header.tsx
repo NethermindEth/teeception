@@ -33,32 +33,32 @@ export const Header = () => {
   return (
     <header
       className={clsx('fixed left-0 right-0 top-0 w-full z-50 transition-all duration-200', {
-        'bg-[#12121266] backdrop-blur-lg': menuOpen || scrolled,
+        'bg-[#12121266] backdrop-blur-xl': menuOpen || scrolled,
         'bg-transparent': !scrolled && !menuOpen,
       })}
     >
       <BetaBanner persistDismissal onDismiss={handleBannerDismiss} />
       <div
-        className={clsx('max-w-full mx-auto flex items-center p-[11px] md:p-4 justify-between', {
+        className={clsx('max-w-full mx-auto flex items-center p-[11px] xl:p-4 justify-between', {
           'pt-[10px]': !bannerVisible,
         })}
       >
         <div className="flex items-center">
-          <Link className="block mr-1 md:mr-4 flex-shrink-0" href="/">
+          <Link className="block mr-1 xl:mr-4 flex-shrink-0" href="/">
             <Image src={'/icons/shield.svg'} width={40} height={44} alt="shield" />
           </Link>
-          <div className="hidden md:block">
+          <div className="hidden xl:block">
             <MenuItems menuOpen={menuOpen} />
           </div>
         </div>
-        <div className="hidden md:block">
+        <div className="hidden xl:block">
           <ConnectButton
             showAddress
             className="bg-white text-black px-6 py-2 rounded-full hover:bg-white/90"
           />
         </div>
         <button
-          className="md:hidden flex-shrink-0 ml-2"
+          className="xl:hidden flex-shrink-0 ml-2"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label={menuOpen ? 'Close menu' : 'Open menu'}
         >
@@ -66,7 +66,7 @@ export const Header = () => {
         </button>
       </div>
       {menuOpen && (
-        <div className="md:hidden px-[11px] pb-4">
+        <div className="xl:hidden px-[11px] pb-4">
           <div className="py-4">
             <MenuItems menuOpen={menuOpen} />
           </div>

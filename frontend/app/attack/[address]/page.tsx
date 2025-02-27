@@ -18,7 +18,13 @@ import { AgentStatus } from '@/types'
 import { AgentInfo } from '@/components/AgentInfo'
 import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 import { ChallengeDisplay } from './ChallengeDisplay'
-import { addAddressPadding, InvokeTransactionReceiptResponse, RpcProvider, selector, shortString } from 'starknet'
+import {
+  addAddressPadding,
+  InvokeTransactionReceiptResponse,
+  RpcProvider,
+  selector,
+  shortString,
+} from 'starknet'
 
 export default function AgentChallengePage() {
   const params = useParams()
@@ -45,7 +51,9 @@ export default function AgentChallengePage() {
   const [isPaid, setIsPaid] = useState(false)
   const [showChallengeSuccess, setShowChallengeSuccess] = useState(false)
   const [promptError, setPromptError] = useState<string | null>(null)
-  const [verificationStatus, setVerificationStatus] = useState<'loading' | 'success' | 'failed' | 'tries_exceeded' |null>(null)
+  const [verificationStatus, setVerificationStatus] = useState<
+    'loading' | 'success' | 'failed' | 'tries_exceeded' | null
+  >(null)
   const [transactionLanded, setTransactionLanded] = useState(false)
 
   useEffect(() => {
@@ -142,14 +150,14 @@ export default function AgentChallengePage() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validate if the prompt contains only ASCII characters
     if (!shortString.isASCII(challenge)) {
-      setPromptError("Your prompt contains non-ASCII characters. Please use only ASCII characters.");
-      return;
+      setPromptError('Your prompt contains non-ASCII characters. Please use only ASCII characters.')
+      return
     }
-    
-    setPromptError(null);
+
+    setPromptError(null)
     setIsSubmitting(true)
     setIsRedirecting(true)
 
@@ -203,7 +211,7 @@ export default function AgentChallengePage() {
       console.log('response', response)
       if (response?.transaction_hash) {
         const blockNumber = await account.getBlock('latest')
-        
+
         const txReceipt = await account.waitForTransaction(response.transaction_hash)
         setPendingTweet((prev) => (prev ? { ...prev, submitted: true } : null))
         setTweetUrl('')
@@ -211,22 +219,23 @@ export default function AgentChallengePage() {
         setTransactionLanded(true)
         setVerificationStatus('loading')
 
-        const invokeReceipt: InvokeTransactionReceiptResponse = txReceipt as InvokeTransactionReceiptResponse
+        const invokeReceipt: InvokeTransactionReceiptResponse =
+          txReceipt as InvokeTransactionReceiptResponse
         const promptId = invokeReceipt.events[3].keys[2]
 
         const SELECTOR_PROMPT_PAID = selector.getSelectorFromName('PromptConsumed')
-        let attempts = 0;
-        const maxAttempts = 5;
-        let isSuccess: boolean | null = null;
+        let attempts = 0
+        const maxAttempts = 5
+        let isSuccess: boolean | null = null
 
         setVerificationStatus(null)
 
         const checkForEvents = async () => {
           if (attempts >= maxAttempts) {
             setVerificationStatus('tries_exceeded')
-            return;
+            return
           }
-  
+
           try {
             const rpcProvider = new RpcProvider({ nodeUrl: DEFAULT_RPC_URL })
             const eventsResp = await rpcProvider.getEvents({
@@ -235,35 +244,35 @@ export default function AgentChallengePage() {
               to_block: 'pending',
               keys: [[SELECTOR_PROMPT_PAID]],
               chunk_size: 1000,
-            });
+            })
 
-            attempts++;
+            attempts++
 
             for (const event of eventsResp.events) {
               if (event.keys[1] === promptId) {
                 isSuccess = event.data[6] !== agent.address
                 setVerificationStatus(isSuccess ? 'success' : 'failed')
-                return;
+                return
               }
             }
-            
+
             if (attempts < maxAttempts) {
-              setTimeout(checkForEvents, 10000);
+              setTimeout(checkForEvents, 10000)
             } else {
               setVerificationStatus('tries_exceeded')
             }
           } catch (error) {
-            console.error('Failed to fetch events:', error);
-            attempts++;
+            console.error('Failed to fetch events:', error)
+            attempts++
             if (attempts < maxAttempts) {
-              setTimeout(checkForEvents, 10000);
+              setTimeout(checkForEvents, 10000)
             } else {
               setVerificationStatus('tries_exceeded')
             }
           }
-        };
-        
-        setTimeout(checkForEvents, 5000);
+        }
+
+        setTimeout(checkForEvents, 5000)
       }
     } catch (error) {
       console.error('Failed to process payment:', error)
@@ -299,19 +308,21 @@ export default function AgentChallengePage() {
   return (
     <div className="min-h-screen bg-[url('/img/abstract_bg.png')] bg-cover bg-repeat-y">
       <div className="container mx-auto px-2 md:px-8 py-8 md:py-20 max-w-[1560px] relative">
-        <Link
-          href="/attack"
-          className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors mb-8 relative z-20 mt-12 md:mt-0"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          <span>Agents</span>
-        </Link>
-
         <div className="absolute top-[140px] inset-x-0 z-10 h-[180px] flex items-center">
           <div className="w-full">
             <div className="max-w-[1560px] mx-auto px-4">
               <div className="flex flex-col items-center justify-center">
-                <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{agent.name}</h1>
+                <div className="flex relative">
+                  <Link
+                    href="/attack"
+                    className="hidden lg:flex items-center gap-1 text-gray-400 hover:text-white transition-colors z-20 absolute -left-24 top-2"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                    <span>Agents</span>
+                  </Link>
+                  <h1 className="text-4xl md:text-[48px] font-bold mb-3 uppercase">{agent.name}</h1>
+                </div>
+
                 <div className="flex max-w-[400px] w-full mx-auto mb-8">
                   <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-50"></div>
                 </div>
@@ -530,9 +541,7 @@ export default function AgentChallengePage() {
                     <div className="absolute bottom-4 right-4 text-sm text-gray-400">
                       {challenge.length}/{getMaxPromptLength()}
                     </div>
-                    {promptError && (
-                      <p className="mt-1 text-sm text-red-500">{promptError}</p>
-                    )}
+                    {promptError && <p className="mt-1 text-sm text-red-500">{promptError}</p>}
                   </div>
 
                   <button
