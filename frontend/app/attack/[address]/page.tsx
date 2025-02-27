@@ -320,7 +320,7 @@ export default function AgentChallengePage() {
             <div className="max-w-[1560px] mx-auto px-4">
               <div className="flex flex-col items-center justify-center">
                 <div className="flex relative">
-                  <h1 className="sm:text-3xl md:text-4xl lg:text-[48px] font-bold mb-3 uppercase">
+                  <h1 className="sm:text-3xl md:text-4xl lg:text-[48px] font-bold mb-3 uppercase lg:mt-24">
                     {agent.name}
                   </h1>
                 </div>
@@ -338,7 +338,7 @@ export default function AgentChallengePage() {
                   drainAmount={agent.drainAmount}
                   className="w-full"
                 />
-                <div className="my-8 sm:my-0 mt-4">
+                <div className="my-8 sm:mb-0 mt-4">
                   <StatusDisplay agent={agent} status={agentStatus} />
                 </div>
               </div>
