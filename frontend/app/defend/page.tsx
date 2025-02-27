@@ -239,6 +239,7 @@ export default function DefendPage() {
       ...prev,
       isSubmitting: true,
       transactionStatus: 'submitting',
+      errors: { ...prev.errors, submit: '' },
     }))
 
     try {
@@ -424,20 +425,16 @@ export default function DefendPage() {
         <button
           type="submit"
           disabled={
-            formState.isSubmitting || Object.values(formState.errors).some((error) => error)
+            formState.isSubmitting || 
+            (formState.transactionStatus !== 'failed' && Object.values(formState.errors).some((error) => error))
           }
           className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
         >
           {formState.isSubmitting ? (
-            <>
-              <div className="flex items-center justify-center">
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Deploying...
-              </div>
-              <div className="absolute bottom-0 left-0 h-[2px] w-full bg-[#383838]">
-                <div className="h-full w-full bg-[#558EB4] animate-loading-progress" />
-              </div>
-            </>
+            <div className="flex items-center justify-center">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              Deploying...
+            </div>
           ) : (
             'Deploy Agent'
           )}

@@ -283,3 +283,19 @@ red-gradient-border
   initial-value: 0deg;
   inherits: false;
 }
+
+.shadow-glow-blue {
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+}
+
+.shadow-glow-green {
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.2);
+}
+
+.shadow-glow-red {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
+
+.shadow-glow-yellow {
+  box-shadow: 0 0 15px rgba(234, 179, 8, 0.2);
+}
