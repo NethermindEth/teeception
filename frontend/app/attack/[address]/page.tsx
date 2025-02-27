@@ -259,7 +259,7 @@ export default function AgentChallengePage() {
 
         const SELECTOR_PROMPT_PAID = selector.getSelectorFromName('PromptConsumed')
         let attempts = 0
-        const maxAttempts = 5
+        const maxAttempts = 8
         let isSuccess: boolean | null = null
 
         // Clear verification status to show waiting state
