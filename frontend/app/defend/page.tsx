@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import {
   StarknetTypedContract,
   useAccount,
@@ -26,11 +26,13 @@ import { useTokenCount } from '@/hooks/useTokenCount'
 import { useTokenParams } from '@/hooks/useTokenParams'
 import { formatBalance, stringToBigInt } from '@/lib/utils'
 import { Token } from '@/types'
+import { useAgentNameExists } from '@/hooks/useAgentNameExists'
 
 const useAgentForm = (
   tokenBalance: { balance?: bigint; formatted?: string } | undefined,
   token: Token,
-  tokenParams: { minPromptPrice?: bigint; minInitialBalance?: bigint }
+  tokenParams: { minPromptPrice?: bigint; minInitialBalance?: bigint },
+  agentNameCheck: { exists: boolean; isLoading: boolean; isDebouncing: boolean }
 ) => {
   const [formState, setFormState] = useState({
     values: {
@@ -54,6 +56,7 @@ const useAgentForm = (
           if (!value.trim()) return 'Agent name is required'
           if (value.length > 31) return 'Agent name must be 31 characters or less'
           if (!shortString.isASCII(value)) return 'Agent name must contain only ASCII characters'
+          if (agentNameCheck.exists) return 'This agent name is already taken'
           break
         case 'feePerMessage':
           const fee = parseFloat(value)
@@ -94,7 +97,7 @@ const useAgentForm = (
       }
       return ''
     },
-    [tokenBalance, tokenParams]
+    [tokenBalance, tokenParams, agentNameCheck.exists]
   )
 
   const handleChange = useCallback(
@@ -119,8 +122,14 @@ const useAgentForm = (
       if (error) newErrors[key] = error
     })
     setFormState((prev) => ({ ...prev, errors: newErrors }))
+    
+    // Don't allow form submission if agent name check is still loading
+    if (agentNameCheck.isLoading || agentNameCheck.isDebouncing) {
+      return false
+    }
+    
     return Object.keys(newErrors).length === 0
-  }, [formState.values, validateField])
+  }, [formState.values, validateField, agentNameCheck.isLoading, agentNameCheck.isDebouncing])
 
   return {
     formState,
@@ -190,19 +199,30 @@ const FormInput = ({
   label,
   name,
   error,
+  isLoading,
+  isDebouncing,
   ...props
 }: {
   label: string
   name: string
   error?: string
+  isLoading?: boolean
+  isDebouncing?: boolean
 } & React.InputHTMLAttributes<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => (
   <div>
     <label className="block text-sm font-medium mb-2">{label}</label>
-    <input
-      name={name}
-      className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
-      {...props}
-    />
+    <div className="relative">
+      <input
+        name={name}
+        className="w-full bg-[#12121266] backdrop-blur-lg border border-gray-600 rounded-lg p-3"
+        {...props}
+      />
+      {(isLoading || isDebouncing) && (
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+        </div>
+      )}
+    </div>
     {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
   </div>
 )
@@ -223,15 +243,35 @@ export default function DefendPage() {
     address: ACTIVE_NETWORK.tokens[0].address as `0x${string}`,
     abi: TEECEPTION_ERC20_ABI,
   })
+  
+  // Initialize form state first to access agentName
+  const [formValues, setFormValues] = useState({
+    agentName: '',
+    systemPrompt: '',
+    feePerMessage: '',
+    initialBalance: '',
+    duration: '30',
+  })
+  
+  // Check if agent name exists
+  const agentNameCheck = useAgentNameExists(formValues.agentName)
+  
   const { formState, setFormState, handleChange, validateForm } = useAgentForm(
     tokenBalance!,
     token,
-    tokenParams
+    tokenParams,
+    agentNameCheck
   )
+  
+  // Update formValues when formState changes
+  useEffect(() => {
+    setFormValues(formState.values)
+  }, [formState.values])
+  
   const [showSuccess, setShowSuccess] = useState(false)
   const { tokenCount, countTokens, isDebouncing: isTokenCountDebouncing } = useTokenCount()
 
-  const sendAsync = useTransactionManager(registry!, tokenContract!, formState.values)
+  const sendAsync = useTransactionManager(registry!, tokenContract!, formValues)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateForm() || !address || !account || !registry || !tokenContract) return
@@ -327,6 +367,8 @@ export default function DefendPage() {
           onChange={handleChange}
           error={formState.errors.agentName}
           placeholder="Enter agent name"
+          isLoading={agentNameCheck.isLoading}
+          isDebouncing={agentNameCheck.isDebouncing}
           required
         />
 
@@ -426,6 +468,8 @@ export default function DefendPage() {
           type="submit"
           disabled={
             formState.isSubmitting || 
+            agentNameCheck.isLoading || 
+            agentNameCheck.isDebouncing ||
             (formState.transactionStatus !== 'failed' && Object.values(formState.errors).some((error) => error))
           }
           className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
