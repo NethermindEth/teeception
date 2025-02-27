@@ -101,7 +101,7 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                       </p>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 pr-[1px]">
+                  {/* <div className="flex-shrink-0 pr-[1px]">
                     <button
                       type="button"
                       onClick={handleDismiss}
@@ -110,7 +110,7 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                     >
                       <X className="h-5 w-5" aria-hidden="true" />
                     </button>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </motion.div>
