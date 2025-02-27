@@ -71,7 +71,7 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                     </span>
                     <div className="ml-2 font-medium min-w-0">
                       {/* Mobile view */}
-                      <p className="md:hidden text-[#B5B5B5] flex items-center flex-wrap">
+                      <p className="lg:hidden text-[#B5B5B5] flex items-center flex-wrap">
                         <span className="mr-1">Beta on Sepolia. Bugs expected.</span>
                         <a
                           href="https://t.me/nm_teeception"
@@ -83,7 +83,7 @@ export const BetaBanner: React.FC<BetaBannerProps> = ({ onDismiss, persistDismis
                         </a>
                       </p>
                       {/* Desktop view */}
-                      <p className="hidden md:block">
+                      <p className="hidden lg:block">
                         <span className="font-bold text-white uppercase">#BETA LAUNCH:</span>{' '}
                         <span className="text-[#B5B5B5]">
                           Teeception is live on Sepolia testnet! Expect some bugs as we optimize —
