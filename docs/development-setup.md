@@ -87,6 +87,42 @@ The agent:
 go run cmd/agent/main.go
 ```
 
+### Running the Indexer
+
+The Teeception indexer is part of the UI Service component and consists of multiple sub-indexers that track:
+- Registered agents and their details
+- User data and leaderboards
+
+**Prerequisites for the indexer:**
+- A Starknet RPC endpoint
+- The registry contract address
+- The block number when the registry contract was deployed
+
+**Start the indexer locally:**
+```bash
+go run cmd/ui_service/main.go \
+  --provider-url=YOUR_STARKNET_RPC_URL \
+  --registry-addr=YOUR_REGISTRY_CONTRACT_ADDRESS \
+  --deployment-block=REGISTRY_DEPLOYMENT_BLOCK_NUMBER \
+  --server-addr=:8000
+```
+
+**Optional configuration parameters:**
+- `--page-size`: Maximum page size for pagination (default: 50)
+- `--balance-tick-rate`: How often to update agent balances (default: 5s)
+- `--price-tick-rate`: How often to update token prices (default: 5s)
+- `--event-tick-rate`: How often to check for new events (default: 5s)
+- `--event-startup-tick-rate`: Initial rate for catching up on events (default: 1s)
+- `--user-tick-rate`: How often to sort user leaderboards (default: 1m)
+
+**Available API endpoints:**
+- `/agents`: Get a list of registered agents
+- `/agents/:address`: Get details for a specific agent
+- `/users`: Get the user leaderboard
+- `/usage`: Get platform usage statistics
+
+The indexer continuously updates in the background as new events occur on the Starknet blockchain.
+
 ## Chrome Extension Development
 
 The extension is built with Vite and TypeScript.
