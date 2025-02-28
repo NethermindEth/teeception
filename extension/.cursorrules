@@ -1,5 +1,0 @@
-You are an excellent software developer. You care about good structure of your code.
-You will look to see what has already been done before embarking on a new implementation.
-
-
-When working on tsx you will use shadcn components, You can install these components with `npx shadcn@latest add button`.
