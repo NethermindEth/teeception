@@ -5,6 +5,7 @@ import { AttackerDetails } from '@/hooks/useAttackers'
 import { formatBalance } from '@/lib/utils'
 import { ACTIVE_NETWORK } from '@/constants'
 import Link from 'next/link'
+import { AttackerIdentifier } from './AttackerIdentifier'
 
 export const AttackersList = ({
   attackers,
@@ -17,6 +18,18 @@ export const AttackersList = ({
   searchQuery: string
   offset: number
 }) => {
+  // Function to generate Voyager URL for an address
+  const getVoyagerAddressUrl = (address: string) => {
+    return `${ACTIVE_NETWORK.explorer}/contract/${address}`
+  }
+
+  // Calculate win ratio (breaks / prompts)
+  const calculateWinRatio = (breakCount: number, promptCount: number): string => {
+    if (promptCount === 0) return '0%'
+    const ratio = (breakCount / promptCount) * 100
+    return `${ratio.toFixed(1)}%`
+  }
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
@@ -43,9 +56,10 @@ export const AttackersList = ({
                     <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
                     <p className="col-span-10 pl-4">Attacker address</p>
                   </div>
-                  <div className="col-span-3 border-l border-l-[#6F6F6F] ps-4">Accrued rewards</div>
-                  <div className="col-span-3 border-l border-l-[#6F6F6F] ps-4">Prompt count</div>
-                  <div className="col-span-3 border-l border-l-[#6F6F6F] ps-4">Break count</div>
+                  <div className="col-span-2 border-l border-l-[#6F6F6F] ps-4">Accrued rewards</div>
+                  <div className="col-span-2 border-l border-l-[#6F6F6F] ps-4">Prompt count</div>
+                  <div className="col-span-2 border-l border-l-[#6F6F6F] ps-4">Break count</div>
+                  <div className="col-span-3 border-l border-l-[#6F6F6F] ps-4">Win ratio</div>
                 </div>
 
                 {/* Attacker Cards */}
@@ -58,11 +72,8 @@ export const AttackersList = ({
                         return `${formattedBalance} ${token.symbol}`
                       })
                       .join(', ')
-
-                    const formattedAddress = `${attacker.address.slice(
-                      0,
-                      6
-                    )}...${attacker.address.slice(-4)}`
+                    
+                    const winRatio = calculateWinRatio(attacker.breakCount, attacker.promptCount)
 
                     return (
                       <motion.div
@@ -73,16 +84,16 @@ export const AttackersList = ({
                         className="bg-[#2E40494D] backdrop-blur-xl p-3 rounded-lg hover:bg-[#2E40497D] cursor-pointer"
                         key={attacker.address}
                       >
-                        {/* Remove pointer-events-none to enable this link in future*/}
                         <Link
-                          href={`/attackers/${attacker.address}`}
-                          className="block pointer-events-none"
+                          href={getVoyagerAddressUrl(attacker.address)}
+                          target="_blank"
+                          rel="noopener noreferrer"
                         >
                           {/* Mobile Layout */}
                           <div className="md:hidden space-y-2">
                             <div className="flex items-center gap-2">
                               <span className="text-gray-400">#{offset + idx + 1}</span>
-                              <span className="font-medium">{formattedAddress}</span>
+                              <AttackerIdentifier address={attacker.address} />
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div>
@@ -97,6 +108,10 @@ export const AttackersList = ({
                                 <p className="text-gray-400 text-xs">Breaks</p>
                                 <p>{attacker.breakCount}</p>
                               </div>
+                              <div>
+                                <p className="text-gray-400 text-xs">Win ratio</p>
+                                <p>{winRatio}</p>
+                              </div>
                             </div>
                           </div>
 
@@ -105,11 +120,14 @@ export const AttackersList = ({
                             <div className="col-span-3 grid grid-cols-12 items-center">
                               <p className="pr-1 col-span-1">{offset + idx + 1}</p>
                               <div className="h-full w-[1px] bg-[#6F6F6F]"></div>
-                              <div className="col-span-10 pl-4">{formattedAddress}</div>
+                              <div className="col-span-10 pl-4">
+                                <AttackerIdentifier address={attacker.address} />
+                              </div>
                             </div>
-                            <div className="col-span-3 ps-4">{accruedBalances}</div>
-                            <div className="col-span-3 ps-4">{attacker.promptCount}</div>
-                            <div className="col-span-3 ps-4">{attacker.breakCount}</div>
+                            <div className="col-span-2 ps-4">{accruedBalances}</div>
+                            <div className="col-span-2 ps-4">{attacker.promptCount}</div>
+                            <div className="col-span-2 ps-4">{attacker.breakCount}</div>
+                            <div className="col-span-3 ps-4">{winRatio}</div>
                           </div>
                         </Link>
                       </motion.div>
