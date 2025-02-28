@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/NethermindEth/juno/core/felt"
+	"github.com/NethermindEth/starknet.go/account"
 	"github.com/NethermindEth/starknet.go/rpc"
 )
 
@@ -258,6 +259,34 @@ func (q *TxQueue) buildTx(ctx context.Context, calls []rpc.FunctionCall) (*rpc.B
 	return &invokeTxn, nil
 }
 
+// addInvokeTransaction attempts to broadcast a transaction and handles the case where
+// the max fee is too low by retrying with the minimum required fee.
+func (q *TxQueue) addInvokeTransaction(ctx context.Context, acc *account.Account, invokeTxn *rpc.BroadcastInvokev1Txn) (*rpc.AddInvokeTransactionResponse, error) {
+	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
+	if err != nil {
+		if isMaxFeeTooLow(err) {
+			minFee, err := extractMaxFeeFromTooLowError(err)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract minimum fee from error: %w", err)
+			}
+			invokeTxn.MaxFee = minFee
+			err = acc.SignInvokeTransaction(ctx, &invokeTxn.InvokeTxnV1)
+			if err != nil {
+				return nil, fmt.Errorf("failed to re-sign transaction: %w", err)
+			}
+			resp, err = acc.AddInvokeTransaction(ctx, invokeTxn)
+			if err != nil {
+				return nil, fmt.Errorf("failed to broadcast transaction: %w", FormatRpcError(err))
+			}
+			return resp, nil
+		}
+
+		return nil, fmt.Errorf("failed to broadcast transaction: %w", FormatRpcError(err))
+	}
+
+	return resp, nil
+}
+
 // tryMulticall tries to sign/broadcast all calls as a single transaction.
 // If it fails at any step, returns false so we can fallback.
 func (q *TxQueue) tryMulticall(ctx context.Context, items []*TxQueueItem, allCalls []rpc.FunctionCall) error {
@@ -273,9 +302,9 @@ func (q *TxQueue) tryMulticall(ctx context.Context, items []*TxQueueItem, allCal
 
 	// Broadcast transaction
 	slog.Info("broadcasting multicall transaction")
-	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
+	resp, err := q.addInvokeTransaction(ctx, acc, invokeTxn)
 	if err != nil {
-		return fmt.Errorf("failed to broadcast multicall transaction: %w", FormatRpcError(err))
+		return fmt.Errorf("failed to broadcast multicall transaction: %w", err)
 	}
 
 	// Increment nonce after successful broadcast
@@ -301,9 +330,9 @@ func (q *TxQueue) submitSingle(ctx context.Context, item *TxQueueItem) {
 		return
 	}
 
-	resp, err := acc.AddInvokeTransaction(ctx, invokeTxn)
+	resp, err := q.addInvokeTransaction(ctx, acc, invokeTxn)
 	if err != nil {
-		q.notifySingle(item, nil, FormatRpcError(err))
+		q.notifySingle(item, nil, err)
 		return
 	}
 
@@ -326,6 +355,9 @@ func (q *TxQueue) simulateBatch(ctx context.Context, calls []rpc.FunctionCall) e
 		_, err := client.SimulateTransactions(ctx, rpc.WithBlockTag("pending"), []rpc.BroadcastTxn{*invokeTxn}, []rpc.SimulationFlag{})
 		if err != nil {
 			if isMaxFeeExceedsBalance(err) {
+				return nil
+			}
+			if isMaxFeeTooLow(err) {
 				return nil
 			}
 			return err
@@ -381,4 +413,36 @@ func WaitForResult(ctx context.Context, ch chan *TxQueueResult) (*felt.Felt, err
 func isMaxFeeExceedsBalance(err error) bool {
 	errStr := FormatRpcError(err).Error()
 	return strings.Contains(errStr, "Max fee") && strings.Contains(errStr, "exceeds balance")
+}
+
+func isMaxFeeTooLow(err error) bool {
+	errStr := FormatRpcError(err).Error()
+	return strings.Contains(errStr, "Max fee") && strings.Contains(errStr, "is too low")
+}
+
+func extractMaxFeeFromTooLowError(err error) (*felt.Felt, error) {
+	errStr := FormatRpcError(err).Error()
+
+	// Find the minimum fee value
+	minFeeIndex := strings.Index(errStr, "Minimum fee: ")
+	if minFeeIndex == -1 {
+		return nil, fmt.Errorf("could not extract minimum fee from error: %s", errStr)
+	}
+
+	// Extract the number after "Minimum fee: "
+	minFeeStr := errStr[minFeeIndex+len("Minimum fee: "):]
+	endIndex := strings.Index(minFeeStr, ".")
+	if endIndex == -1 {
+		return nil, fmt.Errorf("could not parse minimum fee value from error: %s", errStr)
+	}
+
+	minFeeStr = minFeeStr[:endIndex]
+
+	// Parse the minimum fee as a felt
+	minFee, err := new(felt.Felt).SetString(minFeeStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse minimum fee '%s' as felt: %w", minFeeStr, err)
+	}
+
+	return minFee, nil
 }
