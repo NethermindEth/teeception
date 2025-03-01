@@ -1,104 +1,113 @@
-'use client'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AgentsList, TabType } from './AgentsList'
-import { useMemo, useState } from 'react'
-import { AgentDetails, useAgents } from '@/hooks/useAgents'
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
-import {  usePagination } from '@/hooks/usePagination'
-import { useAttackers } from '@/hooks/useAttackers'
-import { AttackersList } from './AttackersList'
+'use client';
+import { Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AgentsList, TabType } from './AgentsList';
+import { useMemo, useState } from 'react';
+import { AgentDetails, useAgents } from '@/hooks/useAgents';
+import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { usePagination } from '@/hooks/usePagination';
+import { useAttackers } from '@/hooks/useAttackers';
+import { AttackersList } from './AttackersList';
 
-const PAGE_SIZE = 10
-const SIBLING_COUNT = 1
+const PAGE_SIZE = 10;
+const SIBLING_COUNT = 1;
 
 type AgentListViewProps = {
-  heading: string
-  subheading: string
-}
+  heading: string;
+  subheading: string;
+};
 
 export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
-  const searchParams = useSearchParams()
-  const router = useRouter()
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AgentListViewInner heading={heading} subheading={subheading} />
+    </Suspense>
+  );
+};
+
+const AgentListViewInner = ({ heading, subheading }: AgentListViewProps) => {
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Get tab from URL, default to ActiveAgents
-  const selectedTab = (searchParams.get('tab') as TabType) || TabType.ActiveAgents
-  const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(0)
+  const selectedTab = (searchParams.get('tab') as TabType) || TabType.ActiveAgents;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(0);
 
   const {
     agents: allAgents,
     loading: isFetchingAllAgents,
     totalAgents: totalAllAgents,
-  } = useAgents({ page: currentPage, pageSize: PAGE_SIZE, active: null })
+  } = useAgents({ page: currentPage, pageSize: PAGE_SIZE, active: null });
 
   const {
     agents: activeAgents,
     loading: isFetchingActiveAgents,
     totalAgents: totalActiveAgents,
-  } = useAgents({ page: currentPage, pageSize: PAGE_SIZE, active: true })
+  } = useAgents({ page: currentPage, pageSize: PAGE_SIZE, active: true });
 
   const {
     attackers = [],
     loading: isFetchingAttackers,
     totalAttackers,
-  } = useAttackers({ page: currentPage, pageSize: PAGE_SIZE })
+  } = useAttackers({ page: currentPage, pageSize: PAGE_SIZE });
 
-  let totalTabEntries = 0
+  let totalTabEntries = 0;
   if (selectedTab === TabType.TopAttackers) {
-    totalTabEntries = totalAttackers
+    totalTabEntries = totalAttackers;
   } else if (selectedTab === TabType.ActiveAgents) {
-    totalTabEntries = totalActiveAgents
+    totalTabEntries = totalActiveAgents;
   } else {
-    totalTabEntries = totalAllAgents
+    totalTabEntries = totalAllAgents;
   }
 
-  const totalPages = Math.ceil(totalTabEntries / PAGE_SIZE)
+  const totalPages = Math.ceil(totalTabEntries / PAGE_SIZE);
 
   const paginationRange = usePagination({
     currentPage,
     totalCount: totalTabEntries,
     pageSize: PAGE_SIZE,
     siblingCount: SIBLING_COUNT,
-  })
+  });
 
   const filterAgents = (agents: AgentDetails[], query: string) => {
-    if (!query.trim()) return agents
+    if (!query.trim()) return agents;
     return agents.filter(
       (agent) =>
         agent.name.toLowerCase().includes(query.toLowerCase()) ||
         agent.address.toLowerCase().includes(query.toLowerCase())
-    )
-  }
+    );
+  };
 
   const filteredAgents = useMemo(
     () => filterAgents(allAgents, searchQuery),
     [allAgents, searchQuery]
-  )
+  );
   const filteredActiveAgents = useMemo(
     () => filterAgents(activeAgents, searchQuery),
     [activeAgents, searchQuery]
-  )
+  );
 
   const handleTabChange = (tab: string) => {
-    router.push(`?tab=${tab}`, { scroll: false })
-    setCurrentPage(0)
+    router.push(`?tab=${tab}`, { scroll: false });
+    setCurrentPage(0);
     if (tab === TabType.TopAttackers) {
-      setSearchQuery('')
+      setSearchQuery('');
     }
-  }
+  };
 
   const handlePreviousPage = () => {
     if (currentPage > 0) {
-      setCurrentPage(currentPage - 1)
+      setCurrentPage(currentPage - 1);
     }
-  }
+  };
 
   const handleNextPage = () => {
     if (currentPage < totalPages - 1) {
-      setCurrentPage(currentPage + 1)
+      setCurrentPage(currentPage + 1);
     }
-  }
+  };
 
   return (
     <div className="px-2 md:px-8 py-12 md:py-20 max-w-[1560px] mx-auto md:pt-36">
@@ -165,5 +174,5 @@ export const AgentListView = ({ heading, subheading }: AgentListViewProps) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
