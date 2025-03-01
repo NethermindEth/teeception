@@ -5,7 +5,7 @@ import { AgentsList, TabType } from './AgentsList'
 import { useMemo, useState } from 'react'
 import { AgentDetails, useAgents } from '@/hooks/useAgents'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
-import { DOTS, usePagination } from '@/hooks/usePagination'
+import {  usePagination } from '@/hooks/usePagination'
 import { useAttackers } from '@/hooks/useAttackers'
 import { AttackersList } from './AttackersList'
 
