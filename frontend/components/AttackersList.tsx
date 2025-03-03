@@ -65,14 +65,22 @@ export const AttackersList = ({
                 {/* Attacker Cards */}
                 <AnimatePresence>
                   {attackers.map((attacker, idx) => {
-                    const accruedBalances = ACTIVE_NETWORK.tokens
-                      .map((token) => {
-                        const balance = attacker.accruedBalances[token.address] || '0'
-                        const formattedBalance = formatBalance(BigInt(balance), token.decimals)
-                        return `${formattedBalance} ${token.symbol}`
-                      })
-                      .join(', ')
-                    
+                    // const accruedBalances = ACTIVE_NETWORK.tokens
+                    //   .map((token) => {
+                    //     const balance =
+                    //       attacker.accruedBalances[token.address] || "0";
+                    //     const formattedBalance = formatBalance(
+                    //       BigInt(balance),
+                    //       token.decimals
+                    //     );
+                    //     return `${formattedBalance} ${token.symbol}`;
+                    //   })
+                    //   .join(", ");
+
+                    const strkToken = ACTIVE_NETWORK.tokens[0]
+                    const balance = attacker.accruedBalances[strkToken.address] || '0'
+                    const formattedBalance = formatBalance(BigInt(balance), strkToken.decimals)
+                    const accruedBalance = `${formattedBalance} ${strkToken.symbol}`
                     const winRatio = calculateWinRatio(attacker.breakCount, attacker.promptCount)
 
                     return (
@@ -98,7 +106,7 @@ export const AttackersList = ({
                             <div className="grid grid-cols-2 gap-2 text-sm">
                               <div>
                                 <p className="text-gray-400 text-xs">Rewards</p>
-                                <p>{accruedBalances}</p>
+                                <p>{accruedBalance}</p>
                               </div>
                               <div>
                                 <p className="text-gray-400 text-xs">Prompts</p>
@@ -124,7 +132,7 @@ export const AttackersList = ({
                                 <AttackerIdentifier address={attacker.address} />
                               </div>
                             </div>
-                            <div className="col-span-2 ps-4">{accruedBalances}</div>
+                            <div className="col-span-2 ps-4">{accruedBalance}</div>
                             <div className="col-span-2 ps-4">{attacker.promptCount}</div>
                             <div className="col-span-2 ps-4">{attacker.breakCount}</div>
                             <div className="col-span-3 ps-4">{winRatio}</div>
