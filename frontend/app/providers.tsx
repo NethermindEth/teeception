@@ -10,7 +10,8 @@ import { Header } from '@/components/Header'
 import { Footer } from '@/components/Footer'
 import { argent, braavos } from '@starknet-react/core'
 import { mainnet, sepolia } from '@starknet-react/chains'
-import { ArgentMobileConnector, isInArgentMobileAppBrowser } from 'starknetkit/argentMobile'
+// import { ArgentMobileConnector, isInArgentMobileAppBrowser } from 'starknetkit/argentMobile'
+import { ArgentMobileConnector } from 'starknetkit/argentMobile'
 // import { constants } from 'starknet'
 
 const policies = {
@@ -40,19 +41,33 @@ const cartridgeConnector = new ControllerConnector({
   chains: [{ rpcUrl: ACTIVE_NETWORK.rpc }, { rpcUrl: STARKNET_CONFIG.mainnet.rpc }],
 })
 
-const connectors = isInArgentMobileAppBrowser()
-  ? [
-      ArgentMobileConnector.init({
-        options: {
-          dappName: 'Teeception',
-          projectId: WALLET_CONNECT_PROJECT_ID,
-          url: window.location.hostname,
-        },
-        inAppBrowserOptions: {},
-      }),
-      cartridgeConnector,
-    ]
-  : [argent(), braavos(), cartridgeConnector]
+// const connectors = isInArgentMobileAppBrowser()
+//   ? [
+//       ArgentMobileConnector.init({
+//         options: {
+//           dappName: 'Teeception',
+//           projectId: WALLET_CONNECT_PROJECT_ID,
+//           url: window.location.hostname,
+//         },
+//         inAppBrowserOptions: {},
+//       }),
+//       cartridgeConnector,
+//     ]
+//   : [argent(), braavos(), cartridgeConnector]
+
+const connectors = [
+  argent(),
+  braavos(),
+  cartridgeConnector,
+  ArgentMobileConnector.init({
+    options: {
+      dappName: 'Teeception',
+      projectId: WALLET_CONNECT_PROJECT_ID,
+      url: window.location.hostname,
+    },
+    inAppBrowserOptions: {},
+  }),
+]
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
