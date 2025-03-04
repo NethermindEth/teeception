@@ -6,7 +6,7 @@ import Link from 'next/link'
 export default function TermsOfUsePage() {
   return (
     <motion.div
-      className="max-w-[933px] mx-auto mt-20 px-4"
+      className="max-w-[933px] mx-auto mt-28 px-4"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}

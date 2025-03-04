@@ -120,18 +120,21 @@ const useAgentForm = (
       if (error) newErrors[key] = error
     })
     setFormState((prev) => ({ ...prev, errors: newErrors }))
-    
+
     // Don't allow form submission if agent name check is still loading
     if (agentNameCheck.isLoading || agentNameCheck.isDebouncing) {
       return false
     }
-    
+
     return Object.keys(newErrors).length === 0
   }, [formState.values, validateField, agentNameCheck.isLoading, agentNameCheck.isDebouncing])
 
   useEffect(() => {
     if (formState.values.agentName) {
-      setFormState((prev) => ({ ...prev, errors: { ...prev.errors, agentName: validateField('agentName', prev.values.agentName) } }))
+      setFormState((prev) => ({
+        ...prev,
+        errors: { ...prev.errors, agentName: validateField('agentName', prev.values.agentName) },
+      }))
     }
   }, [agentNameCheck.exists])
 
@@ -197,7 +200,7 @@ const useTransactionManager = (
           encodedSystemPrompt.pending_word_len.toString(),
           // @ts-expect-error calldata[0] is not typed
           ...registerCall.calldata.slice(-7),
-        ];
+        ]
 
         const calldata = [
           tokenContract.populate('approve', [AGENT_REGISTRY_ADDRESS, initialBalance]),
@@ -265,7 +268,7 @@ export default function DefendPage() {
     address: ACTIVE_NETWORK.tokens[0].address as `0x${string}`,
     abi: TEECEPTION_ERC20_ABI,
   })
-  
+
   // Initialize form state first to access agentName
   const [formValues, setFormValues] = useState({
     agentName: '',
@@ -274,22 +277,22 @@ export default function DefendPage() {
     initialBalance: '',
     duration: '30',
   })
-  
+
   // Check if agent name exists
   const agentNameCheck = useAgentNameExists(formValues.agentName)
-  
+
   const { formState, setFormState, handleChange, validateForm } = useAgentForm(
     tokenBalance!,
     token,
     tokenParams,
     agentNameCheck
   )
-  
+
   // Update formValues when formState changes
   useEffect(() => {
     setFormValues(formState.values)
   }, [formState.values])
-  
+
   const [showSuccess, setShowSuccess] = useState(false)
   const { tokenCount, countTokens, isDebouncing: isTokenCountDebouncing } = useTokenCount()
 
@@ -342,7 +345,7 @@ export default function DefendPage() {
       values: { ...prev.values, systemPrompt: value },
       errors: {
         ...prev.errors,
-        systemPrompt: ''
+        systemPrompt: '',
       },
     }))
   }
@@ -371,7 +374,7 @@ export default function DefendPage() {
     : '0'
 
   return (
-    <div className="container mx-auto px-4 py-4 pt-24 relative">
+    <div className="container mx-auto px-4 py-4 pt-24 relative min-h-[calc(100vh-60px)]">
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto space-y-6 relative">
         <Link
           href="/"
@@ -488,10 +491,11 @@ export default function DefendPage() {
         <button
           type="submit"
           disabled={
-            formState.isSubmitting || 
-            agentNameCheck.isLoading || 
+            formState.isSubmitting ||
+            agentNameCheck.isLoading ||
             agentNameCheck.isDebouncing ||
-            (formState.transactionStatus !== 'failed' && Object.values(formState.errors).some((error) => error))
+            (formState.transactionStatus !== 'failed' &&
+              Object.values(formState.errors).some((error) => error))
           }
           className="w-full bg-white text-black rounded-full py-3 font-medium hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
         >
