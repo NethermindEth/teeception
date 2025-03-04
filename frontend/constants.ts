@@ -6,8 +6,7 @@ export const AGENT_REGISTRY_ADDRESS =
   '0x02f6574e5b2e998e58dae9c256c8413d5bd4a9850a5f8162afe824b69cffeee7'
 export const X_BOT_NAME = '@teeception'
 
-export const INDEXER_BASE_URL =
-  process.env.NEXT_PUBLIC_INDEXER_BASE_URL || 'http://localhost:4000'
+export const INDEXER_BASE_URL = process.env.NEXT_PUBLIC_INDEXER_BASE_URL || 'http://localhost:4000'
 
 export const SYSTEM_PROMPT_MAX_TOKENS = 800
 
@@ -93,3 +92,5 @@ export const TEXT_COPIES = {
     subheading: 'Trick one of these agents into sending you all their STRK',
   },
 }
+
+export const WALLET_CONNECT_PROJECT_ID = '386984e4ee13353f441c989be50118a3'
