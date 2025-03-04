@@ -83,7 +83,7 @@ export const Footer = () => {
         {/* Social links section */}
         <div className="flex items-center gap-4 mt-2 md:mt-0">
           <Link
-            href="https://x.com/nethermindeth"
+            href="https://x.com/teeception"
             target="_blank"
             className="hover:opacity-80 transition-opacity"
           >
