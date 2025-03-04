@@ -63,7 +63,7 @@ const connectors = [
     options: {
       dappName: 'Teeception',
       projectId: WALLET_CONNECT_PROJECT_ID,
-      url: window.location.hostname,
+      url: 'teeception.ai',
     },
     inAppBrowserOptions: {},
   }),
