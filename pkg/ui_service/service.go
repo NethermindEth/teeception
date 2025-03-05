@@ -797,6 +797,7 @@ func (s *UIService) HandleGetPromptResponse(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, &PromptData{
+		Pending:     prompt.Pending,
 		PromptID:    strconv.FormatUint(prompt.PromptID, 10),
 		AgentAddr:   prompt.AgentAddr.String(),
 		IsDrain:     prompt.IsDrain,
