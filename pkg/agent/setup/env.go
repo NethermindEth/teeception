@@ -182,3 +182,11 @@ func envGetPromptIndexerEndpoint() string {
 	}
 	return endpoint
 }
+
+func envGetPromptIndexerApiKey() string {
+	apiKey := os.Getenv("PROMPT_INDEXER_API_KEY")
+	if apiKey == "" {
+		slog.Warn("PROMPT_INDEXER_API_KEY environment variable not set")
+	}
+	return apiKey
+}

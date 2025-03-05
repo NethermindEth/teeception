@@ -31,6 +31,7 @@ type UIServiceConfig struct {
 	UserTickRate         time.Duration
 	AgentBalanceTickRate time.Duration
 	PromptIndexerDBPath  string
+	PromptIndexerApiKey  string
 }
 
 type UIService struct {
@@ -48,6 +49,8 @@ type UIService struct {
 
 	maxPageSize int
 	serverAddr  string
+
+	promptIndexerApiKey string
 }
 
 func NewUIService(config *UIServiceConfig) (*UIService, error) {
@@ -145,9 +148,10 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 
 		registryAddress: config.RegistryAddress,
 
-		client:      config.Client,
-		maxPageSize: config.MaxPageSize,
-		serverAddr:  config.ServerAddr,
+		client:              config.Client,
+		maxPageSize:         config.MaxPageSize,
+		serverAddr:          config.ServerAddr,
+		promptIndexerApiKey: config.PromptIndexerApiKey,
 	}, nil
 }
 
@@ -629,6 +633,15 @@ type RegisterPromptResponseRequest struct {
 }
 
 func (s *UIService) HandleRegisterPromptResponse(c *gin.Context) {
+	// Validate API key if configured
+	if s.promptIndexerApiKey != "" {
+		apiKey := c.GetHeader("X-API-Key")
+		if apiKey != s.promptIndexerApiKey {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or missing API key"})
+			return
+		}
+	}
+
 	var req RegisterPromptResponseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid request: %v", err)})

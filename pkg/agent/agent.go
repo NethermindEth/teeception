@@ -60,6 +60,7 @@ type AgentConfigParams struct {
 	MaxSystemPromptTokens        int
 	MaxPromptTokens              int
 	PromptIndexerEndpoint        string
+	PromptIndexerApiKey          string
 }
 
 type AgentAccountDeploymentState struct {
@@ -97,6 +98,9 @@ type AgentConfig struct {
 	AgentRegistryBlock   uint64
 
 	PromptIndexerEndpoint string
+	PromptIndexerApiKey   string
+	promptIndexerQueue    []*promptIndexerNotification
+	promptIndexerQueueMu  sync.Mutex
 }
 
 func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
@@ -224,6 +228,8 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		AgentRegistryBlock:   params.AgentRegistryDeploymentBlock,
 
 		PromptIndexerEndpoint: params.PromptIndexerEndpoint,
+		PromptIndexerApiKey:   params.PromptIndexerApiKey,
+		promptIndexerQueue:    make([]*promptIndexerNotification, 0),
 	}, nil
 }
 
@@ -255,6 +261,7 @@ type Agent struct {
 	eventCh chan *indexer.EventSubscriptionData
 
 	promptIndexerEndpoint string
+	promptIndexerApiKey   string
 	promptIndexerQueue    []*promptIndexerNotification
 	promptIndexerQueueMu  sync.Mutex
 }
@@ -295,7 +302,8 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		eventCh: make(chan *indexer.EventSubscriptionData, 1000),
 
 		promptIndexerEndpoint: config.PromptIndexerEndpoint,
-		promptIndexerQueue:    make([]*promptIndexerNotification, 0),
+		promptIndexerApiKey:   config.PromptIndexerApiKey,
+		promptIndexerQueue:    config.promptIndexerQueue,
 	}, nil
 }
 
@@ -994,6 +1002,11 @@ func (a *Agent) sendPromptIndexerNotification(ctx context.Context, price *big.In
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+
+	// Add API key to the request header if available
+	if a.promptIndexerApiKey != "" {
+		req.Header.Set("X-API-Key", a.promptIndexerApiKey)
+	}
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,

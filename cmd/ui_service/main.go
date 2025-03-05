@@ -33,6 +33,7 @@ func main() {
 		eventStartupTickRate time.Duration
 		userTickRate         time.Duration
 		promptIndexerDBPath  string
+		promptIndexerApiKey  string
 	)
 
 	rootCmd := &cobra.Command{
@@ -75,6 +76,13 @@ func main() {
 			tokenRates := make(map[[32]byte]*big.Int)
 			tokenRates[strkAddress.Bytes()] = big.NewInt(1)
 
+			// Log whether API key authentication is enabled
+			if promptIndexerApiKey != "" {
+				slog.Info("prompt indexer API key authentication enabled")
+			} else {
+				slog.Warn("prompt indexer API key authentication disabled - no API key provided")
+			}
+
 			uiService, err := uiservice.NewUIService(&uiservice.UIServiceConfig{
 				Client:               rateLimitedClient,
 				MaxPageSize:          maxPageSize,
@@ -88,6 +96,7 @@ func main() {
 				UserTickRate:         userTickRate,
 				AgentBalanceTickRate: balanceTickRate,
 				PromptIndexerDBPath:  promptIndexerDBPath,
+				PromptIndexerApiKey:  promptIndexerApiKey,
 			})
 			if err != nil {
 				slog.Error("failed to create UI service", "error", err)
@@ -109,6 +118,7 @@ func main() {
 	rootCmd.Flags().DurationVar(&eventStartupTickRate, "event-startup-tick-rate", 1*time.Second, "Event watcher startup tick rate")
 	rootCmd.Flags().DurationVar(&userTickRate, "user-tick-rate", 1*time.Minute, "User indexer sorting tick rate")
 	rootCmd.Flags().StringVar(&promptIndexerDBPath, "prompt-indexer-db-path", "prompts.db", "Path to the prompt indexer SQLite database")
+	rootCmd.Flags().StringVar(&promptIndexerApiKey, "prompt-indexer-api-key", os.Getenv("PROMPT_INDEXER_API_KEY"), "API key for the prompt indexer (can also be set via PROMPT_INDEXER_API_KEY env var)")
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

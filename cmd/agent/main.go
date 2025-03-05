@@ -55,6 +55,7 @@ func main_impl() error {
 		MaxSystemPromptTokens:        800,
 		MaxPromptTokens:              -1,
 		PromptIndexerEndpoint:        output.PromptIndexerEndpoint,
+		PromptIndexerApiKey:          output.PromptIndexerApiKey,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create agent config: %w", err)

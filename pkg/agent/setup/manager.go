@@ -28,6 +28,7 @@ type SetupManager struct {
 	dstackTappdEndpoint          string
 	unencumberEncryptionKey      [32]byte
 	promptIndexerEndpoint        string
+	promptIndexerApiKey          string
 }
 
 type SetupOutput struct {
@@ -48,6 +49,7 @@ type SetupOutput struct {
 	DstackTappdEndpoint          string     `json:"dstack_tappd_endpoint"`
 	UnencumberEncryptionKey      [32]byte   `json:"encryption_key"`
 	PromptIndexerEndpoint        string     `json:"prompt_indexer_endpoint"`
+	PromptIndexerApiKey          string     `json:"prompt_indexer_api_key"`
 }
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
@@ -67,6 +69,7 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		dstackTappdEndpoint:          envGetDstackTappdEndpoint(),
 		unencumberEncryptionKey:      envGetUnencumberEncryptionKey(),
 		promptIndexerEndpoint:        envGetPromptIndexerEndpoint(),
+		promptIndexerApiKey:          envGetPromptIndexerApiKey(),
 	}
 
 	if err := setupManager.Validate(); err != nil {
@@ -187,6 +190,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		DstackTappdEndpoint:          m.dstackTappdEndpoint,
 		UnencumberEncryptionKey:      m.unencumberEncryptionKey,
 		PromptIndexerEndpoint:        m.promptIndexerEndpoint,
+		PromptIndexerApiKey:          m.promptIndexerApiKey,
 	}
 
 	if debug.IsDebugShowSetup() {
