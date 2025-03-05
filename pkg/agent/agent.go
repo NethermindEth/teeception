@@ -891,7 +891,7 @@ func (a *Agent) notifyPromptIndexer(ctx context.Context, agentInfo *indexer.Agen
 		return fmt.Errorf("failed to marshal prompt data: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", a.promptIndexerEndpoint+"/prompt/response", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", a.promptIndexerEndpoint+"/prompt", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

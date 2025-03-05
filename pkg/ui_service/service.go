@@ -191,8 +191,8 @@ func (s *UIService) startServer(ctx context.Context) error {
 	router.GET("/user/prompts", s.HandleGetUserPrompts)
 	router.GET("/search", s.HandleSearchAgents)
 	router.GET("/usage", s.HandleGetUsage)
-	router.GET("/prompt/response", s.HandleGetPromptResponse)
-	router.POST("/prompt/response", s.HandleRegisterPromptResponse)
+	router.GET("/prompt", s.HandleGetPromptResponse)
+	router.POST("/prompt", s.HandleRegisterPromptResponse)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
