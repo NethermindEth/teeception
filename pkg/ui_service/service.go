@@ -30,6 +30,7 @@ type UIServiceConfig struct {
 	EventStartupTickRate time.Duration
 	UserTickRate         time.Duration
 	AgentBalanceTickRate time.Duration
+	PromptIndexerDBPath  string
 }
 
 type UIService struct {
@@ -39,6 +40,7 @@ type UIService struct {
 	agentUsageIndexer   *indexer.AgentUsageIndexer
 	userIndexer         *indexer.UserIndexer
 	tokenIndexer        *indexer.TokenIndexer
+	promptIndexer       *indexer.PromptIndexer
 
 	registryAddress *felt.Felt
 
@@ -64,6 +66,23 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event watcher: %v", err)
+	}
+
+	promptDb, err := indexer.NewPromptIndexerDatabaseSQLite(config.PromptIndexerDBPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create prompt database: %v", err)
+	}
+
+	promptIndexer, err := indexer.NewPromptIndexer(&indexer.PromptIndexerConfig{
+		Client:          config.Client,
+		RegistryAddress: config.RegistryAddress,
+		EventWatcher:    eventWatcher,
+		InitialState: &indexer.PromptIndexerInitialState{
+			Db: promptDb,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create prompt indexer: %v", err)
 	}
 
 	agentIndexer := indexer.NewAgentIndexer(&indexer.AgentIndexerConfig{
@@ -122,6 +141,7 @@ func NewUIService(config *UIServiceConfig) (*UIService, error) {
 		agentUsageIndexer:   agentUsageIndexer,
 		userIndexer:         userIndexer,
 		tokenIndexer:        tokenIndexer,
+		promptIndexer:       promptIndexer,
 
 		registryAddress: config.RegistryAddress,
 
@@ -152,6 +172,9 @@ func (s *UIService) Run(ctx context.Context) error {
 		return s.tokenIndexer.Run(ctx)
 	})
 	g.Go(func() error {
+		return s.promptIndexer.Run(ctx)
+	})
+	g.Go(func() error {
 		return s.startServer(ctx)
 	})
 	return g.Wait()
@@ -165,8 +188,11 @@ func (s *UIService) startServer(ctx context.Context) error {
 	router.GET("/agent/:address", s.HandleGetAgent)
 	router.GET("/user/leaderboard", s.HandleGetUserLeaderboard)
 	router.GET("/user/agents", s.HandleGetUserAgents)
+	router.GET("/user/prompts", s.HandleGetUserPrompts)
 	router.GET("/search", s.HandleSearchAgents)
 	router.GET("/usage", s.HandleGetUsage)
+	router.GET("/prompt/response", s.HandleGetPromptResponse)
+	router.POST("/prompt/response", s.HandleRegisterPromptResponse)
 
 	server := &http.Server{
 		Addr:    s.serverAddr,
@@ -587,4 +613,197 @@ func (s *UIService) buildUserData(info *indexer.UserInfo) *UserData {
 		PromptCount:     int(info.PromptCount),
 		BreakCount:      int(info.BreakCount),
 	}
+}
+
+// RegisterPromptResponseRequest represents the request body for registering a prompt response
+type RegisterPromptResponseRequest struct {
+	PromptID    *uint64 `json:"prompt_id" binding:"required"`
+	AgentAddr   *string `json:"agent_addr" binding:"required"`
+	Price       *string `json:"price" binding:"required"`
+	IsDrain     *bool   `json:"is_drain" binding:"required"`
+	Prompt      *string `json:"prompt" binding:"required"`
+	Response    *string `json:"response"`
+	Error       *string `json:"error"`
+	BlockNumber *uint64 `json:"block_number" binding:"required"`
+	UserAddr    *string `json:"user_addr" binding:"required"`
+}
+
+func (s *UIService) HandleRegisterPromptResponse(c *gin.Context) {
+	var req RegisterPromptResponseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid request: %v", err)})
+		return
+	}
+
+	agentAddr, err := new(felt.Felt).SetString(*req.AgentAddr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid agent address: %v", err)})
+		return
+	}
+
+	userAddr, err := new(felt.Felt).SetString(*req.UserAddr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("invalid user address: %v", err)})
+		return
+	}
+
+	data := &indexer.PromptData{
+		Pending:     false,
+		PromptID:    *req.PromptID,
+		AgentAddr:   agentAddr,
+		IsDrain:     *req.IsDrain,
+		Prompt:      *req.Prompt,
+		Response:    req.Response,
+		Error:       req.Error,
+		BlockNumber: *req.BlockNumber,
+		UserAddr:    userAddr,
+	}
+
+	if err := s.promptIndexer.RegisterPromptResponse(data, true); err != nil {
+		slog.Error("failed to register prompt response", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register prompt response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+type PromptData struct {
+	Pending     bool   `json:"pending"`
+	PromptID    string `json:"prompt_id"`
+	AgentAddr   string `json:"agent_addr"`
+	IsDrain     bool   `json:"is_drain"`
+	Prompt      string `json:"prompt"`
+	Response    string `json:"response,omitempty"`
+	Error       string `json:"error,omitempty"`
+	BlockNumber string `json:"block_number"`
+	UserAddr    string `json:"user_addr"`
+}
+
+type PromptPageResponse struct {
+	Prompts   []*PromptData `json:"prompts"`
+	Total     int           `json:"total"`
+	Page      int           `json:"page"`
+	PageSize  int           `json:"page_size"`
+	LastBlock int           `json:"last_block"`
+}
+
+func (s *UIService) HandleGetUserPrompts(c *gin.Context) {
+	userAddrStr := c.Query("user")
+	if userAddrStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user address required"})
+		return
+	}
+
+	userAddr, err := new(felt.Felt).SetString(userAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Errorf("invalid user address: %w", err).Error()})
+		return
+	}
+
+	page, err := strconv.Atoi(c.Query("page"))
+	if err != nil {
+		page = 0
+	}
+
+	pageSize := s.getPageSize(0)
+	if sizeStr := c.Query("page_size"); sizeStr != "" {
+		if size, err := strconv.Atoi(sizeStr); err == nil {
+			pageSize = s.getPageSize(size)
+		}
+	}
+
+	start := page * pageSize
+	end := (page + 1) * pageSize
+
+	prompts, err := s.promptIndexer.GetPromptsByUser(userAddr, start, end)
+	if err != nil {
+		slog.Error("error fetching user prompts", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get user prompts"})
+		return
+	}
+
+	promptDatas := make([]*PromptData, 0, len(prompts))
+	for _, prompt := range prompts {
+		response := ""
+		if prompt.Response != nil {
+			response = *prompt.Response
+		}
+		errorMsg := ""
+		if prompt.Error != nil {
+			errorMsg = *prompt.Error
+		}
+
+		promptDatas = append(promptDatas, &PromptData{
+			Pending:     prompt.Pending,
+			PromptID:    strconv.FormatUint(prompt.PromptID, 10),
+			AgentAddr:   prompt.AgentAddr.String(),
+			IsDrain:     prompt.IsDrain,
+			Prompt:      prompt.Prompt,
+			Response:    response,
+			Error:       errorMsg,
+			BlockNumber: strconv.FormatUint(prompt.BlockNumber, 10),
+			UserAddr:    prompt.UserAddr.String(),
+		})
+	}
+
+	c.JSON(http.StatusOK, &PromptPageResponse{
+		Prompts:   promptDatas,
+		Total:     len(prompts),
+		Page:      page,
+		PageSize:  pageSize,
+		LastBlock: int(s.promptIndexer.GetLastIndexedBlock()),
+	})
+}
+
+func (s *UIService) HandleGetPromptResponse(c *gin.Context) {
+	promptIDStr := c.Query("prompt_id")
+	if promptIDStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "prompt_id required"})
+		return
+	}
+
+	promptID, err := strconv.ParseUint(promptIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid prompt_id"})
+		return
+	}
+
+	agentAddrStr := c.Query("agent_addr")
+	if agentAddrStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "agent_addr required"})
+		return
+	}
+
+	agentAddr, err := new(felt.Felt).SetString(agentAddrStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Errorf("invalid agent address: %w", err).Error()})
+		return
+	}
+
+	prompt, exists := s.promptIndexer.GetPrompt(promptID, agentAddr)
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "prompt not found"})
+		return
+	}
+
+	response := ""
+	if prompt.Response != nil {
+		response = *prompt.Response
+	}
+	errorMsg := ""
+	if prompt.Error != nil {
+		errorMsg = *prompt.Error
+	}
+
+	c.JSON(http.StatusOK, &PromptData{
+		PromptID:    strconv.FormatUint(prompt.PromptID, 10),
+		AgentAddr:   prompt.AgentAddr.String(),
+		IsDrain:     prompt.IsDrain,
+		Prompt:      prompt.Prompt,
+		Response:    response,
+		Error:       errorMsg,
+		BlockNumber: strconv.FormatUint(prompt.BlockNumber, 10),
+		UserAddr:    prompt.UserAddr.String(),
+	})
 }

@@ -488,8 +488,9 @@ type MockAgentConfigConfig struct {
 
 	MockUserPrivateKey *felt.Felt
 
-	MockTickRate             time.Duration
-	MockAgentRegistryAddress *felt.Felt
+	MockTickRate              time.Duration
+	MockAgentRegistryAddress  *felt.Felt
+	MockPromptIndexerEndpoint string
 }
 
 func NewMockAgentConfig(config *MockAgentConfigConfig) (*agent.AgentConfig, error) {
@@ -533,7 +534,8 @@ func NewMockAgentConfig(config *MockAgentConfigConfig) (*agent.AgentConfig, erro
 		AgentIndexer: agentIndexer,
 		EventWatcher: eventWatcher,
 
-		AgentRegistryAddress: config.MockAgentRegistryAddress,
+		AgentRegistryAddress:  config.MockAgentRegistryAddress,
+		PromptIndexerEndpoint: config.MockPromptIndexerEndpoint,
 	}, nil
 }
 
@@ -731,12 +733,13 @@ func TestProcessPromptPaidEvent(t *testing.T) {
 				MockTwitterClientConfig: &twitter.TwitterClientConfig{
 					Username: tt.agentName,
 				},
-				MockChatCompletion:       chatCompletion,
-				MockProviderWrapper:      providerWrapper,
-				MockQuoter:               quoter,
-				MockUserPrivateKey:       userPrivateKey,
-				MockTickRate:             1 * time.Second,
-				MockAgentRegistryAddress: agentRegistryAddress,
+				MockChatCompletion:        chatCompletion,
+				MockProviderWrapper:       providerWrapper,
+				MockQuoter:                quoter,
+				MockUserPrivateKey:        userPrivateKey,
+				MockTickRate:              1 * time.Second,
+				MockAgentRegistryAddress:  agentRegistryAddress,
+				MockPromptIndexerEndpoint: "http://example.com/prompt-indexer",
 			})
 
 			if err != nil {

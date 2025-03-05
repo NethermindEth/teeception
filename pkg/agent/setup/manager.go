@@ -27,6 +27,7 @@ type SetupManager struct {
 	loginServerPort              string
 	dstackTappdEndpoint          string
 	unencumberEncryptionKey      [32]byte
+	promptIndexerEndpoint        string
 }
 
 type SetupOutput struct {
@@ -46,6 +47,7 @@ type SetupOutput struct {
 	OpenAIKey                    string     `json:"openai_key"`
 	DstackTappdEndpoint          string     `json:"dstack_tappd_endpoint"`
 	UnencumberEncryptionKey      [32]byte   `json:"encryption_key"`
+	PromptIndexerEndpoint        string     `json:"prompt_indexer_endpoint"`
 }
 
 func NewSetupManagerFromEnv() (*SetupManager, error) {
@@ -64,6 +66,7 @@ func NewSetupManagerFromEnv() (*SetupManager, error) {
 		loginServerPort:              envGetLoginServerPort(),
 		dstackTappdEndpoint:          envGetDstackTappdEndpoint(),
 		unencumberEncryptionKey:      envGetUnencumberEncryptionKey(),
+		promptIndexerEndpoint:        envGetPromptIndexerEndpoint(),
 	}
 
 	if err := setupManager.Validate(); err != nil {
@@ -183,6 +186,7 @@ func (m *SetupManager) Setup(ctx context.Context) (*SetupOutput, error) {
 		OpenAIKey:                    m.openAiKey,
 		DstackTappdEndpoint:          m.dstackTappdEndpoint,
 		UnencumberEncryptionKey:      m.unencumberEncryptionKey,
+		PromptIndexerEndpoint:        m.promptIndexerEndpoint,
 	}
 
 	if debug.IsDebugShowSetup() {

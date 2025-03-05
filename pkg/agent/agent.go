@@ -1,7 +1,9 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -56,6 +58,7 @@ type AgentConfigParams struct {
 	SafeBlockDelta               uint64
 	MaxSystemPromptTokens        int
 	MaxPromptTokens              int
+	PromptIndexerEndpoint        string
 }
 
 type AgentAccountDeploymentState struct {
@@ -91,6 +94,8 @@ type AgentConfig struct {
 	StartupBlockNumber   uint64
 	AgentRegistryAddress *felt.Felt
 	AgentRegistryBlock   uint64
+
+	PromptIndexerEndpoint string
 }
 
 func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
@@ -216,6 +221,8 @@ func NewAgentConfigFromParams(params *AgentConfigParams) (*AgentConfig, error) {
 		StartupBlockNumber:   startupBlockNumber,
 		AgentRegistryAddress: params.AgentRegistryAddress,
 		AgentRegistryBlock:   params.AgentRegistryDeploymentBlock,
+
+		PromptIndexerEndpoint: params.PromptIndexerEndpoint,
 	}, nil
 }
 
@@ -245,6 +252,8 @@ type Agent struct {
 	agentRegistryBlock   uint64
 
 	eventCh chan *indexer.EventSubscriptionData
+
+	promptIndexerEndpoint string
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
@@ -275,6 +284,8 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		agentRegistryBlock:   config.AgentRegistryBlock,
 
 		eventCh: make(chan *indexer.EventSubscriptionData, 1000),
+
+		promptIndexerEndpoint: config.PromptIndexerEndpoint,
 	}, nil
 }
 
@@ -522,24 +533,55 @@ func (a *Agent) ProcessPromptPaidEvent(ctx context.Context, agentAddress *felt.F
 		return fmt.Errorf("failed to get agent info: %v", err)
 	}
 
-	return a.reactToTweet(ctx, &agentInfo, promptPaidEvent)
+	return a.reactToTweet(ctx, &agentInfo, promptPaidEvent, block)
 }
 
-func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent) error {
+func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, promptPaidEvent *indexer.PromptPaidEvent, block uint64) error {
 	slog.Info("generating AI response", "tweet_id", promptPaidEvent.TweetID)
+
+	var reply string
+	var isDrain bool
+	var publicErrStr string
+
+	defer func() {
+		var nulledReply *string
+		if reply != "" {
+			nulledReply = &reply
+		}
+		var nulledError *string
+		if publicErrStr != "" {
+			nulledError = &publicErrStr
+		}
+
+		err := a.notifyPromptIndexer(ctx, agentInfo, &indexer.PromptData{
+			PromptID:    promptPaidEvent.PromptID,
+			AgentAddr:   agentInfo.Address,
+			IsDrain:     isDrain,
+			Prompt:      promptPaidEvent.Prompt,
+			Response:    nulledReply,
+			Error:       nulledError,
+			BlockNumber: block,
+			UserAddr:    promptPaidEvent.User,
+		})
+		if err != nil {
+			slog.Error("failed to notify prompt indexer", "error", err)
+		}
+	}()
 
 	expectedTweet := fmt.Sprintf("@%s :%s: %s", a.twitterClientConfig.Username, agentInfo.Name, promptPaidEvent.Prompt)
 	if len(expectedTweet) > 280 {
+		publicErrStr = "prompt is too long"
 		return fmt.Errorf("prompt is too long, expected %d tokens, got %d", 280, len(expectedTweet))
 	}
 
 	metadata := a.buildChatMetadata(agentInfo, promptPaidEvent)
 	resp, err := a.chatCompletion.Prompt(ctx, metadata, agentInfo.SystemPrompt, promptPaidEvent.Prompt)
 	if err != nil {
+		publicErrStr = "failed to generate AI response"
 		return fmt.Errorf("failed to generate AI response: %v", err)
 	}
 
-	isDrain := resp.Drain != nil
+	isDrain = resp.Drain != nil
 	drainTo := agentInfo.Address
 	errorReply := ""
 
@@ -561,12 +603,18 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		}
 	}
 
+	if len(errorReply) > 0 {
+		reply = errorReply
+	} else {
+		reply = resp.Response
+	}
+
 	txHash := new(felt.Felt)
 	if !debug.IsDebugDisableConsumption() {
-		var err error
 		txHash, err = a.consumePrompt(ctx, agentInfo.Address, promptPaidEvent.PromptID, drainTo)
 		if err != nil {
 			slog.Warn("failed to consume prompt", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", snaccount.FormatRpcError(err))
+			publicErrStr = "failed to consume prompt"
 			return fmt.Errorf("failed to consume prompt: %v", err)
 		}
 	}
@@ -576,12 +624,16 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 		tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
 		if err != nil {
 			slog.Warn("failed to get tweet text", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
+			publicErrStr = "failed to get tweet text"
+
 			return nil
 		}
 
 		err = a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
 		if err != nil {
 			slog.Warn("tweet text validation failed", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
+			publicErrStr = "tweet text validation failed"
+
 			if !debug.IsDebugDisableTweetValidation() {
 				return nil
 			}
@@ -605,6 +657,7 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			tweet := fmt.Sprintf(":%s: was drained! Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", tweetAgentIdentifier, txHash)
 			err := a.twitterClient.SendTweet(tweet)
 			if err != nil {
+				publicErrStr = "failed to send tweet"
 				slog.Warn("failed to send tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 			}
 
@@ -612,21 +665,16 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 			reply := fmt.Sprintf(":%s: Drained! Check it out on https://sepolia.voyager.online/tx/%s. Congratulations!", tweetAgentIdentifier, txHash)
 			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, reply)
 			if err != nil {
+				publicErrStr = "failed to reply to tweet"
 				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 			}
-		}
-
-		var reply string
-		if len(errorReply) > 0 {
-			reply = errorReply
-		} else {
-			reply = resp.Response
 		}
 
 		if strings.TrimSpace(reply) != "" {
 			slog.Info("replying to", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "reply", reply)
 			err = a.twitterClient.ReplyToTweet(promptPaidEvent.TweetID, fmt.Sprintf(":%s: %s", tweetAgentIdentifier, reply))
 			if err != nil {
+				publicErrStr = "failed to reply to tweet"
 				slog.Warn("failed to reply to tweet", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "tweet_id", promptPaidEvent.TweetID, "error", err)
 			}
 		}
@@ -820,4 +868,48 @@ Your response must be humanly readable.
 		agentInfo.Creator.String(),
 		promptPaidEvent.User.String(),
 	)
+}
+
+func (a *Agent) notifyPromptIndexer(ctx context.Context, agentInfo *indexer.AgentInfo, data *indexer.PromptData) error {
+	if a.promptIndexerEndpoint == "" {
+		return fmt.Errorf("prompt indexer endpoint not set")
+	}
+
+	jsonData, err := json.Marshal(map[string]interface{}{
+		"prompt_id":    data.PromptID,
+		"agent_addr":   data.AgentAddr,
+		"price":        agentInfo.PromptPrice.String(),
+		"is_drain":     data.IsDrain,
+		"prompt":       data.Prompt,
+		"response":     data.Response,
+		"error":        data.Error,
+		"block_number": data.BlockNumber,
+		"user_addr":    data.UserAddr,
+	})
+	if err != nil {
+		slog.Error("failed to marshal prompt data", "error", err)
+		return fmt.Errorf("failed to marshal prompt data: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", a.promptIndexerEndpoint+"/prompt/response", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to notify prompt indexer: %w", err)
+	}
+
+	return nil
 }

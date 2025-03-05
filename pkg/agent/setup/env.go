@@ -26,6 +26,7 @@ const (
 	OpenAiKeyKey                    = "OPENAI_API_KEY"
 	UnencumberEncryptionKeyKey      = "UNENCUMBER_ENCRYPTION_KEY"
 	DisableEncumberingKey           = "DISABLE_ENCUMBERING"
+	PromptIndexerEndpointKey        = "PROMPT_INDEXER_ENDPOINT"
 )
 
 func envLookupSecureFile() (string, error) {
@@ -172,4 +173,12 @@ func envGetDisableEncumbering() bool {
 		slog.Warn(DisableEncumberingKey + " environment variable not set")
 	}
 	return disable == "true"
+}
+
+func envGetPromptIndexerEndpoint() string {
+	endpoint := os.Getenv("PROMPT_INDEXER_ENDPOINT")
+	if endpoint == "" {
+		slog.Warn(PromptIndexerEndpointKey + " environment variable not set")
+	}
+	return endpoint
 }

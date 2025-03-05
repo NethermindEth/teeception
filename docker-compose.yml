@@ -2,7 +2,7 @@ version: '3.9'
 services:
   teeception-agent:
     restart: always
-    image: ghcr.io/nethermindeth/teeception/agent:latest
+    image: ghcr.io/nethermindeth/teeception/agent:latest@sha256:f448f99e77ea68c3f4baba87d9a298d0a41d628a8c894daba3ddcb6ee4fea032
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
       - tee:/app/storage
@@ -28,6 +28,7 @@ services:
       SECURE_FILE: ${SECURE_FILE}
       DSTACK_TAPPD_ENDPOINT: ${DSTACK_TAPPD_ENDPOINT}
       UNENCUMBER_ENCRYPTION_KEY: ${UNENCUMBER_ENCRYPTION_KEY}
+      PROMPT_INDEXER_ENDPOINT: ${PROMPT_INDEXER_ENDPOINT}
       DISABLE_ENCUMBERING: ${DISABLE_ENCUMBERING}
       DEBUG_PLAIN_SETUP: ${DEBUG_PLAIN_SETUP}
       DEBUG_SHOW_SETUP: ${DEBUG_SHOW_SETUP}
