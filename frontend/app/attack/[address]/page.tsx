@@ -54,7 +54,8 @@ export default function AgentChallengePage() {
   const [transactionHash, setTransactionHash] = useState<string | null>(null)
   const [promptConsumedTxHash, setPromptConsumedTxHash] = useState<string | null>(null)
   const [isTriggeringReload, setIsTriggeringReload] = useState(false)
-    
+  const [skipTweet, setSkipTweet] = useState(false)
+
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
@@ -125,6 +126,7 @@ export default function AgentChallengePage() {
     setPaymentError(null)
     setPromptError(null)
     setChallenge('')
+    setSkipTweet(false)
     
     setIsTriggeringReload(true)
     refetchAgent()
@@ -182,13 +184,33 @@ export default function AgentChallengePage() {
     )
   }
 
+  const handleDirectChallenge = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    setPromptError(null)
+    setIsSubmitting(true)
+
+    try {
+      // Skip the Twitter step and go directly to the payment form
+      setPendingTweet({ text: challenge, submitted: false })
+      setChallenge('')
+      setTweetUrl('')
+      setSkipTweet(true)
+      setIsSubmitting(false)
+    } catch (error) {
+      console.error('Failed to submit direct challenge:', error)
+      setIsSubmitting(false)
+    }
+  }
+
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault()
 
     setPromptError(null)
     setIsSubmitting(true)
     setIsRedirecting(true)
-
+    setSkipTweet(false)
+  
     try {
       const tweetText = `${X_BOT_NAME} :${agent.name}: ${challenge}`
       const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
@@ -217,7 +239,9 @@ export default function AgentChallengePage() {
 
   const handleSubmitTweetUrl = async (e: React.FormEvent) => {
     e.preventDefault()
-    const tweetId = extractTweetId(tweetUrl)
+  
+    const tweetId = skipTweet ? '0' : extractTweetId(tweetUrl)
+    
     if (!tweetId) {
       setPaymentError('Invalid tweet URL')
       return
@@ -520,71 +544,80 @@ export default function AgentChallengePage() {
 
                     {!pendingTweet.submitted && !isPaid && (
                       <form onSubmit={handleSubmitTweetUrl} className="space-y-6">
-                        <div>
-                          <label className="block text-sm font-medium mb-2">Tweet URL</label>
-                          <motion.input
-                            type="url"
-                            value={tweetUrl}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                              setTweetUrl(e.target.value)
-                              setPaymentError(null)
-                              // Extract and set tweet ID when URL changes
-                              const newTweetId = extractTweetId(e.target.value)
-                              setCurrentTweetId(newTweetId)
-                            }}
-                            className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-4 text-lg transition-all duration-300
-                                focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none"
-                            placeholder={`https://x.com/your_amazing_profile/status/your_winning_bet`}
-                            required
-                          />
-                          {paymentError && (
-                            <p className="mt-2 text-sm text-[#FF3F26]">{paymentError}</p>
-                          )}
-                        </div>
-
-                        {currentTweetId && (
-                          <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
-                            <motion.button
-                              type="submit"
-                              disabled={isProcessingPayment || !currentTweetId}
-                              className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium 
-                                  transition-all duration-300
-                                  hover:opacity-90 active:opacity-80
-                                  disabled:opacity-50 disabled:cursor-not-allowed
-                                  flex items-center justify-center gap-2"
-                            >
-                              {isProcessingPayment ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                  Submitting Challenge...
-                                </>
-                              ) : (
-                                <>
-                                  Pay to Challenge
-                                  <span className="text-sm opacity-80">
-                                    (
-                                    {formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)}{' '}
-                                    STRK)
-                                  </span>
-                                </>
-                              )}
-                            </motion.button>
-                            <div className="p-8 flex flex-col items-center">
-                              <TweetPreview tweetId={currentTweetId} isPaid={false} />
-                              {isProcessingPayment && (
-                                <div className="w-full max-w-[300px] h-1 bg-[#FF3F26]/10 rounded-full overflow-hidden relative mt-4">
-                                  <div
-                                    className="absolute inset-0 h-full bg-[#FF3F26] rounded-full animate-loading-progress"
-                                    style={{
-                                      boxShadow:
-                                        '0 0 8px rgba(255, 63, 38, 0.3), 0 0 4px rgba(255, 63, 38, 0.2)',
-                                    }}
-                                  />
-                                </div>
-                              )}
-                            </div>
+                        {!skipTweet && (
+                          <div>
+                            <label className="block text-sm font-medium mb-2">Tweet URL</label>
+                            <motion.input
+                              type="url"
+                              value={tweetUrl}
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                setTweetUrl(e.target.value)
+                                setPaymentError(null)
+                                // Extract and set tweet ID when URL changes
+                                const newTweetId = extractTweetId(e.target.value)
+                                setCurrentTweetId(newTweetId)
+                              }}
+                              className="w-full bg-[#12121266] backdrop-blur-lg border-2 border-gray-600 focus:border-[#FF3F26] rounded-lg p-4 text-lg transition-all duration-300
+                                  focus:shadow-[0_0_30px_rgba(255,63,38,0.1)] outline-none"
+                              placeholder={`https://x.com/your_amazing_profile/status/your_winning_bet`}
+                              required={!skipTweet}
+                            />
+                            {paymentError && (
+                              <p className="mt-2 text-sm text-[#FF3F26]">{paymentError}</p>
+                            )}
                           </div>
                         )}
+
+                        <div className="bg-[#12121266] backdrop-blur-lg border-2 border-[#FF3F26]/30 rounded-lg overflow-hidden shadow-[0_0_30px_rgba(255,63,38,0.1)]">
+                          <motion.button
+                            type="submit"
+                            disabled={isProcessingPayment || (!skipTweet && !currentTweetId)}
+                            className="w-full bg-black/50 border-b-2 border-[#FF3F26]/30 py-4 font-medium 
+                                transition-all duration-300
+                                hover:opacity-90 active:opacity-80
+                                disabled:opacity-50 disabled:cursor-not-allowed
+                                flex items-center justify-center gap-2"
+                          >
+                            {isProcessingPayment ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Submitting Challenge...
+                              </>
+                            ) : (
+                              <>
+                                Pay to Challenge
+                                <span className="text-sm opacity-80">
+                                  (
+                                  {formatBalance(BigInt(agent.promptPrice), agent.decimal, 2, true)}{' '}
+                                  STRK)
+                                </span>
+                              </>
+                            )}
+                          </motion.button>
+                          <div className="p-8 flex flex-col items-center">
+                            {skipTweet ? (
+                              <div className="text-center p-4">
+                                <p className="text-lg font-medium mb-2">Direct Submission</p>
+                                <p className="text-sm text-gray-400">
+                                  You are submitting this challenge directly without a tweet.
+                                </p>
+                              </div>
+                            ) : (
+                              <TweetPreview tweetId={currentTweetId} isPaid={false} />
+                            )}
+                            {isProcessingPayment && (
+                              <div className="w-full max-w-[300px] h-1 bg-[#FF3F26]/10 rounded-full overflow-hidden relative mt-4">
+                                <div
+                                  className="absolute inset-0 h-full bg-[#FF3F26] rounded-full animate-loading-progress"
+                                  style={{
+                                    boxShadow:
+                                      '0 0 8px rgba(255, 63, 38, 0.3), 0 0 4px rgba(255, 63, 38, 0.2)',
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
 
                         <ul className="text-sm leading-6 text-gray-400 space-y-2 list-disc pl-4">
                           <li>This payment will activate the challenge for this tweet</li>
@@ -625,41 +658,63 @@ export default function AgentChallengePage() {
                       )}
                     </div>
 
-                    <motion.button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full bg-black border-2 border-white text-white rounded-lg py-4 font-medium 
-                          transition-all duration-300
-                          hover:opacity-90 active:opacity-80 hover:text-[#FF3F26] hover:border-[#FF3F26]
-                          disabled:opacity-50 disabled:cursor-not-allowed
-                          flex items-center justify-center gap-2"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Opening{' '}
-                          <Image
-                            src="/icons/x.svg"
-                            width={16}
-                            height={16}
-                            alt="X"
-                            className="opacity-80"
-                          />
-                          ...
-                        </>
-                      ) : (
-                        <>
-                          <span>Challenge on </span>
-                          <Image
-                            src="/icons/x.svg"
-                            width={16}
-                            height={16}
-                            alt="X"
-                            className="opacity-80"
-                          />
-                        </>
-                      )}
-                    </motion.button>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <motion.button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 bg-black border-2 border-white text-white rounded-lg py-4 font-medium 
+                            transition-all duration-300
+                            hover:opacity-90 active:opacity-80 hover:text-[#FF3F26] hover:border-[#FF3F26]
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            flex items-center justify-center gap-2"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Opening{' '}
+                            <Image
+                              src="/icons/x.svg"
+                              width={16}
+                              height={16}
+                              alt="X"
+                              className="opacity-80"
+                            />
+                            ...
+                          </>
+                        ) : (
+                          <>
+                            <span>Challenge on </span>
+                            <Image
+                              src="/icons/x.svg"
+                              width={16}
+                              height={16}
+                              alt="X"
+                              className="opacity-80"
+                            />
+                          </>
+                        )}
+                      </motion.button>
+                      
+                      <motion.button
+                        type="button"
+                        onClick={handleDirectChallenge}
+                        disabled={isSubmitting}
+                        className="flex-1 bg-white border-2 border-white text-black rounded-lg py-4 font-medium 
+                            transition-all duration-300
+                            hover:opacity-90 active:opacity-80 hover:text-[#FF3F26] hover:border-[#FF3F26]
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            flex items-center justify-center gap-2"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>Direct Challenge</>
+                        )}
+                      </motion.button>
+                    </div>
 
                     <div className="mt-8 space-y-4">
                       <h2 className="text-xl font-semibold">System Prompt</h2>
