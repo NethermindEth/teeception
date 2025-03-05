@@ -57,6 +57,10 @@ func (p *TwitterProxy) Initialize(config *TwitterClientConfig) error {
 }
 
 func (p *TwitterProxy) GetTweetText(tweetID uint64) (string, error) {
+	if tweetID == 0 {
+		return "", fmt.Errorf("tweet ID is 0")
+	}
+
 	resp, err := p.httpClient.Get(fmt.Sprintf("%s/tweet/%d", p.url, tweetID))
 	if err != nil {
 		return "", fmt.Errorf("failed to send request: %w", err)

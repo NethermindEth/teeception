@@ -115,6 +115,10 @@ func (c *TwitterApiClient) doWithRetry(req *http.Request) (*http.Response, error
 }
 
 func (c *TwitterApiClient) GetTweetText(tweetID uint64) (string, error) {
+	if tweetID == 0 {
+		return "", fmt.Errorf("tweet ID is 0")
+	}
+
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf(getTweetURL, tweetID), nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
