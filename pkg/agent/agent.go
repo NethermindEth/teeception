@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Dstack-TEE/dstack/sdk/go/tappd"
@@ -254,6 +255,14 @@ type Agent struct {
 	eventCh chan *indexer.EventSubscriptionData
 
 	promptIndexerEndpoint string
+	promptIndexerQueue    []*promptIndexerNotification
+	promptIndexerQueueMu  sync.Mutex
+}
+
+// promptIndexerNotification represents a notification to be sent to the prompt indexer
+type promptIndexerNotification struct {
+	Price *big.Int
+	Data  *indexer.PromptData
 }
 
 func NewAgent(config *AgentConfig) (*Agent, error) {
@@ -286,6 +295,7 @@ func NewAgent(config *AgentConfig) (*Agent, error) {
 		eventCh: make(chan *indexer.EventSubscriptionData, 1000),
 
 		promptIndexerEndpoint: config.PromptIndexerEndpoint,
+		promptIndexerQueue:    make([]*promptIndexerNotification, 0),
 	}, nil
 }
 
@@ -300,6 +310,11 @@ func (a *Agent) Run(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return a.StartServer(ctx)
+	})
+
+	// Start the background worker for processing the prompt indexer queue
+	g.Go(func() error {
+		return a.processPromptIndexerQueue(ctx)
 	})
 
 	if !debug.IsDebugDisableWaitingForDeployment() {
@@ -875,10 +890,94 @@ func (a *Agent) notifyPromptIndexer(ctx context.Context, agentInfo *indexer.Agen
 		return fmt.Errorf("prompt indexer endpoint not set")
 	}
 
+	// Try to send immediately
+	err := a.sendPromptIndexerNotification(ctx, agentInfo.PromptPrice, data)
+	if err != nil {
+		slog.Warn("failed to notify prompt indexer, enqueueing for retry",
+			"error", err,
+			"prompt_id", data.PromptID)
+
+		// Enqueue the notification for retry
+		a.enqueuePromptIndexerNotification(agentInfo.PromptPrice, data)
+		return err
+	}
+
+	return nil
+}
+
+func (a *Agent) processPromptIndexerQueue(ctx context.Context) error {
+	slog.Info("starting prompt indexer queue processing")
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("stopping prompt indexer queue processing due to context cancellation")
+			return ctx.Err()
+		case <-ticker.C:
+			a.processQueueBatch(ctx)
+		}
+	}
+}
+
+func (a *Agent) processQueueBatch(ctx context.Context) {
+	a.promptIndexerQueueMu.Lock()
+	queueLen := len(a.promptIndexerQueue)
+	if queueLen == 0 {
+		a.promptIndexerQueueMu.Unlock()
+		return
+	}
+
+	slog.Info("processing prompt indexer queue", "queue_size", queueLen)
+
+	// Create a copy of the queue to process
+	notifications := make([]*promptIndexerNotification, queueLen)
+	copy(notifications, a.promptIndexerQueue)
+	a.promptIndexerQueueMu.Unlock()
+
+	// Process notifications until one fails
+	successCount := 0
+	for i, notification := range notifications {
+		err := a.sendPromptIndexerNotification(ctx, notification.Price, notification.Data)
+		if err != nil {
+			slog.Error("failed to send notification to prompt indexer",
+				"error", err,
+				"prompt_id", notification.Data.PromptID,
+				"processed", i,
+				"remaining", queueLen-i)
+
+			// Stop processing at the first failure
+			break
+		}
+		successCount++
+	}
+
+	// Remove successfully processed notifications from the queue
+	if successCount > 0 {
+		a.promptIndexerQueueMu.Lock()
+		// Only remove if the queue hasn't been modified
+		if len(a.promptIndexerQueue) >= successCount && queueLen == len(a.promptIndexerQueue) {
+			a.promptIndexerQueue = a.promptIndexerQueue[successCount:]
+			slog.Info("removed processed notifications from queue",
+				"processed", successCount,
+				"remaining", len(a.promptIndexerQueue))
+		}
+		a.promptIndexerQueueMu.Unlock()
+	}
+}
+
+// sendPromptIndexerNotification sends a notification to the prompt indexer without enqueueing on failure
+func (a *Agent) sendPromptIndexerNotification(ctx context.Context, price *big.Int, data *indexer.PromptData) error {
+	if a.promptIndexerEndpoint == "" {
+		return fmt.Errorf("prompt indexer endpoint not set")
+	}
+
 	jsonData, err := json.Marshal(map[string]interface{}{
 		"prompt_id":    data.PromptID,
 		"agent_addr":   data.AgentAddr,
-		"price":        agentInfo.PromptPrice.String(),
+		"price":        price.String(),
 		"is_drain":     data.IsDrain,
 		"prompt":       data.Prompt,
 		"response":     data.Response,
@@ -887,7 +986,6 @@ func (a *Agent) notifyPromptIndexer(ctx context.Context, agentInfo *indexer.Agen
 		"user_addr":    data.UserAddr,
 	})
 	if err != nil {
-		slog.Error("failed to marshal prompt data", "error", err)
 		return fmt.Errorf("failed to marshal prompt data: %w", err)
 	}
 
@@ -908,8 +1006,27 @@ func (a *Agent) notifyPromptIndexer(ctx context.Context, agentInfo *indexer.Agen
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to notify prompt indexer: %w", err)
+		return fmt.Errorf("failed to notify prompt indexer: status code %d", resp.StatusCode)
 	}
 
 	return nil
+}
+
+func (a *Agent) enqueuePromptIndexerNotification(price *big.Int, data *indexer.PromptData) {
+	// Create a copy of the data to avoid race conditions
+	dataCopy := *data
+
+	notification := &promptIndexerNotification{
+		Price: price,
+		Data:  &dataCopy,
+	}
+
+	slog.Info("enqueued prompt indexer notification",
+		"prompt_id", data.PromptID,
+		"queue_size", len(a.promptIndexerQueue))
+
+	a.promptIndexerQueueMu.Lock()
+	defer a.promptIndexerQueueMu.Unlock()
+
+	a.promptIndexerQueue = append(a.promptIndexerQueue, notification)
 }
