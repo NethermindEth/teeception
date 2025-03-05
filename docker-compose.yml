@@ -2,7 +2,7 @@ version: '3.9'
 services:
   teeception-agent:
     restart: always
-    image: ghcr.io/nethermindeth/teeception/agent:latest@sha256:f448f99e77ea68c3f4baba87d9a298d0a41d628a8c894daba3ddcb6ee4fea032
+    image: ghcr.io/nethermindeth/teeception/agent:latest
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
       - tee:/app/storage
