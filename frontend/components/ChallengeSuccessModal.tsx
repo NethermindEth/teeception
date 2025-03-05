@@ -8,6 +8,18 @@ import { ACTIVE_NETWORK } from '@/constants'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 
+interface PromptData {
+  pending: boolean
+  prompt_id: string
+  agent_addr: string
+  is_drain: boolean
+  prompt: string
+  response?: string
+  error?: string
+  block_number: string
+  user_addr: string
+}
+
 interface ChallengeSuccessModalProps {
   open: boolean
   onClose: () => void
@@ -18,6 +30,10 @@ interface ChallengeSuccessModalProps {
   transactionHash: string | null
   promptConsumedTxHash: string | null
   tweetId?: string | null
+  promptId?: string | null
+  promptData: PromptData | null
+  isLoadingPrompt: boolean
+  promptError: string | null
 }
 
 export const ChallengeSuccessModal = ({ 
@@ -30,7 +46,11 @@ export const ChallengeSuccessModal = ({
   agentName = '',
   transactionHash,
   promptConsumedTxHash,
-  tweetId
+  tweetId,
+  promptId,
+  promptData,
+  isLoadingPrompt,
+  promptError
 }: ChallengeSuccessModalProps) => {
   const { width, height } = useWindowSize()
   const [showConfetti, setShowConfetti] = useState(false)
@@ -59,6 +79,50 @@ export const ChallengeSuccessModal = ({
 
   const handleClose = () => {
     onClose()
+  }
+
+  // Helper function to render prompt response section
+  const renderPromptResponse = () => {
+    if (isLoadingPrompt) {
+      return (
+        <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
+          <div className="flex items-center justify-center">
+            <Loader2 className="w-5 h-5 text-blue-400 animate-spin mr-2" />
+            <p className="text-sm text-gray-300">Loading agent response...</p>
+          </div>
+        </div>
+      )
+    }
+    
+    if (promptError) {
+      return (
+        <div className="mt-4 p-3 bg-red-900/20 rounded-lg border border-red-500/20">
+          <p className="text-sm text-red-300">Error loading response: {promptError}</p>
+        </div>
+      )
+    }
+    
+    if (promptData) {
+      return (
+        <div className="mt-4 space-y-3">
+          {promptData.response && (
+            <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+              <h4 className="text-sm font-medium text-gray-300 mb-1">Agent Response:</h4>
+              <p className="text-sm text-white whitespace-pre-wrap">{promptData.response}</p>
+            </div>
+          )}
+          
+          {promptData.error && (
+            <div className="p-3 bg-red-900/20 rounded-lg border border-red-500/20">
+              <h4 className="text-sm font-medium text-red-300 mb-1">Error:</h4>
+              <p className="text-sm text-red-200 whitespace-pre-wrap">{promptData.error}</p>
+            </div>
+          )}
+        </div>
+      )
+    }
+    
+    return null
   }
 
   return (
@@ -173,6 +237,7 @@ export const ChallengeSuccessModal = ({
                   Congratulations! You successfully drained the agent and claimed the reward.
                 </p>
               </div>
+              {renderPromptResponse()}
             </div>
           ) : verificationStatus === 'failed' ? (
             <div>
@@ -207,6 +272,7 @@ export const ChallengeSuccessModal = ({
                   Nice try, but this agent is tougher than it looks! Ready to sharpen your skills and try again?
                 </p>
               </div>
+              {renderPromptResponse()}
             </div>
           ) : verificationStatus === 'tries_exceeded' ? (
             <div>
@@ -241,6 +307,7 @@ export const ChallengeSuccessModal = ({
                   We couldn&apos;t verify the result of your challenge. The transaction was submitted, but verification attempts exceeded the limit. Check your tweet for a response and report this if needed.
                 </p>
               </div>
+              {renderPromptResponse()}
             </div>
           ) : (
             <div>
@@ -276,6 +343,7 @@ export const ChallengeSuccessModal = ({
                   few seconds.
                 </p>
               </div>
+              {renderPromptResponse()}
             </div>
           )}
         </div>

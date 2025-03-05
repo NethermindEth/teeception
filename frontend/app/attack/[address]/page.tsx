@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAccount, useContract, useSendTransaction } from '@starknet-react/core'
 import { Loader2, ChevronLeft } from 'lucide-react'
@@ -20,6 +20,19 @@ import { ChallengeSuccessModal } from '@/components/ChallengeSuccessModal'
 import { ChallengeDisplay } from './ChallengeDisplay'
 import { addAddressPadding, InvokeTransactionReceiptResponse, RpcProvider, selector } from 'starknet'
 import { motion, AnimatePresence } from 'framer-motion'
+
+// Add PromptData interface
+interface PromptData {
+  pending: boolean
+  prompt_id: string
+  agent_addr: string
+  is_drain: boolean
+  prompt: string
+  response?: string
+  error?: string
+  block_number: string
+  user_addr: string
+}
 
 export default function AgentChallengePage() {
   const params = useParams()
@@ -55,6 +68,9 @@ export default function AgentChallengePage() {
   const [promptConsumedTxHash, setPromptConsumedTxHash] = useState<string | null>(null)
   const [isTriggeringReload, setIsTriggeringReload] = useState(false)
   const [skipTweet, setSkipTweet] = useState(false)
+  const [promptData, setPromptData] = useState<PromptData | null>(null)
+  const [isLoadingPrompt, setIsLoadingPrompt] = useState(false)
+  const [promptId, setPromptId] = useState<string | null>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
@@ -119,12 +135,13 @@ export default function AgentChallengePage() {
     setTransactionLanded(false)
     setTransactionHash(null)
     setPromptConsumedTxHash(null)
+    setPromptData(null)
+    setPromptError(null)
     setCurrentTweetId(null)
     setPendingTweet(null)
     setTweetUrl('')
     setIsPaid(false)
     setPaymentError(null)
-    setPromptError(null)
     setChallenge('')
     setSkipTweet(false)
     
@@ -205,20 +222,19 @@ export default function AgentChallengePage() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault()
-
+    
     setPromptError(null)
     setIsSubmitting(true)
     setIsRedirecting(true)
     setSkipTweet(false)
-  
+    
     try {
       const tweetText = `${X_BOT_NAME} :${agent.name}: ${challenge}`
-      const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
-
+      
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Then proceed with opening Twitter
-      const twitterWindow = window.open(tweetIntent, '_blank')
+      const twitterWindow = window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank')
       if (!twitterWindow) {
         throw new Error('Please allow popups to share on Twitter')
       }
@@ -230,10 +246,92 @@ export default function AgentChallengePage() {
         setIsSubmitting(false)
         setIsRedirecting(false)
       }, 1000)
+
+      if (pendingTweet) {
+        const txResponse = await sendAsync()
+        
+        if (txResponse?.transaction_hash) {
+          setTransactionHash(txResponse.transaction_hash)
+          setVerificationStatus('loading')
+          
+          // Store the promptId from the transaction
+          const newPromptId = txResponse.transaction_hash
+          setPromptId(newPromptId)
+
+          // Replace event searching with prompt fetching
+          const fetchPromptData = async () => {
+            if (!newPromptId || !agent?.address) return
+            
+            let attempts = 0
+            const maxAttempts = 10
+            
+            const checkPromptStatus = async () => {
+              if (attempts >= maxAttempts) {
+                setVerificationStatus('tries_exceeded')
+                return
+              }
+              
+              setIsLoadingPrompt(true)
+              setPromptError(null)
+              
+              try {
+                const apiResponse = await fetch(`/api/prompt?prompt_id=${newPromptId}&agent_addr=${agent.address}`)
+                
+                if (!apiResponse.ok) {
+                  const errorData = await apiResponse.json()
+                  throw new Error(errorData.error || 'Failed to fetch prompt data')
+                }
+                
+                const data = await apiResponse.json()
+                
+                // If the prompt is found and not pending anymore
+                if (data && !data.pending) {
+                  setPromptData(data)
+                  
+                  // Determine if the challenge was successful based on the prompt data
+                  // A successful drain means the agent address is different from the drained_to address
+                  const isSuccess = data.is_drain && data.response !== undefined
+                  
+                  setVerificationStatus(isSuccess ? 'success' : 'failed')
+                  return
+                }
+                
+                // If still pending, increment attempts and retry
+                attempts++
+                if (attempts < maxAttempts) {
+                  setTimeout(checkPromptStatus, 5000)
+                } else {
+                  setVerificationStatus('tries_exceeded')
+                }
+              } catch (error) {
+                console.error('Error fetching prompt data:', error)
+                setPromptError(error instanceof Error ? error.message : 'Unknown error')
+                
+                attempts++
+                if (attempts < maxAttempts) {
+                  setTimeout(checkPromptStatus, 5000)
+                } else {
+                  setVerificationStatus('tries_exceeded')
+                }
+              } finally {
+                setIsLoadingPrompt(false)
+              }
+            }
+            
+            // Start checking after a short delay
+            setTimeout(checkPromptStatus, 5000)
+          }
+          
+          fetchPromptData()
+        }
+      }
     } catch (error) {
       console.error('Failed to submit challenge:', error)
       setIsSubmitting(false)
       setIsRedirecting(false)
+      setPromptError(error instanceof Error ? error.message : 'Unknown error')
+    } finally {
+      setIsProcessingPayment(false)
     }
   }
 
@@ -839,6 +937,10 @@ export default function AgentChallengePage() {
         transactionHash={transactionHash}
         promptConsumedTxHash={promptConsumedTxHash}
         tweetId={currentTweetId}
+        promptId={promptData?.prompt_id}
+        promptData={promptData}
+        isLoadingPrompt={isLoadingPrompt}
+        promptError={promptError}
       />
     </div>
   )
