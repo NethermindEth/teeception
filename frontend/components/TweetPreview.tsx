@@ -8,7 +8,7 @@ interface TweetPreviewProps {
 }
 
 export function TweetPreview({ tweetId }: TweetPreviewProps) {
-  if (!tweetId) return null
+  if (!tweetId || tweetId === '0') return null
 
   return (
     <div className="flex flex-col items-center">
