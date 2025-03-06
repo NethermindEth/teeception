@@ -1,6 +1,6 @@
 import { Dialog } from './Dialog'
 import Link from 'next/link'
-import { Loader2, X, Clock, ExternalLink } from 'lucide-react'
+import { Loader2, X, Clock, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import Confetti from 'react-confetti'
 import { useWindowSize } from 'react-use'
 import { useState, useEffect } from 'react'
@@ -55,6 +55,7 @@ export const ChallengeSuccessModal = ({
 }: ChallengeSuccessModalProps) => {
   const { width, height } = useWindowSize()
   const [showConfetti, setShowConfetti] = useState(false)
+  const [showResponse, setShowResponse] = useState(false)
   
   // Show confetti when challenge is successful
   useEffect(() => {
@@ -95,7 +96,8 @@ export const ChallengeSuccessModal = ({
       )
     }
     
-    if (promptError) {
+    // Only show error if there's no response and it's not a drain
+    if (promptError && (!promptData?.response && !promptData?.is_drain)) {
       return (
         <div className="mt-4 p-3 bg-red-900/20 rounded-lg border border-red-500/20">
           <p className="text-sm text-red-300">Error loading response: {promptError}</p>
@@ -108,12 +110,28 @@ export const ChallengeSuccessModal = ({
         <div className="mt-4 space-y-3">
           {promptData.response && (
             <div className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-              <h4 className="text-sm font-medium text-gray-300 mb-1">Agent Response:</h4>
-              <p className="text-sm text-white whitespace-pre-wrap">{promptData.response}</p>
+              <div 
+                className="flex items-center justify-between cursor-pointer" 
+                onClick={() => setShowResponse(!showResponse)}
+              >
+                <h4 className="text-sm font-medium text-gray-300">Agent Response:</h4>
+                <button className="text-gray-400 hover:text-white">
+                  {showResponse ? (
+                    <ChevronUp className="w-4 h-4" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              
+              {showResponse && (
+                <p className="text-sm text-white whitespace-pre-wrap mt-2">{promptData.response}</p>
+              )}
             </div>
           )}
           
-          {promptData.error && (
+          {/* Only show error if there's no response and it's not a drain */}
+          {promptData.error && (!promptData.response && !promptData.is_drain) && (
             <div className="p-3 bg-red-900/20 rounded-lg border border-red-500/20">
               <h4 className="text-sm font-medium text-red-300 mb-1">Error:</h4>
               <p className="text-sm text-red-200 whitespace-pre-wrap">{promptData.error}</p>
