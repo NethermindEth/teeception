@@ -119,7 +119,7 @@ func (i *PromptIndexer) onPromptPaid(ev *Event) {
 		UserAddr:    promptPaidEv.User,
 	}
 
-	if err := i.RegisterPromptResponse(data, false); err != nil {
+	if err := i.registerPromptResponse(data, false); err != nil {
 		slog.Error("failed to store prompt", "error", err)
 	}
 }
@@ -143,7 +143,10 @@ func (i *PromptIndexer) onAgentRegistered(ev *Event) {
 func (i *PromptIndexer) RegisterPromptResponse(data *PromptData, isUpsert bool) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
+	return i.registerPromptResponse(data, isUpsert)
+}
 
+func (i *PromptIndexer) registerPromptResponse(data *PromptData, isUpsert bool) error {
 	existingData, exists := i.db.GetPrompt(data.PromptID, data.AgentAddr)
 	if exists {
 		if !isUpsert {
