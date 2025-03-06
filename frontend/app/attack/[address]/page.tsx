@@ -71,10 +71,17 @@ export default function AgentChallengePage() {
   const [promptId, setPromptId] = useState<string | null>(null)
   const [promptData, setPromptData] = useState<PromptData | null>(null)
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false)
+  const verificationStatusRef = useRef<'loading' | 'success' | 'failed' | 'tries_exceeded' | null>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
+
+  // Helper function to update both state and ref
+  const updateVerificationStatus = (status: 'loading' | 'success' | 'failed' | 'tries_exceeded' | null) => {
+    setVerificationStatus(status);
+    verificationStatusRef.current = status;
+  }
 
   // Add effect to fetch prompt data periodically when we have a promptId
   useEffect(() => {
@@ -92,9 +99,9 @@ export default function AgentChallengePage() {
           // If prompt is not pending anymore and has response/error, stop polling
           if (!data.pending) {
             if (data.is_drain) {
-              setVerificationStatus('success')
+              updateVerificationStatus('success')
             } else {
-              setVerificationStatus('failed')
+              updateVerificationStatus('failed')
             }
 
             return true
@@ -180,7 +187,7 @@ export default function AgentChallengePage() {
     }
 
     setShowChallengeSuccess(false)
-    setVerificationStatus(null)
+    updateVerificationStatus(null)
     setTransactionLanded(false)
     setTransactionHash(null)
     setPromptConsumedTxHash(null)
@@ -345,7 +352,7 @@ export default function AgentChallengePage() {
         setTweetUrl('')
         setIsPaid(true)
         setTransactionLanded(true)
-        setVerificationStatus('loading')
+        updateVerificationStatus('loading')
 
         const invokeReceipt: InvokeTransactionReceiptResponse =
           txReceipt as InvokeTransactionReceiptResponse
@@ -360,15 +367,15 @@ export default function AgentChallengePage() {
         let isSuccess: boolean | null = null
 
         // Clear verification status to show waiting state
-        setVerificationStatus('loading')
+        updateVerificationStatus('loading')
 
         const checkForEvents = async () => {
-          if (verificationStatus === 'success' || verificationStatus === 'failed') {
+          if (verificationStatusRef.current === 'success' || verificationStatusRef.current === 'failed') {
             return
           }
 
           if (attempts >= maxAttempts) {
-            setVerificationStatus('tries_exceeded')
+            updateVerificationStatus('tries_exceeded')
             return
           }
 
@@ -393,7 +400,7 @@ export default function AgentChallengePage() {
                   setPromptConsumedTxHash(event.transaction_hash)
                 }
                 
-                setVerificationStatus(isSuccess ? 'success' : 'failed')
+                updateVerificationStatus(isSuccess ? 'success' : 'failed')
                 return
               }
             }
@@ -401,7 +408,7 @@ export default function AgentChallengePage() {
             if (attempts < maxAttempts) {
               setTimeout(checkForEvents, 10000)
             } else {
-              setVerificationStatus('tries_exceeded')
+              updateVerificationStatus('tries_exceeded')
             }
           } catch (error) {
             console.error('Failed to fetch events:', error)
@@ -409,7 +416,7 @@ export default function AgentChallengePage() {
             if (attempts < maxAttempts) {
               setTimeout(checkForEvents, 10000)
             } else {
-              setVerificationStatus('tries_exceeded')
+              updateVerificationStatus('tries_exceeded')
             }
           }
         }
