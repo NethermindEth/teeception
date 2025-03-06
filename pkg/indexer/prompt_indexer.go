@@ -128,7 +128,11 @@ func (i *PromptIndexer) RegisterPromptResponse(data *PromptData, isUpsert bool) 
 	defer i.mu.Unlock()
 
 	existingData, exists := i.db.GetPrompt(data.PromptID, data.AgentAddr)
-	if exists && isUpsert {
+	if exists {
+		if !isUpsert {
+			return nil
+		}
+
 		// If prompt exists, update it
 		existingData.Pending = false
 		existingData.Response = data.Response
