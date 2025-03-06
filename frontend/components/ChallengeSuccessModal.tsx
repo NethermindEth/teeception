@@ -47,6 +47,7 @@ export const ChallengeSuccessModal = ({
   transactionHash,
   promptConsumedTxHash,
   tweetId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   promptId,
   promptData,
   isLoadingPrompt,

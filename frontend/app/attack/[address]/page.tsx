@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAccount, useContract, useSendTransaction } from '@starknet-react/core'
 import { Loader2, ChevronLeft } from 'lucide-react'
@@ -68,13 +68,62 @@ export default function AgentChallengePage() {
   const [promptConsumedTxHash, setPromptConsumedTxHash] = useState<string | null>(null)
   const [isTriggeringReload, setIsTriggeringReload] = useState(false)
   const [skipTweet, setSkipTweet] = useState(false)
+  const [promptId, setPromptId] = useState<string | null>(null)
   const [promptData, setPromptData] = useState<PromptData | null>(null)
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false)
-  const [promptId, setPromptId] = useState<string | null>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
+
+  // Add effect to fetch prompt data periodically when we have a promptId
+  useEffect(() => {
+    if (!promptId || !agent?.address) return
+    
+    const fetchPromptData = async () => {
+      try {
+        setIsLoadingPrompt(true)
+        const promptResponse = await fetch(`/api/prompt?prompt_id=${promptId}&agent_addr=${agent.address}`)
+        
+        if (promptResponse.ok) {
+          const data = await promptResponse.json()
+          setPromptData(data)
+          
+          // If prompt is not pending anymore and has response/error, stop polling
+          if (!data.pending) {
+            if (data.is_drain) {
+              setVerificationStatus('success')
+            } else {
+              setVerificationStatus('failed')
+            }
+
+            return true
+          }
+        } else {
+          console.error('Failed to fetch prompt data:', await promptResponse.text())
+        }
+        return false
+      } catch (error) {
+        console.error('Error fetching prompt data:', error)
+        return false
+      } finally {
+        setIsLoadingPrompt(false)
+      }
+    }
+    
+    // Initial fetch
+    fetchPromptData()
+    
+    // Set up polling interval (every 5 seconds)
+    const intervalId = setInterval(async () => {
+      const shouldStop = await fetchPromptData()
+      if (shouldStop) {
+        clearInterval(intervalId)
+      }
+    }, 5000)
+    
+    return () => clearInterval(intervalId)
+  }, [promptId, agent?.address])
 
   useEffect(() => {
     const status = getAgentStatus({ isDrained: agent?.isDrained, isFinalized: agent?.isFinalized })
@@ -148,6 +197,7 @@ export default function AgentChallengePage() {
     setIsTriggeringReload(true)
     refetchAgent()
     setIsTriggeringReload(false)
+    setPromptId(null)
   }
 
   if (!address) {
@@ -222,19 +272,20 @@ export default function AgentChallengePage() {
 
   const handleSubmitChallenge = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     setPromptError(null)
     setIsSubmitting(true)
     setIsRedirecting(true)
     setSkipTweet(false)
-    
+
     try {
       const tweetText = `${X_BOT_NAME} :${agent.name}: ${challenge}`
-      
+      const tweetIntent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`
+
       await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Then proceed with opening Twitter
-      const twitterWindow = window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank')
+      const twitterWindow = window.open(tweetIntent, '_blank')
       if (!twitterWindow) {
         throw new Error('Please allow popups to share on Twitter')
       }
@@ -246,85 +297,6 @@ export default function AgentChallengePage() {
         setIsSubmitting(false)
         setIsRedirecting(false)
       }, 1000)
-
-      if (pendingTweet) {
-        const txResponse = await sendAsync()
-        
-        if (txResponse?.transaction_hash) {
-          setTransactionHash(txResponse.transaction_hash)
-          setVerificationStatus('loading')
-          
-          // Store the promptId from the transaction
-          const newPromptId = txResponse.transaction_hash
-          setPromptId(newPromptId)
-
-          // Replace event searching with prompt fetching
-          const fetchPromptData = async () => {
-            if (!newPromptId || !agent?.address) return
-            
-            let attempts = 0
-            const maxAttempts = 10
-            
-            const checkPromptStatus = async () => {
-              if (attempts >= maxAttempts) {
-                setVerificationStatus('tries_exceeded')
-                return
-              }
-              
-              setIsLoadingPrompt(true)
-              setPromptError(null)
-              
-              try {
-                const apiResponse = await fetch(`/api/prompt?prompt_id=${newPromptId}&agent_addr=${agent.address}`)
-                
-                if (!apiResponse.ok) {
-                  const errorData = await apiResponse.json()
-                  throw new Error(errorData.error || 'Failed to fetch prompt data')
-                }
-                
-                const data = await apiResponse.json()
-                
-                // If the prompt is found and not pending anymore
-                if (data && !data.pending) {
-                  setPromptData(data)
-                  
-                  // Determine if the challenge was successful based on the prompt data
-                  // A successful drain means the agent address is different from the drained_to address
-                  const isSuccess = data.is_drain && data.response !== undefined
-                  
-                  setVerificationStatus(isSuccess ? 'success' : 'failed')
-                  return
-                }
-                
-                // If still pending, increment attempts and retry
-                attempts++
-                if (attempts < maxAttempts) {
-                  setTimeout(checkPromptStatus, 5000)
-                } else {
-                  setVerificationStatus('tries_exceeded')
-                }
-              } catch (error) {
-                console.error('Error fetching prompt data:', error)
-                setPromptError(error instanceof Error ? error.message : 'Unknown error')
-                
-                attempts++
-                if (attempts < maxAttempts) {
-                  setTimeout(checkPromptStatus, 5000)
-                } else {
-                  setVerificationStatus('tries_exceeded')
-                }
-              } finally {
-                setIsLoadingPrompt(false)
-              }
-            }
-            
-            // Start checking after a short delay
-            setTimeout(checkPromptStatus, 5000)
-          }
-          
-          fetchPromptData()
-        }
-      }
     } catch (error) {
       console.error('Failed to submit challenge:', error)
       setIsSubmitting(false)
@@ -378,6 +350,9 @@ export default function AgentChallengePage() {
         const invokeReceipt: InvokeTransactionReceiptResponse =
           txReceipt as InvokeTransactionReceiptResponse
         const promptId = invokeReceipt.events[3].keys[2]
+        
+        // Set promptId state to trigger the useEffect for fetching prompt data
+        setPromptId(promptId)
 
         const SELECTOR_PROMPT_PAID = selector.getSelectorFromName('PromptConsumed')
         let attempts = 0
@@ -388,6 +363,10 @@ export default function AgentChallengePage() {
         setVerificationStatus('loading')
 
         const checkForEvents = async () => {
+          if (verificationStatus === 'success' || verificationStatus === 'failed') {
+            return
+          }
+
           if (attempts >= maxAttempts) {
             setVerificationStatus('tries_exceeded')
             return
