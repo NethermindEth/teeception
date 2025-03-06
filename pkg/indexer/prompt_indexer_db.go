@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/NethermindEth/juno/core/felt"
 	_ "github.com/mattn/go-sqlite3"
@@ -29,12 +30,14 @@ type PromptIndexerDatabaseReader interface {
 	GetPromptsByUser(userAddr *felt.Felt, from, to int) ([]*PromptData, error)
 	GetPromptsByUserAndAgent(userAddr *felt.Felt, agentAddr *felt.Felt, from, to int) ([]*PromptData, error)
 	GetLastIndexedBlock() uint64
+	GetAgentExists(addr [32]byte) bool
 }
 
 // PromptIndexerDatabaseWriter is the database writer for a PromptIndexer
 type PromptIndexerDatabaseWriter interface {
 	SetPrompt(data *PromptData) error
 	SetLastIndexedBlock(block uint64) error
+	SetAgentExists(addr [32]byte, exists bool) error
 }
 
 // PromptIndexerDatabase is the database for a PromptIndexer
@@ -46,6 +49,9 @@ type PromptIndexerDatabase interface {
 // PromptIndexerDatabaseSQLite is a SQLite implementation of the PromptIndexerDatabase interface
 type PromptIndexerDatabaseSQLite struct {
 	db *sql.DB
+
+	agentExists   map[[32]byte]interface{}
+	agentExistsMu sync.RWMutex
 }
 
 // NewPromptIndexerDatabaseSQLite creates a new SQLite-based PromptIndexerDatabase
@@ -83,7 +89,10 @@ func NewPromptIndexerDatabaseSQLite(dbPath string) (*PromptIndexerDatabaseSQLite
 		return nil, fmt.Errorf("failed to create tables: %w", err)
 	}
 
-	return &PromptIndexerDatabaseSQLite{db: db}, nil
+	return &PromptIndexerDatabaseSQLite{
+		db:          db,
+		agentExists: make(map[[32]byte]interface{}),
+	}, nil
 }
 
 // GetPrompt returns a prompt by its ID and agent address
@@ -384,6 +393,24 @@ func (db *PromptIndexerDatabaseSQLite) SetLastIndexedBlock(block uint64) error {
 	`, block)
 	if err != nil {
 		return fmt.Errorf("failed to set last indexed block: %w", err)
+	}
+	return nil
+}
+
+func (db *PromptIndexerDatabaseSQLite) GetAgentExists(addr [32]byte) bool {
+	db.agentExistsMu.RLock()
+	defer db.agentExistsMu.RUnlock()
+	_, ok := db.agentExists[addr]
+	return ok
+}
+
+func (db *PromptIndexerDatabaseSQLite) SetAgentExists(addr [32]byte, exists bool) error {
+	db.agentExistsMu.Lock()
+	defer db.agentExistsMu.Unlock()
+	if exists {
+		db.agentExists[addr] = struct{}{}
+	} else {
+		delete(db.agentExists, addr)
 	}
 	return nil
 }

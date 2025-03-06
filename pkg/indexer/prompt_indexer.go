@@ -51,7 +51,7 @@ func NewPromptIndexer(cfg *PromptIndexerConfig) (*PromptIndexer, error) {
 	}
 
 	eventCh := make(chan *EventSubscriptionData, 1000)
-	eventSubID := cfg.EventWatcher.Subscribe(EventPromptPaid, eventCh)
+	eventSubID := cfg.EventWatcher.Subscribe(EventAgentRegistered|EventPromptPaid, eventCh)
 
 	return &PromptIndexer{
 		db:              cfg.InitialState.Db,
@@ -74,6 +74,8 @@ func (i *PromptIndexer) Run(ctx context.Context) error {
 			for _, ev := range data.Events {
 				if ev.Type == EventPromptPaid {
 					i.onPromptPaid(ev)
+				} else if ev.Type == EventAgentRegistered {
+					i.onAgentRegistered(ev)
 				}
 			}
 			if err := i.db.SetLastIndexedBlock(data.ToBlock); err != nil {
@@ -87,8 +89,8 @@ func (i *PromptIndexer) Run(ctx context.Context) error {
 }
 
 func (i *PromptIndexer) onPromptPaid(ev *Event) {
-	if ev.Raw.FromAddress.Cmp(i.registryAddress) != 0 {
-		slog.Warn("received prompt paid event from non-registry address", "address", ev.Raw.FromAddress)
+	if !i.db.GetAgentExists(ev.Raw.FromAddress.Bytes()) {
+		slog.Debug("ignoring prompt paid event for unregistered agent", "agent", ev.Raw.FromAddress)
 		return
 	}
 
@@ -120,6 +122,21 @@ func (i *PromptIndexer) onPromptPaid(ev *Event) {
 	if err := i.RegisterPromptResponse(data, false); err != nil {
 		slog.Error("failed to store prompt", "error", err)
 	}
+}
+
+func (i *PromptIndexer) onAgentRegistered(ev *Event) {
+	if ev.Raw.FromAddress.Cmp(i.registryAddress) != 0 {
+		slog.Warn("received agent registered event from non-registry address", "address", ev.Raw.FromAddress)
+		return
+	}
+
+	agentRegisteredEv, ok := ev.ToAgentRegisteredEvent()
+	if !ok {
+		slog.Error("failed to parse agent registered event")
+		return
+	}
+
+	i.db.SetAgentExists(agentRegisteredEv.Agent.Bytes(), true)
 }
 
 // RegisterPromptResponse registers a prompt response manually
