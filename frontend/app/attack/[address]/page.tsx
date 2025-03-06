@@ -349,7 +349,7 @@ export default function AgentChallengePage() {
 
         const invokeReceipt: InvokeTransactionReceiptResponse =
           txReceipt as InvokeTransactionReceiptResponse
-        const promptId = invokeReceipt.events[3].keys[2]
+        const promptId = parseInt(invokeReceipt.events[3].keys[2], 16).toString()
         
         // Set promptId state to trigger the useEffect for fetching prompt data
         setPromptId(promptId)
