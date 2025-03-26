@@ -23,7 +23,7 @@ interface PromptData {
 interface ChallengeSuccessModalProps {
   open: boolean
   onClose: () => void
-  verificationStatus: 'loading' | 'success' | 'failed' | 'tries_exceeded' | null
+  verificationStatus: 'loading' | 'success' | 'failed' | 'tries_exceeded' | 'direct_challenge' | null
   transactionLanded: boolean
   agentAddress?: string
   agentName?: string
@@ -293,6 +293,32 @@ export const ChallengeSuccessModal = ({
               </div>
               {renderPromptResponse()}
             </div>
+          ) : verificationStatus === 'direct_challenge' ? (
+            <div>
+              <div className="mb-4 flex justify-center">
+                <div 
+                  className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center"
+                  style={{
+                    boxShadow: '0 0 20px rgba(59, 130, 246, 0.6)'
+                  }}
+                >
+                  <Clock className="w-8 h-8 text-blue-600" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold mb-3 text-blue-500">
+                Direct Challenge Processing
+              </h2>
+              <div className="bg-blue-100/10 p-4 rounded-lg border border-blue-500/20 mb-4 shadow-glow-blue">
+                <p className="text-white/90 mb-2">
+                  Your direct challenge has been submitted and is being processed.
+                </p>
+                <p className="text-white/70 text-sm">
+                  The agent is analyzing your prompt. This may take a few moments. Note that for direct challenges, 
+                  Twitter validation is skipped.
+                </p>
+              </div>
+              {renderPromptResponse()}
+            </div>
           ) : verificationStatus === 'tries_exceeded' ? (
             <div>
               <div className="mb-4 flex justify-center">
@@ -368,7 +394,7 @@ export const ChallengeSuccessModal = ({
         </div>
 
         <div className="space-y-3">
-          {verificationStatus === 'failed' && agentAddress && (
+          {verificationStatus === 'failed' && verificationStatus !== 'direct_challenge' && agentAddress && (
             <div>
               <Link
                 href={`/attack/${agentAddress}`}

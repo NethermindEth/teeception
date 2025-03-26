@@ -61,7 +61,7 @@ export default function AgentChallengePage() {
   const [showChallengeSuccess, setShowChallengeSuccess] = useState(false)
   const [promptError, setPromptError] = useState<string | null>(null)
   const [verificationStatus, setVerificationStatus] = useState<
-    'loading' | 'success' | 'failed' | 'tries_exceeded' | null
+    'loading' | 'success' | 'failed' | 'tries_exceeded' | 'direct_challenge' | null
   >(null)
   const [transactionLanded, setTransactionLanded] = useState(false)
   const [transactionHash, setTransactionHash] = useState<string | null>(null)
@@ -71,14 +71,14 @@ export default function AgentChallengePage() {
   const [promptId, setPromptId] = useState<string | null>(null)
   const [promptData, setPromptData] = useState<PromptData | null>(null)
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(false)
-  const verificationStatusRef = useRef<'loading' | 'success' | 'failed' | 'tries_exceeded' | null>(null)
+  const verificationStatusRef = useRef<'loading' | 'success' | 'failed' | 'tries_exceeded' | 'direct_challenge' | null>(null)
 
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
 
   // Helper function to update both state and ref
-  const updateVerificationStatus = (status: 'loading' | 'success' | 'failed' | 'tries_exceeded' | null) => {
+  const updateVerificationStatus = (status: 'loading' | 'success' | 'failed' | 'tries_exceeded' | 'direct_challenge' | null) => {
     setVerificationStatus(status);
     verificationStatusRef.current = status;
   }
@@ -100,6 +100,8 @@ export default function AgentChallengePage() {
           if (!data.pending) {
             if (data.is_drain) {
               updateVerificationStatus('success')
+            } else if (data.error === "failed to get tweet text" && skipTweet) {
+              updateVerificationStatus('direct_challenge')
             } else {
               updateVerificationStatus('failed')
             }
@@ -370,7 +372,7 @@ export default function AgentChallengePage() {
         updateVerificationStatus('loading')
 
         const checkForEvents = async () => {
-          if (verificationStatusRef.current === 'success' || verificationStatusRef.current === 'failed') {
+          if (verificationStatusRef.current === 'success' || verificationStatusRef.current === 'failed' || verificationStatusRef.current === 'direct_challenge') {
             return
           }
 
@@ -400,7 +402,11 @@ export default function AgentChallengePage() {
                   setPromptConsumedTxHash(event.transaction_hash)
                 }
                 
-                updateVerificationStatus(isSuccess ? 'success' : 'failed')
+                if (promptData?.error === "failed to get tweet text" && skipTweet) {
+                  updateVerificationStatus('direct_challenge')
+                } else {
+                  updateVerificationStatus(isSuccess ? 'success' : 'failed')
+                }
                 return
               }
             }
