@@ -644,21 +644,25 @@ func (a *Agent) reactToTweet(ctx context.Context, agentInfo *indexer.AgentInfo, 
 
 	if !debug.IsDebugDisableReplies() {
 		slog.Info("fetching tweet text", "tweet_id", promptPaidEvent.TweetID)
-		tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
-		if err != nil {
-			slog.Warn("failed to get tweet text", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
-			publicErrStr = "failed to get tweet text"
+		if promptPaidEvent.TweetID == 0 {
+			slog.Info("direct challenge detected, skipping tweet validation", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID)
+		} else {
+			tweetText, err := a.twitterClient.GetTweetText(promptPaidEvent.TweetID)
+			if err != nil {
+				slog.Warn("failed to get tweet text", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
+				publicErrStr = "failed to get tweet text"
 
-			return nil
-		}
-
-		err = a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
-		if err != nil {
-			slog.Warn("tweet text validation failed", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
-			publicErrStr = "tweet text validation failed"
-
-			if !debug.IsDebugDisableTweetValidation() {
 				return nil
+			}
+
+			err = a.validateTweetText(tweetText, agentInfo.Name, promptPaidEvent.Prompt)
+			if err != nil {
+				slog.Warn("tweet text validation failed", "agent_address", agentInfo.Address, "prompt_id", promptPaidEvent.PromptID, "error", err)
+				publicErrStr = "tweet text validation failed"
+
+				if !debug.IsDebugDisableTweetValidation() {
+					return nil
+				}
 			}
 		}
 
